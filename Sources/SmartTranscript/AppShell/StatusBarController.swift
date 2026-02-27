@@ -26,6 +26,7 @@ final class StatusBarController: NSObject {
     private var lastDetectedActivityAt: Date?
     private var noiseFloor: Float = 0.005
     private var activityThreshold: Float = 0.020
+    private var instantActivityThreshold: Float = 0.012
 
     private let smoothingAlpha: Float = 0.22
     private let noiseFloorAlpha: Float = 0.08
@@ -83,12 +84,7 @@ final class StatusBarController: NSObject {
             return
         }
 
-        if NSImage(systemSymbolName: "mic.circle", accessibilityDescription: "SmartTranscript") == nil {
-            button.title = "ST"
-        } else {
-            setStatusIcon(symbolName: "mic.circle", tintColor: nil)
-        }
-
+        setStatusIcon(for: .idle, blinkPhase: blinkPhase)
         button.imagePosition = .imageOnly
         button.action = #selector(statusItemClicked(_:))
         button.target = self
@@ -123,7 +119,7 @@ final class StatusBarController: NSObject {
 
                 if currentSessionState == .recording {
                     updateNoiseFloor(using: smoothedMeterLevel)
-                    if smoothedMeterLevel >= activityThreshold {
+                    if currentMeterLevel >= instantActivityThreshold || smoothedMeterLevel >= activityThreshold {
                         lastDetectedActivityAt = Date()
                     }
                 }
@@ -140,11 +136,13 @@ final class StatusBarController: NSObject {
                     smoothedMeterLevel = 0
                     noiseFloor = minNoiseFloor
                     activityThreshold = activityFloor
+                    instantActivityThreshold = 0.012
                 } else if state != .recording {
                     lastDetectedActivityAt = nil
                     smoothedMeterLevel = 0
                     noiseFloor = minNoiseFloor
                     activityThreshold = activityFloor
+                    instantActivityThreshold = 0.012
                 }
                 currentSessionState = state
                 reevaluateMicIconState()
@@ -205,58 +203,103 @@ final class StatusBarController: NSObject {
     }
 
     private func updateIconAppearance() {
-        switch iconState {
-        case .idle:
-            setStatusIcon(symbolName: "mic.circle", tintColor: nil)
-        case .working:
-            setStatusIcon(
-                symbolName: blinkPhase ? "waveform.circle.fill" : "waveform.circle",
-                tintColor: NSColor.systemGreen
-            )
-        case .paused:
-            setStatusIcon(
-                symbolName: blinkPhase ? "pause.circle" : "waveform.circle",
-                tintColor: blinkPhase ? NSColor.systemGreen : NSColor.systemGray
-            )
-        case .noAudio:
-            setStatusIcon(
-                symbolName: blinkPhase ? "mic.slash.circle.fill" : "mic.slash.circle",
-                tintColor: NSColor.systemRed
-            )
-        }
+        setStatusIcon(for: iconState, blinkPhase: blinkPhase)
     }
 
-    private func setStatusIcon(symbolName: String, tintColor: NSColor?) {
-        guard let button = statusItem.button,
-              let image = symbolImage(named: symbolName) else {
+    private func setStatusIcon(for state: MicIconState, blinkPhase: Bool) {
+        guard let button = statusItem.button else {
             return
         }
 
-        let baseConfig = NSImage.SymbolConfiguration(pointSize: NSFont.systemFontSize, weight: .medium)
-        var configuredImage = image.withSymbolConfiguration(baseConfig) ?? image
-
-        if let tintColor {
-            let paletteConfig = NSImage.SymbolConfiguration(paletteColors: [tintColor])
-            configuredImage = configuredImage.withSymbolConfiguration(paletteConfig) ?? configuredImage
-            configuredImage.isTemplate = false
-            button.contentTintColor = tintColor
-        } else {
-            configuredImage.isTemplate = true
-            button.contentTintColor = nil
+        guard let image = drawStatusIcon(for: state, blinkPhase: blinkPhase) else {
+            button.image = nil
+            button.title = "ST"
+            return
         }
 
-        button.image = configuredImage
+        button.image = image
+        button.contentTintColor = nil
         button.title = ""
     }
 
-    private func symbolImage(named symbolName: String) -> NSImage? {
-        let candidates = [symbolName, "mic.circle.fill", "mic.circle", "waveform.circle.fill"]
-        for candidate in candidates {
-            if let image = NSImage(systemSymbolName: candidate, accessibilityDescription: "SmartTranscript") {
-                return image
-            }
+    private func drawStatusIcon(for state: MicIconState, blinkPhase: Bool) -> NSImage? {
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        defer { image.unlockFocus() }
+
+        let bounds = NSRect(origin: .zero, size: size).insetBy(dx: 1.25, dy: 1.25)
+        let strokeColor: NSColor
+        let fillColor: NSColor
+        let barColor: NSColor
+        let barProfile: [CGFloat]
+        let drawSlash: Bool
+
+        switch state {
+        case .idle:
+            strokeColor = NSColor.labelColor.withAlphaComponent(0.9)
+            fillColor = NSColor.labelColor.withAlphaComponent(0.08)
+            barColor = NSColor.labelColor.withAlphaComponent(0.75)
+            barProfile = [0.24, 0.42, 0.24]
+            drawSlash = false
+        case .working:
+            let activeGreen = blinkPhase ? NSColor.systemGreen : NSColor.systemGreen.withAlphaComponent(0.45)
+            strokeColor = activeGreen
+            fillColor = activeGreen.withAlphaComponent(0.14)
+            barColor = activeGreen
+            barProfile = blinkPhase ? [0.55, 0.90, 0.65] : [0.40, 0.70, 0.50]
+            drawSlash = false
+        case .paused:
+            let pausedColor = blinkPhase ? NSColor.systemGreen : NSColor.systemGray
+            strokeColor = pausedColor
+            fillColor = pausedColor.withAlphaComponent(0.12)
+            barColor = pausedColor
+            barProfile = [0.22, 0.52, 0.22]
+            drawSlash = false
+        case .noAudio:
+            strokeColor = NSColor.systemRed
+            fillColor = NSColor.systemRed.withAlphaComponent(0.14)
+            barColor = NSColor.systemRed
+            barProfile = [0.22, 0.22, 0.22]
+            drawSlash = true
         }
-        return nil
+
+        fillColor.setFill()
+        let outerCircle = NSBezierPath(ovalIn: bounds)
+        outerCircle.fill()
+
+        strokeColor.setStroke()
+        outerCircle.lineWidth = 1.3
+        outerCircle.stroke()
+
+        let innerRect = bounds.insetBy(dx: 4.3, dy: 4.1)
+        let barCount = max(1, barProfile.count)
+        let spacing: CGFloat = 1.4
+        let totalSpacing = spacing * CGFloat(max(0, barCount - 1))
+        let barWidth = max(1.6, (innerRect.width - totalSpacing) / CGFloat(barCount))
+
+        barColor.setFill()
+        for index in 0..<barCount {
+            let normalizedHeight = min(max(barProfile[index], 0.12), 1.0)
+            let height = max(1.6, innerRect.height * normalizedHeight)
+            let x = innerRect.minX + CGFloat(index) * (barWidth + spacing)
+            let y = innerRect.midY - (height * 0.5)
+            let barRect = NSRect(x: x, y: y, width: barWidth, height: height)
+            let barPath = NSBezierPath(roundedRect: barRect, xRadius: 0.9, yRadius: 0.9)
+            barPath.fill()
+        }
+
+        if drawSlash {
+            let slash = NSBezierPath()
+            slash.move(to: CGPoint(x: bounds.minX + 2.0, y: bounds.maxY - 2.0))
+            slash.line(to: CGPoint(x: bounds.maxX - 2.0, y: bounds.minY + 2.0))
+            slash.lineWidth = 2.0
+            strokeColor.setStroke()
+            slash.stroke()
+        }
+
+        image.isTemplate = false
+        return image
     }
 
     private func updateNoiseFloor(using level: Float) {
@@ -268,15 +311,17 @@ final class StatusBarController: NSObject {
         }
 
         activityThreshold = max(activityFloor, noiseFloor * activityNoiseMultiplier)
+        instantActivityThreshold = max(0.012, min(0.020, activityThreshold * 0.7))
     }
 
     private func publishDebug(silenceDuration: TimeInterval) {
         shell.menubarIconDebug = String(
-            format: "icon=%@ raw=%.3f smooth=%.3f floor=%.3f threshold=%.3f silence=%.1fs",
+            format: "icon=%@ raw=%.3f smooth=%.3f floor=%.3f instant=%.3f threshold=%.3f silence=%.1fs",
             iconStateLabel(iconState),
             currentMeterLevel,
             smoothedMeterLevel,
             noiseFloor,
+            instantActivityThreshold,
             activityThreshold,
             max(0, silenceDuration)
         )

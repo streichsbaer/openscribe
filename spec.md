@@ -62,6 +62,16 @@ Root: `~/Library/Application Support/SmartTranscript`
   - voice commands for `pause recording`, `resume recording`, `stop recording`
 - Evaluate always-on mic coexistence behavior with other apps on macOS and define user-facing constraints.
 
+## Manual QA Focus
+1. Start recording and speak for 2 to 3 seconds:
+   - menu bar icon should blink green and keep updating while speaking.
+2. Pause speaking for around 0.5 seconds:
+   - menu bar icon should alternate green and gray.
+3. Stay silent for at least 1.5 seconds:
+   - menu bar icon should turn red.
+4. Speak again:
+   - menu bar icon should return to working state within 0.5 seconds.
+
 ## Build/Run
 - `swift build`
 - `swift run SmartTranscript`
