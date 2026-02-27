@@ -40,6 +40,7 @@ final class AppShell: ObservableObject {
     private let transcriptionPipeline: TranscriptionPipeline
     private let polishPipeline: PolishPipeline
     private let feedbackEngine: FeedbackEngine
+    private var hasPromptedForAccessibilityPermission = false
 
     init() {
         let resolvedLayout = (try? DirectoryLayout.resolve()) ?? {
@@ -152,7 +153,7 @@ final class AppShell: ObservableObject {
     }
 
     func copyLatestPolished() {
-        let candidate = !polishedTranscript.isEmpty ? polishedTranscript : latestPolishedTranscript
+        let candidate = latestPolishedCandidate()
         guard !candidate.isEmpty else {
             statusMessage = "No polished transcript available yet"
             return
@@ -425,7 +426,7 @@ final class AppShell: ObservableObject {
             }
             try hotkeyManager.register(action: .copyLatest, setting: settings.copyHotkey) { [weak self] in
                 Task { @MainActor [weak self] in
-                    self?.copyLatestPolished()
+                    self?.pasteLatestPolishedViaHotkey()
                 }
             }
             hotkeyError = nil
@@ -448,6 +449,38 @@ final class AppShell: ObservableObject {
             return "\(entry.providerDisplayName): using \(entry.environmentVariableName) from environment. Save a key above to override."
         case .missing:
             return "\(entry.providerDisplayName): no API key in Keychain or \(entry.environmentVariableName)."
+        }
+    }
+
+    private func latestPolishedCandidate() -> String {
+        !polishedTranscript.isEmpty ? polishedTranscript : latestPolishedTranscript
+    }
+
+    private func pasteLatestPolishedViaHotkey() {
+        let candidate = latestPolishedCandidate()
+        guard !candidate.isEmpty else {
+            statusMessage = "No polished transcript available yet"
+            return
+        }
+
+        Clipboard.copy(text: candidate)
+
+        if !AccessibilityInputInjector.isTrusted(promptIfNeeded: false) {
+            if !hasPromptedForAccessibilityPermission {
+                _ = AccessibilityInputInjector.isTrusted(promptIfNeeded: true)
+                hasPromptedForAccessibilityPermission = true
+            }
+            statusMessage = "Latest polished transcript copied. Enable Accessibility permission for SmartTranscript to auto-paste."
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+            guard let self else { return }
+            if AccessibilityInputInjector.triggerPasteShortcut() {
+                self.statusMessage = "Latest polished transcript pasted"
+            } else {
+                self.statusMessage = "Latest polished transcript copied"
+            }
         }
     }
 }

@@ -99,6 +99,6 @@ final class RulesStore: ObservableObject {
 
     ## Glossary
     - Add project-specific replacements below as `heard -> canonical`.
-    - Example: `seismic -> Cysmiq`
+    - Example: `seismic -> Cysmiq`, but infer whether it’s Cysmiq Shift (which is our AI agent), or seismic shift (in normal conversational usage)
     """
 }

@@ -114,7 +114,7 @@ struct SettingsView: View {
             )
 
             HotkeyEditor(
-                title: "Copy latest polished",
+                title: "Paste latest polished",
                 hotkey: Binding(
                     get: { shell.settings.copyHotkey },
                     set: { value in
