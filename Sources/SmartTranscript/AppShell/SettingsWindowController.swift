@@ -8,7 +8,8 @@ final class SettingsWindowController: NSWindowController {
         let window = NSWindow(contentViewController: host)
         window.title = "SmartTranscript Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 820, height: 760))
+        window.setContentSize(NSSize(width: 980, height: 980))
+        window.contentMinSize = NSSize(width: 900, height: 900)
         window.isReleasedWhenClosed = false
         super.init(window: window)
     }

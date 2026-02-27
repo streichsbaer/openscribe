@@ -55,6 +55,9 @@ final class SettingsStore: ObservableObject {
         var normalized = settings
         normalized.startStopHotkey = normalized.startStopHotkey.normalizedForCarbonHotkey()
         normalized.copyHotkey = normalized.copyHotkey.normalizedForCarbonHotkey()
+        if normalized.polishProviderID == "openai_polish", normalized.polishModel != "gpt-5-mini" {
+            normalized.polishModel = "gpt-5-mini"
+        }
         return normalized
     }
 

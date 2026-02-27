@@ -25,7 +25,7 @@ struct SettingsView: View {
             modelSection
         }
         .padding(20)
-        .frame(minWidth: 760, minHeight: 680)
+        .frame(minWidth: 900, minHeight: 900)
     }
 
     private var providerSection: some View {
@@ -246,11 +246,11 @@ struct SettingsView: View {
     private func polishModels(for provider: String) -> [String] {
         switch provider {
         case "openai_polish":
-            return ["gpt-4.1-mini", "gpt-4o-mini"]
+            return ["gpt-5-mini"]
         case "groq_polish":
             return ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
         default:
-            return ["gpt-4.1-mini"]
+            return ["gpt-5-mini"]
         }
     }
 }

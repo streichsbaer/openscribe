@@ -120,7 +120,7 @@ struct AppSettings: Codable, Equatable {
         transcriptionProviderID: "whispercpp",
         transcriptionModel: "base",
         polishProviderID: "openai_polish",
-        polishModel: "gpt-4.1-mini",
+        polishModel: "gpt-5-mini",
         languageMode: "auto",
         copyOnComplete: true,
         startStopHotkey: .startStopDefault,
