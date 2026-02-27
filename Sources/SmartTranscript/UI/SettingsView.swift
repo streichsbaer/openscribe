@@ -1,8 +1,18 @@
+import AppKit
 import Carbon
 import SwiftUI
 
+private enum SettingsTab: Hashable {
+    case general
+    case providers
+    case hotkeys
+    case rulesData
+    case about
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var shell: AppShell
+    @State private var selectedTab: SettingsTab = .general
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
@@ -16,218 +26,405 @@ struct SettingsView: View {
     ]
 
     var body: some View {
-        Form {
-            providerSection
-            hotkeySection
-            behaviorSection
-            apiSection
-            rulesSection
-            modelSection
+        TabView(selection: $selectedTab) {
+            generalTab
+                .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(SettingsTab.general)
+
+            providersTab
+                .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
+                .tag(SettingsTab.providers)
+
+            hotkeysTab
+                .tabItem { Label("Hotkeys", systemImage: "keyboard") }
+                .tag(SettingsTab.hotkeys)
+
+            rulesAndDataTab
+                .tabItem { Label("Rules & Data", systemImage: "doc.text") }
+                .tag(SettingsTab.rulesData)
+
+            aboutTab
+                .tabItem { Label("About", systemImage: "info.circle") }
+                .tag(SettingsTab.about)
         }
-        .padding(20)
-        .frame(minWidth: 900, minHeight: 900)
+        .frame(minWidth: 940, minHeight: 760)
     }
 
-    private var providerSection: some View {
-        Section("Providers") {
-            Picker("Transcription provider", selection: Binding(
-                get: { shell.settings.transcriptionProviderID },
-                set: { newValue in
-                    shell.updateSettings {
-                        $0.transcriptionProviderID = newValue
-                        let available = transcriptionModels(for: newValue)
-                        if !available.contains($0.transcriptionModel) {
-                            $0.transcriptionModel = available.first ?? $0.transcriptionModel
+    private var generalTab: some View {
+        settingsPage {
+            settingsCard("USAGE") {
+                settingRow("Copy polished on completion") {
+                    Toggle("", isOn: Binding(
+                        get: { shell.settings.copyOnComplete },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.copyOnComplete = newValue
+                            }
                         }
-                    }
+                    ))
+                    .labelsHidden()
                 }
-            )) {
-                ForEach(sttProviders, id: \.id) { provider in
-                    Text(provider.label).tag(provider.id)
-                }
+
+                Text("Retention policy: keep all session artifacts until manually deleted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            Picker("Transcription model", selection: Binding(
-                get: { shell.settings.transcriptionModel },
-                set: { newValue in
-                    shell.updateSettings { $0.transcriptionModel = newValue }
+            settingsCard("STATUS") {
+                settingRow("Session state") {
+                    Text(shell.sessionState.rawValue.capitalized)
+                        .foregroundStyle(.secondary)
                 }
-            )) {
-                ForEach(transcriptionModels(for: shell.settings.transcriptionProviderID), id: \.self) {
-                    Text($0).tag($0)
-                }
-            }
 
-            Picker("Polish provider", selection: Binding(
-                get: { shell.settings.polishProviderID },
-                set: { newValue in
-                    shell.updateSettings {
-                        $0.polishProviderID = newValue
-                        let available = polishModels(for: newValue)
-                        if !available.contains($0.polishModel) {
-                            $0.polishModel = available.first ?? $0.polishModel
-                        }
-                    }
+                settingRow("Last message") {
+                    Text(shell.statusMessage)
+                        .foregroundStyle(.secondary)
                 }
-            )) {
-                ForEach(polishProviders, id: \.id) { provider in
-                    Text(provider.label).tag(provider.id)
-                }
-            }
 
-            Picker("Polish model", selection: Binding(
-                get: { shell.settings.polishModel },
-                set: { newValue in
-                    shell.updateSettings { $0.polishModel = newValue }
+                if let hotkeyError = shell.hotkeyError {
+                    Text(hotkeyError)
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 }
-            )) {
-                ForEach(polishModels(for: shell.settings.polishProviderID), id: \.self) {
-                    Text($0).tag($0)
-                }
-            }
-
-            Picker("Language", selection: Binding(
-                get: { shell.settings.languageMode },
-                set: { newValue in
-                    shell.updateSettings { $0.languageMode = newValue }
-                }
-            )) {
-                Text("auto").tag("auto")
-                Text("en").tag("en")
-                Text("de").tag("de")
-                Text("fr").tag("fr")
-                Text("es").tag("es")
             }
         }
     }
 
-    private var hotkeySection: some View {
-        Section("Hotkeys") {
-            HotkeyEditor(
-                title: "Start/Stop",
-                hotkey: Binding(
-                    get: { shell.settings.startStopHotkey },
-                    set: { value in
-                        shell.updateSettings { $0.startStopHotkey = value }
+    private var providersTab: some View {
+        settingsPage {
+            settingsCard("TRANSCRIPTION") {
+                settingRow("Provider") {
+                    Picker("", selection: Binding(
+                        get: { shell.settings.transcriptionProviderID },
+                        set: { newValue in
+                            shell.updateSettings {
+                                $0.transcriptionProviderID = newValue
+                                let available = transcriptionModels(for: newValue)
+                                if !available.contains($0.transcriptionModel) {
+                                    $0.transcriptionModel = available.first ?? $0.transcriptionModel
+                                }
+                            }
+                        }
+                    )) {
+                        ForEach(sttProviders, id: \.id) { provider in
+                            Text(provider.label).tag(provider.id)
+                        }
                     }
-                )
-            )
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 300)
+                }
 
-            HotkeyEditor(
-                title: "Paste latest polished",
-                hotkey: Binding(
-                    get: { shell.settings.copyHotkey },
-                    set: { value in
-                        shell.updateSettings { $0.copyHotkey = value }
+                settingRow("Model") {
+                    Picker("", selection: Binding(
+                        get: { shell.settings.transcriptionModel },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.transcriptionModel = newValue
+                            }
+                        }
+                    )) {
+                        ForEach(transcriptionModels(for: shell.settings.transcriptionProviderID), id: \.self) {
+                            Text($0).tag($0)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 300)
+                }
+
+                settingRow("Language") {
+                    Picker("", selection: Binding(
+                        get: { shell.settings.languageMode },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.languageMode = newValue
+                            }
+                        }
+                    )) {
+                        Text("auto").tag("auto")
+                        Text("en").tag("en")
+                        Text("de").tag("de")
+                        Text("fr").tag("fr")
+                        Text("es").tag("es")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 300)
+                }
+            }
+
+            settingsCard("POLISH") {
+                settingRow("Provider") {
+                    Picker("", selection: Binding(
+                        get: { shell.settings.polishProviderID },
+                        set: { newValue in
+                            shell.updateSettings {
+                                $0.polishProviderID = newValue
+                                let available = polishModels(for: newValue)
+                                if !available.contains($0.polishModel) {
+                                    $0.polishModel = available.first ?? $0.polishModel
+                                }
+                            }
+                        }
+                    )) {
+                        ForEach(polishProviders, id: \.id) { provider in
+                            Text(provider.label).tag(provider.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 300)
+                }
+
+                settingRow("Model") {
+                    Picker("", selection: Binding(
+                        get: { shell.settings.polishModel },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.polishModel = newValue
+                            }
+                        }
+                    )) {
+                        ForEach(polishModels(for: shell.settings.polishProviderID), id: \.self) {
+                            Text($0).tag($0)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 300)
+                }
+            }
+
+            settingsCard("API KEYS") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("OpenAI API Key")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    SecureField("OpenAI API key", text: $shell.openAIKeyInput)
+                    Text(shell.openAIKeyStatusDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text("Groq API Key")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    SecureField("Groq API key", text: $shell.groqKeyInput)
+                    Text(shell.groqKeyStatusDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        Button("Save keys") {
+                            shell.saveAPIKeys()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Clear OpenAI") {
+                            shell.openAIKeyInput = ""
+                            shell.saveAPIKeys()
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Clear Groq") {
+                            shell.groqKeyInput = ""
+                            shell.saveAPIKeys()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+
+    private var hotkeysTab: some View {
+        settingsPage {
+            settingsCard("START / STOP") {
+                HotkeyEditor(
+                    title: "Global toggle hotkey",
+                    hotkey: Binding(
+                        get: { shell.settings.startStopHotkey },
+                        set: { value in shell.updateSettings { $0.startStopHotkey = value } }
+                    )
                 )
-            )
+            }
+
+            settingsCard("PASTE LATEST") {
+                HotkeyEditor(
+                    title: "Paste latest polished transcript",
+                    hotkey: Binding(
+                        get: { shell.settings.copyHotkey },
+                        set: { value in shell.updateSettings { $0.copyHotkey = value } }
+                    )
+                )
+
+                Text("This hotkey copies latest polished text and triggers Cmd+V when Accessibility permission is granted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             if let hotkeyError = shell.hotkeyError {
-                Text(hotkeyError)
-                    .foregroundColor(.orange)
+                settingsCard("HOTKEY STATUS") {
+                    Text(hotkeyError)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+    }
+
+    private var rulesAndDataTab: some View {
+        settingsPage {
+            settingsCard("RULES") {
+                TextEditor(text: $shell.rulesDraft)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minHeight: 260)
+                    .padding(8)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                HStack(spacing: 8) {
+                    Button("Save") {
+                        shell.saveRulesDraft()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Revert") {
+                        shell.reloadRulesDraft()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Open in external editor") {
+                        shell.rulesStore.openInExternalEditor()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            settingsCard("LOCAL MODELS") {
+                Text("Installed: \(shell.modelManager.installedModels().joined(separator: ", "))")
                     .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if let active = shell.modelManager.activeDownloadModelID {
+                    ProgressView("Downloading \(active)", value: shell.modelManager.progress)
+                }
+
+                HStack(spacing: 8) {
+                    Button("Install selected model") {
+                        shell.downloadDefaultModelIfNeeded()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Remove selected model") {
+                        let modelID = shell.settings.transcriptionModel
+                        try? shell.modelManager.remove(modelID: modelID)
+                        shell.objectWillChange.send()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            settingsCard("STORAGE") {
+                settingRow("App support") {
+                    Text(shell.layout.appSupport.path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 300, alignment: .trailing)
+                }
+
+                HStack {
+                    Button("Open App Support Folder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([shell.layout.appSupport])
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
     }
 
-    private var behaviorSection: some View {
-        Section("Behavior") {
-            Toggle("Copy polished transcript on completion", isOn: Binding(
-                get: { shell.settings.copyOnComplete },
-                set: { newValue in
-                    shell.updateSettings { $0.copyOnComplete = newValue }
+    private var aboutTab: some View {
+        settingsPage {
+            settingsCard("SMARTTRANSCRIPT") {
+                settingRow("Version") {
+                    Text(appVersion)
+                        .foregroundStyle(.secondary)
                 }
-            ))
 
-            Text("Retention policy: keep all session artifacts until manually deleted")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    private var apiSection: some View {
-        Section("API Keys") {
-            SecureField("OpenAI API key", text: $shell.openAIKeyInput)
-            Text(shell.openAIKeyStatusDescription)
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            SecureField("Groq API key", text: $shell.groqKeyInput)
-            Text(shell.groqKeyStatusDescription)
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            HStack {
-                Button("Save keys") {
-                    shell.saveAPIKeys()
+                settingRow("Build") {
+                    Text(appBuild)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
 
-                Button("Clear OpenAI") {
-                    shell.openAIKeyInput = ""
-                    shell.saveAPIKeys()
+                settingRow("Default STT provider") {
+                    Text(shell.settings.transcriptionProviderID)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.bordered)
 
-                Button("Clear Groq") {
-                    shell.groqKeyInput = ""
-                    shell.saveAPIKeys()
+                settingRow("Default polish provider") {
+                    Text(shell.settings.polishProviderID)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.bordered)
+            }
+
+            settingsCard("CURRENT PURPOSE") {
+                Text("Reliable dictation capture with durable session artifacts and clear two-step transcript processing.")
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
-    private var rulesSection: some View {
-        Section("Rules") {
-            TextEditor(text: $shell.rulesDraft)
-                .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 220)
-
-            HStack {
-                Button("Save") {
-                    shell.saveRulesDraft()
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("Revert") {
-                    shell.reloadRulesDraft()
-                }
-                .buttonStyle(.bordered)
-
-                Button("Open in external editor") {
-                    shell.rulesStore.openInExternalEditor()
-                }
-                .buttonStyle(.bordered)
+    private func settingsPage<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                content()
             }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private var modelSection: some View {
-        Section("Local whisper.cpp models") {
-            Text("Installed: \(shell.modelManager.installedModels().joined(separator: ", "))")
-                .font(.caption)
-                .foregroundColor(.secondary)
+    private func settingsCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
 
-            if let active = shell.modelManager.activeDownloadModelID {
-                ProgressView("Downloading \(active)", value: shell.modelManager.progress)
+            VStack(alignment: .leading, spacing: 10) {
+                content()
             }
-
-            HStack {
-                Button("Install selected model") {
-                    shell.downloadDefaultModelIfNeeded()
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("Remove selected model") {
-                    let modelID = shell.settings.transcriptionModel
-                    try? shell.modelManager.remove(modelID: modelID)
-                    shell.objectWillChange.send()
-                }
-                .buttonStyle(.bordered)
-            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(NSColor.controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
         }
+    }
+
+    private func settingRow<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(title)
+                .font(.subheadline)
+
+            Spacer(minLength: 12)
+
+            control()
+        }
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
+    private var appBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
     }
 
     private func transcriptionModels(for provider: String) -> [String] {
@@ -262,35 +459,55 @@ struct HotkeyEditor: View {
     private var functionMask: UInt32 { UInt32(kEventKeyModifierFnMask) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.subheadline)
+                .font(.subheadline.weight(.semibold))
 
-            HStack {
+            HStack(spacing: 8) {
                 Stepper("Key code: \(hotkey.keyCode)", value: Binding(
                     get: { Int(hotkey.keyCode) },
                     set: { hotkey.keyCode = UInt32(max(0, $0)) }
                 ), in: 0...127)
 
-                Toggle("Fn", isOn: modifierBinding(functionMask))
-                Toggle("Ctrl", isOn: modifierBinding(UInt32(controlKey)))
-                Toggle("Option", isOn: modifierBinding(UInt32(optionKey)))
-                Toggle("Cmd", isOn: modifierBinding(UInt32(cmdKey)))
-                Toggle("Shift", isOn: modifierBinding(UInt32(shiftKey)))
+                Spacer()
+
+                Text("Current: key \(hotkey.keyCode)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 8) {
+                modifierChip("Fn", mask: functionMask)
+                modifierChip("Ctrl", mask: UInt32(controlKey))
+                modifierChip("Option", mask: UInt32(optionKey))
+                modifierChip("Cmd", mask: UInt32(cmdKey))
+                modifierChip("Shift", mask: UInt32(shiftKey))
             }
         }
     }
 
-    private func modifierBinding(_ mask: UInt32) -> Binding<Bool> {
-        Binding(
-            get: { (hotkey.modifiers & mask) != 0 },
-            set: { enabled in
-                if enabled {
-                    hotkey.modifiers |= mask
-                } else {
-                    hotkey.modifiers &= ~mask
-                }
+    private func modifierChip(_ label: String, mask: UInt32) -> some View {
+        let enabled = (hotkey.modifiers & mask) != 0
+        return Button {
+            if enabled {
+                hotkey.modifiers &= ~mask
+            } else {
+                hotkey.modifiers |= mask
             }
-        )
+        } label: {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(enabled ? Color.accentColor.opacity(0.20) : Color.gray.opacity(0.16))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(enabled ? Color.accentColor : Color.clear, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }

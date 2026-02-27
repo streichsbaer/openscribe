@@ -8,163 +8,258 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            inputSection
-            Divider()
-            sessionSection
-            Divider()
-            textSection
+            headerSection
 
-            if let hotkeyError = shell.hotkeyError {
-                Text("Hotkey issue: \(hotkeyError)")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            }
-
-            if let lastError = shell.lastError {
-                Text(lastError)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .lineLimit(2)
-            }
-
-            HStack {
-                Text(shell.statusMessage)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Button("Settings") {
-                    openSettings()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    inputSection
+                    sessionSection
+                    textSection
                 }
-                .buttonStyle(.bordered)
+                .padding(.vertical, 2)
             }
+
+            footerSection
         }
         .padding(12)
-        .frame(width: 520)
+        .frame(width: 540, height: 760)
+    }
+
+    private var headerSection: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Label("SmartTranscript", systemImage: "waveform.badge.mic")
+                .font(.headline)
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                stateChip
+
+                if shell.sessionState == .recording,
+                   let createdAt = shell.currentSession?.metadata.createdAt {
+                    TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                        Text("Recording \(formattedDuration(Int(timeline.date.timeIntervalSince(createdAt))))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                } else if shell.sessionState == .polishing {
+                    Text("Polishing \(formattedDuration(shell.polishElapsedSeconds))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+        }
     }
 
     private var inputSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Input")
-                .font(.headline)
+        card(title: "Input") {
+            VStack(alignment: .leading, spacing: 8) {
+                keyValueRow("Device", shell.currentSession?.metadata.inputDeviceName ?? AVAudioSessionBridge.defaultInputName)
 
-            Text(shell.currentSession?.metadata.inputDeviceName ?? "Device: \(AVAudioSessionBridge.defaultInputName)")
-                .font(.subheadline)
+                HStack(spacing: 10) {
+                    Text("Level")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
-                Text("Level")
-                    .font(.caption)
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 10)
-                    Capsule()
-                        .fill(shell.microphoneIndicatorColorName == "green" ? Color.green : Color.gray)
-                        .frame(width: max(6, CGFloat(shell.meterLevel) * 220), height: 10)
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.gray.opacity(0.18))
+                            .frame(height: 9)
+
+                        Capsule()
+                            .fill(shell.microphoneIndicatorColorName == "green" ? Color.green : Color.gray)
+                            .frame(width: max(8, CGFloat(shell.meterLevel) * 240), height: 9)
+                    }
+                    .frame(width: 240)
                 }
-                .frame(width: 220)
+
+                Text(permissionText)
+                    .font(.caption)
+                    .foregroundColor(shell.permissionState == .authorized ? .secondary : .orange)
             }
-
-            Text(permissionText)
-                .font(.caption)
-                .foregroundColor(shell.permissionState == .authorized ? .secondary : .orange)
-
         }
     }
 
     private var sessionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Session")
-                .font(.headline)
+        card(title: "Session") {
+            VStack(alignment: .leading, spacing: 10) {
+                keyValueRow("State", shell.sessionState.rawValue)
 
-            Text("State: \(shell.sessionState.rawValue)")
-                .font(.subheadline)
+                HStack(spacing: 8) {
+                    Button(shell.sessionState == .recording ? "Stop (Fn+Space)" : "Start (Fn+Space)") {
+                        shell.toggleRecording()
+                    }
+                    .buttonStyle(.borderedProminent)
 
-            HStack {
-                Button(shell.sessionState == .recording ? "Stop (Fn+Space)" : "Start (Fn+Space)") {
-                    shell.toggleRecording()
-                }
-                .buttonStyle(.borderedProminent)
+                    if let audioURL = shell.currentSession?.paths.audioURL,
+                       FileManager.default.fileExists(atPath: audioURL.path) {
+                        Button(playbackManager.isPlaying ? "Stop Audio" : "Play Audio") {
+                            playbackManager.toggle(url: audioURL)
+                        }
+                        .buttonStyle(.bordered)
+                    }
 
-                if let audioURL = shell.currentSession?.paths.audioURL,
-                   FileManager.default.fileExists(atPath: audioURL.path) {
-                    Button(playbackManager.isPlaying ? "Stop Audio" : "Play Audio") {
-                        playbackManager.toggle(url: audioURL)
+                    Button("Reveal") {
+                        shell.revealCurrentSessionInFinder()
                     }
                     .buttonStyle(.bordered)
                 }
 
-                Button("Reveal") {
-                    shell.revealCurrentSessionInFinder()
+                if let session = shell.currentSession {
+                    Text(session.paths.folderURL.path)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(2)
                 }
-                .buttonStyle(.bordered)
-            }
-
-            if let session = shell.currentSession {
-                Text(session.paths.folderURL.path)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .textSelection(.enabled)
             }
         }
     }
 
     private var textSection: some View {
+        card(title: "Text") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Raw transcript")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                TextEditor(text: Binding(
+                    get: { shell.rawTranscript },
+                    set: { shell.updateRawTranscriptFromEditor($0) }
+                ))
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 130)
+                .padding(8)
+                .background(Color(NSColor.textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                Text("Polished transcript")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                if shell.sessionState == .polishing {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Polishing in progress")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                ScrollView {
+                    Text(polishedBodyText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(minHeight: 170)
+                .padding(8)
+                .background(Color(NSColor.textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                HStack(spacing: 8) {
+                    Button("Copy Latest") {
+                        shell.copyLatestPolished()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Retry Polish") {
+                        shell.retryPolish()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(shell.rawTranscript.isEmpty)
+                }
+            }
+        }
+    }
+
+    private var footerSection: some View {
+        HStack(alignment: .center) {
+            statusText
+                .lineLimit(2)
+
+            Spacer()
+
+            Button("Settings") {
+                openSettings()
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder
+    private var statusText: some View {
+        if let hotkeyError = shell.hotkeyError {
+            Text("Hotkey issue: \(hotkeyError)")
+                .font(.caption)
+                .foregroundColor(.orange)
+        } else if let lastError = shell.lastError {
+            Text(lastError)
+                .font(.caption)
+                .foregroundColor(.red)
+        } else {
+            Text(shell.statusMessage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var stateChip: some View {
+        Text(shell.sessionState.rawValue.capitalized)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(stateChipColor.opacity(0.15))
+            .foregroundColor(stateChipColor)
+            .clipShape(Capsule())
+    }
+
+    private var stateChipColor: Color {
+        switch shell.sessionState {
+        case .recording:
+            return .green
+        case .transcribing, .polishing, .finalizingAudio:
+            return .orange
+        case .failed:
+            return .red
+        case .completed:
+            return .blue
+        case .idle:
+            return .gray
+        }
+    }
+
+    private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Text")
+            Text(title)
                 .font(.headline)
 
-            Text("Raw transcript")
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private func keyValueRow(_ key: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(key)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
+                .frame(width: 76, alignment: .leading)
 
-            TextEditor(text: Binding(
-                get: { shell.rawTranscript },
-                set: { shell.updateRawTranscriptFromEditor($0) }
-            ))
-            .font(.system(.body, design: .monospaced))
-            .frame(minHeight: 110)
-            .padding(8)
-            .background(Color(NSColor.textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            Text("Polished transcript")
+            Text(value)
                 .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            if shell.sessionState == .polishing {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Polishing... \(formattedDuration(shell.polishElapsedSeconds))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            ScrollView {
-                Text(polishedBodyText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .frame(minHeight: 150)
-            .padding(8)
-            .background(Color(NSColor.textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            HStack {
-                Button("Copy Latest") {
-                    shell.copyLatestPolished()
-                }
-                .buttonStyle(.bordered)
-
-                Button("Retry Polish") {
-                    shell.retryPolish()
-                }
-                .buttonStyle(.bordered)
-                .disabled(shell.rawTranscript.isEmpty)
-            }
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -194,8 +289,9 @@ struct PopoverView: View {
     }
 
     private func formattedDuration(_ seconds: Int) -> String {
-        let minutes = max(0, seconds) / 60
-        let remainder = max(0, seconds) % 60
+        let safeSeconds = max(0, seconds)
+        let minutes = safeSeconds / 60
+        let remainder = safeSeconds % 60
         return String(format: "%02d:%02d", minutes, remainder)
     }
 }
