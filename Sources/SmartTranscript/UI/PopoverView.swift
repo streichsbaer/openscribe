@@ -10,15 +10,9 @@ struct PopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             headerSection
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    inputSection
-                    sessionSection
-                    textSection
-                }
-                .padding(.vertical, 2)
-            }
+            inputSection
+            sessionSection
+            textSection
 
             footerSection
         }
@@ -114,7 +108,8 @@ struct PopoverView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .textSelection(.enabled)
-                            .lineLimit(2)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
 
                         Spacer(minLength: 4)
 
@@ -334,7 +329,7 @@ struct PopoverView: View {
     }
 
     private var textPanelHeight: CGFloat {
-        expandedTextPanels ? 280 : 170
+        expandedTextPanels ? 220 : 120
     }
 }
 
