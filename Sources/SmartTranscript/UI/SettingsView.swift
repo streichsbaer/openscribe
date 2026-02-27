@@ -201,7 +201,16 @@ struct SettingsView: View {
                     Text("OpenAI API Key")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    SecureField("OpenAI API key", text: $shell.openAIKeyInput)
+                    HStack(spacing: 8) {
+                        SecureField("OpenAI API key", text: $shell.openAIKeyInput)
+                        Button {
+                            shell.clearAPIKey(.openAI)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .help("Clear OpenAI key")
+                    }
                     Text(shell.openAIKeyStatusDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -209,7 +218,16 @@ struct SettingsView: View {
                     Text("Groq API Key")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    SecureField("Groq API key", text: $shell.groqKeyInput)
+                    HStack(spacing: 8) {
+                        SecureField("Groq API key", text: $shell.groqKeyInput)
+                        Button {
+                            shell.clearAPIKey(.groq)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .help("Clear Groq key")
+                    }
                     Text(shell.groqKeyStatusDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -220,15 +238,8 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.borderedProminent)
 
-                        Button("Clear OpenAI") {
-                            shell.openAIKeyInput = ""
-                            shell.saveAPIKeys()
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button("Clear Groq") {
-                            shell.groqKeyInput = ""
-                            shell.saveAPIKeys()
+                        Button("Clear keys") {
+                            shell.clearAllAPIKeys()
                         }
                         .buttonStyle(.bordered)
                     }
@@ -372,6 +383,18 @@ struct SettingsView: View {
             settingsCard("CURRENT PURPOSE") {
                 Text("Reliable dictation capture with durable session artifacts and clear two-step transcript processing.")
                     .foregroundStyle(.secondary)
+            }
+
+            settingsCard("ABOUT THE AUTHOR") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Created by Stefan Streichsbier.")
+                        .foregroundStyle(.secondary)
+                    Text("Built in collaboration with Scribe, the SmartTranscript coding partner.")
+                        .foregroundStyle(.secondary)
+                    Text("Shared operating docs: SOUL.md and AGENTS.md in this repository.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

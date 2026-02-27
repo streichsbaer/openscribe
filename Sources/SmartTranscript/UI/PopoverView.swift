@@ -108,11 +108,23 @@ struct PopoverView: View {
                 }
 
                 if let session = shell.currentSession {
-                    Text(session.paths.folderURL.path)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .textSelection(.enabled)
-                        .lineLimit(2)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(session.paths.folderURL.path)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .textSelection(.enabled)
+                            .lineLimit(2)
+
+                        Spacer(minLength: 4)
+
+                        Button {
+                            shell.copyCurrentSessionPath()
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Copy session path")
+                    }
                 }
             }
         }
@@ -160,10 +172,22 @@ struct PopoverView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
 
                 HStack(spacing: 8) {
-                    Button("Copy Latest") {
+                    Button("Copy Path") {
+                        shell.copyCurrentSessionPath()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Copy Raw") {
+                        shell.copyRawTranscript()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Copy Polished") {
                         shell.copyLatestPolished()
                     }
                     .buttonStyle(.bordered)
+
+                    Spacer()
 
                     Button("Retry Polish") {
                         shell.retryPolish()

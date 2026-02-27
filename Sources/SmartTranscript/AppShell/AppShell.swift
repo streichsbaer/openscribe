@@ -140,6 +140,23 @@ final class AppShell: ObservableObject {
         statusMessage = "API keys saved"
     }
 
+    func clearAPIKey(_ entry: KeychainEntry) {
+        switch entry {
+        case .openAI:
+            openAIKeyInput = ""
+        case .groq:
+            groqKeyInput = ""
+        }
+        saveAPIKeys()
+    }
+
+    func clearAllAPIKeys() {
+        openAIKeyInput = ""
+        groqKeyInput = ""
+        saveAPIKeys()
+        statusMessage = "API keys cleared"
+    }
+
     func toggleRecording() {
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -160,6 +177,25 @@ final class AppShell: ObservableObject {
 
         Clipboard.copy(text: candidate)
         statusMessage = "Latest polished transcript copied"
+    }
+
+    func copyRawTranscript() {
+        let candidate = rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !candidate.isEmpty else {
+            statusMessage = "No raw transcript available yet"
+            return
+        }
+        Clipboard.copy(text: candidate)
+        statusMessage = "Raw transcript copied"
+    }
+
+    func copyCurrentSessionPath() {
+        guard let path = currentSession?.paths.folderURL.path else {
+            statusMessage = "No session path available yet"
+            return
+        }
+        Clipboard.copy(text: path)
+        statusMessage = "Session path copied"
     }
 
     func openSettingsWindow() {
