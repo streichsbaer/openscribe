@@ -205,7 +205,7 @@ final class AppShell: ObservableObject {
 
     func updatePopoverSize(expandedTextPanels: Bool) {
         let size = expandedTextPanels
-            ? CGSize(width: 540, height: 900)
+            ? CGSize(width: 620, height: 980)
             : CGSize(width: 540, height: 760)
         updatePopoverSizeHandler?(size)
     }
