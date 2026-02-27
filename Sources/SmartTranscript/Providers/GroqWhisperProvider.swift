@@ -18,7 +18,11 @@ final class GroqWhisperProvider: TranscriptionProvider {
             apiKey: apiKey,
             model: model,
             audioFileURL: audioFileURL,
-            language: language
+            language: language,
+            extraFields: [
+                "temperature": "0",
+                "response_format": "verbose_json"
+            ]
         )
 
         return TranscriptResult(

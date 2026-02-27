@@ -6,7 +6,7 @@ struct SettingsView: View {
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
-        (id: "openai_whisper", label: "OpenAI Whisper"),
+        (id: "openai_whisper", label: "OpenAI Speech-to-Text"),
         (id: "groq_whisper", label: "Groq Whisper")
     ]
 
@@ -33,7 +33,13 @@ struct SettingsView: View {
             Picker("Transcription provider", selection: Binding(
                 get: { shell.settings.transcriptionProviderID },
                 set: { newValue in
-                    shell.updateSettings { $0.transcriptionProviderID = newValue }
+                    shell.updateSettings {
+                        $0.transcriptionProviderID = newValue
+                        let available = transcriptionModels(for: newValue)
+                        if !available.contains($0.transcriptionModel) {
+                            $0.transcriptionModel = available.first ?? $0.transcriptionModel
+                        }
+                    }
                 }
             )) {
                 ForEach(sttProviders, id: \.id) { provider in
@@ -55,7 +61,13 @@ struct SettingsView: View {
             Picker("Polish provider", selection: Binding(
                 get: { shell.settings.polishProviderID },
                 set: { newValue in
-                    shell.updateSettings { $0.polishProviderID = newValue }
+                    shell.updateSettings {
+                        $0.polishProviderID = newValue
+                        let available = polishModels(for: newValue)
+                        if !available.contains($0.polishModel) {
+                            $0.polishModel = available.first ?? $0.polishModel
+                        }
+                    }
                 }
             )) {
                 ForEach(polishProviders, id: \.id) { provider in
@@ -216,7 +228,7 @@ struct SettingsView: View {
         case "whispercpp":
             return ["tiny", "base", "small", "medium"]
         case "openai_whisper":
-            return ["whisper-1"]
+            return ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"]
         case "groq_whisper":
             return ["whisper-large-v3", "whisper-large-v3-turbo"]
         default:

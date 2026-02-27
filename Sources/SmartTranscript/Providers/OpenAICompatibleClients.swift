@@ -1,7 +1,7 @@
 import Foundation
 
 struct OpenAITranscriptionResponse: Codable {
-    let text: String
+    let text: String?
 }
 
 struct OpenAIChatRequest: Codable {
@@ -38,13 +38,17 @@ func performWhisperRequest(
     apiKey: String,
     model: String,
     audioFileURL: URL,
-    language: String?
+    language: String?,
+    extraFields: [String: String] = [:]
 ) async throws -> String {
     let builder = MultipartFormDataBuilder()
     var fields: [String: String] = ["model": model]
 
     if let language, !language.isEmpty, language.lowercased() != "auto" {
         fields["language"] = language
+    }
+    for (key, value) in extraFields {
+        fields[key] = value
     }
 
     let body = try builder.makeBody(
@@ -70,8 +74,19 @@ func performWhisperRequest(
         throw OpenAICompatibleError.http(http.statusCode, details)
     }
 
-    let payload = try JSONDecoder().decode(OpenAITranscriptionResponse.self, from: data)
-    return payload.text
+    if let payload = try? JSONDecoder().decode(OpenAITranscriptionResponse.self, from: data),
+       let text = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !text.isEmpty {
+        return text
+    }
+
+    if let text = String(data: data, encoding: .utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines),
+       !text.isEmpty {
+        return text
+    }
+
+    throw ProviderError.invalidResponse
 }
 
 func performChatRequest(
