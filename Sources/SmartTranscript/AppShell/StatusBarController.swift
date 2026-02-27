@@ -23,20 +23,17 @@ final class StatusBarController: NSObject {
     private var smoothedMeterLevel: Float = 0
     private var currentSessionState: SessionState = .idle
     private var currentPermissionState: MicrophonePermissionState = .undetermined
-    private var lastActiveSignalAt: Date?
-    private var isSpeechActive = false
+    private var lastDetectedActivityAt: Date?
     private var noiseFloor: Float = 0.005
-    private var speechOnThreshold: Float = 0.020
-    private var speechOffThreshold: Float = 0.012
+    private var activityThreshold: Float = 0.020
 
     private let smoothingAlpha: Float = 0.22
     private let noiseFloorAlpha: Float = 0.08
     private let minNoiseFloor: Float = 0.005
     private let maxNoiseFloor: Float = 0.060
-    private let speechOnFloor: Float = 0.020
-    private let speechOffFloor: Float = 0.012
-    private let speechOnNoiseMultiplier: Float = 2.2
-    private let speechOffNoiseMultiplier: Float = 1.5
+    private let activityFloor: Float = 0.020
+    private let activityNoiseMultiplier: Float = 2.2
+    private let activityHoldSeconds: TimeInterval = 0.35
     private let noAudioTimeoutSeconds: TimeInterval = 1.4
 
     init(shell: AppShell) {
@@ -126,17 +123,8 @@ final class StatusBarController: NSObject {
 
                 if currentSessionState == .recording {
                     updateNoiseFloor(using: smoothedMeterLevel)
-
-                    if isSpeechActive {
-                        if smoothedMeterLevel < speechOffThreshold {
-                            isSpeechActive = false
-                        }
-                    } else if smoothedMeterLevel > speechOnThreshold {
-                        isSpeechActive = true
-                    }
-
-                    if isSpeechActive {
-                        lastActiveSignalAt = Date()
+                    if smoothedMeterLevel >= activityThreshold {
+                        lastDetectedActivityAt = Date()
                     }
                 }
                 reevaluateMicIconState()
@@ -148,19 +136,15 @@ final class StatusBarController: NSObject {
             .sink { [weak self] state in
                 guard let self else { return }
                 if currentSessionState != .recording, state == .recording {
-                    lastActiveSignalAt = Date()
+                    lastDetectedActivityAt = Date()
                     smoothedMeterLevel = 0
-                    isSpeechActive = false
                     noiseFloor = minNoiseFloor
-                    speechOnThreshold = speechOnFloor
-                    speechOffThreshold = speechOffFloor
+                    activityThreshold = activityFloor
                 } else if state != .recording {
-                    lastActiveSignalAt = nil
+                    lastDetectedActivityAt = nil
                     smoothedMeterLevel = 0
-                    isSpeechActive = false
                     noiseFloor = minNoiseFloor
-                    speechOnThreshold = speechOnFloor
-                    speechOffThreshold = speechOffFloor
+                    activityThreshold = activityFloor
                 }
                 currentSessionState = state
                 reevaluateMicIconState()
@@ -207,14 +191,14 @@ final class StatusBarController: NSObject {
             return
         }
 
-        if isSpeechActive {
+        silenceDuration = Date().timeIntervalSince(lastDetectedActivityAt ?? .distantPast)
+        if silenceDuration <= activityHoldSeconds {
             iconState = .working
             updateIconAppearance()
             publishDebug(silenceDuration: silenceDuration)
             return
         }
 
-        silenceDuration = Date().timeIntervalSince(lastActiveSignalAt ?? .distantPast)
         iconState = silenceDuration >= noAudioTimeoutSeconds ? .noAudio : .paused
         updateIconAppearance()
         publishDebug(silenceDuration: silenceDuration)
@@ -276,24 +260,24 @@ final class StatusBarController: NSObject {
     }
 
     private func updateNoiseFloor(using level: Float) {
-        let boundedLevel = min(level, max(noiseFloor, minNoiseFloor) * 1.8)
-        noiseFloor = ((1 - noiseFloorAlpha) * noiseFloor) + (noiseFloorAlpha * max(0, boundedLevel))
-        noiseFloor = min(max(noiseFloor, minNoiseFloor), maxNoiseFloor)
+        let boundedLevel = min(max(0, level), maxNoiseFloor)
+        let floorUpdateCutoff = max(activityThreshold * 0.75, activityFloor)
+        if boundedLevel <= floorUpdateCutoff {
+            noiseFloor = ((1 - noiseFloorAlpha) * noiseFloor) + (noiseFloorAlpha * boundedLevel)
+            noiseFloor = min(max(noiseFloor, minNoiseFloor), maxNoiseFloor)
+        }
 
-        speechOnThreshold = max(speechOnFloor, noiseFloor * speechOnNoiseMultiplier)
-        speechOffThreshold = max(speechOffFloor, noiseFloor * speechOffNoiseMultiplier)
+        activityThreshold = max(activityFloor, noiseFloor * activityNoiseMultiplier)
     }
 
     private func publishDebug(silenceDuration: TimeInterval) {
         shell.menubarIconDebug = String(
-            format: "icon=%@ raw=%.3f smooth=%.3f floor=%.3f on=%.3f off=%.3f speech=%@ silence=%.1fs",
+            format: "icon=%@ raw=%.3f smooth=%.3f floor=%.3f threshold=%.3f silence=%.1fs",
             iconStateLabel(iconState),
             currentMeterLevel,
             smoothedMeterLevel,
             noiseFloor,
-            speechOnThreshold,
-            speechOffThreshold,
-            isSpeechActive ? "yes" : "no",
+            activityThreshold,
             max(0, silenceDuration)
         )
     }

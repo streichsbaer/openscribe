@@ -55,6 +55,12 @@ Root: `~/Library/Application Support/SmartTranscript`
 
 ## Improvement Backlog
 - Show a clear processing state and elapsed timer while polish is running.
+- Explore always-on wake phrase mode:
+  - keep listening while active
+  - start transcript on action phrase
+  - auto-stop after silence cooldown
+  - voice commands for `pause recording`, `resume recording`, `stop recording`
+- Evaluate always-on mic coexistence behavior with other apps on macOS and define user-facing constraints.
 
 ## Build/Run
 - `swift build`
