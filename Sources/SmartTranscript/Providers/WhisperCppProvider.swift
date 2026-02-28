@@ -38,29 +38,17 @@ final class WhisperCppProvider: TranscriptionProvider {
             args.append(contentsOf: ["-l", "auto"])
         }
 
-        let process = Process()
-        process.executableURL = binaryURL
-        process.arguments = args
-
-        let stderrPipe = Pipe()
-        process.standardError = stderrPipe
-        process.standardOutput = Pipe()
-
-        try process.run()
-        process.waitUntilExit()
-
+        let processResult = try await runWhisperProcess(arguments: args)
         let outputFile = outputBase.appendingPathExtension("txt")
-        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
-        let stderr = String(data: stderrData, encoding: .utf8) ?? ""
 
-        guard process.terminationStatus == 0 else {
-            throw ProviderError.processFailed(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard processResult.terminationStatus == 0 else {
+            throw ProviderError.processFailed(processResult.standardError.trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
         guard let text = try? String(contentsOf: outputFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else {
-            if !stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                throw ProviderError.processFailed(stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            if !processResult.standardError.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw ProviderError.processFailed(processResult.standardError.trimmingCharacters(in: .whitespacesAndNewlines))
             }
             throw ProviderError.invalidResponse
         }
@@ -70,4 +58,38 @@ final class WhisperCppProvider: TranscriptionProvider {
         let latency = Int(Date().timeIntervalSince(start) * 1_000)
         return TranscriptResult(text: text, providerId: id, model: model, latencyMs: latency)
     }
+
+    private func runWhisperProcess(arguments: [String]) async throws -> WhisperProcessResult {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async { [binaryURL] in
+                do {
+                    let process = Process()
+                    process.executableURL = binaryURL
+                    process.arguments = arguments
+
+                    let stderrPipe = Pipe()
+                    process.standardError = stderrPipe
+                    process.standardOutput = Pipe()
+
+                    try process.run()
+                    process.waitUntilExit()
+
+                    let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                    let stderr = String(data: stderrData, encoding: .utf8) ?? ""
+
+                    continuation.resume(returning: WhisperProcessResult(
+                        terminationStatus: process.terminationStatus,
+                        standardError: stderr
+                    ))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+}
+
+private struct WhisperProcessResult {
+    let terminationStatus: Int32
+    let standardError: String
 }
