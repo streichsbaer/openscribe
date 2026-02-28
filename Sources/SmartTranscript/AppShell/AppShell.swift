@@ -117,6 +117,10 @@ final class AppShell: ObservableObject {
         apiKeyStatusDescription(for: .groq)
     }
 
+    var accessibilityPermissionGranted: Bool {
+        AccessibilityInputInjector.isTrusted(promptIfNeeded: false)
+    }
+
     func updateSettings(_ mutate: (inout AppSettings) -> Void) {
         settingsStore.update(mutate)
         registerHotkeys()
@@ -200,6 +204,19 @@ final class AppShell: ObservableObject {
 
     func openSettingsWindow() {
         openSettingsWindowHandler?()
+    }
+
+    func openAccessibilityPrivacySettings() {
+        openPrivacySettings(anchor: "Privacy_Accessibility")
+    }
+
+    func openMicrophonePrivacySettings() {
+        openPrivacySettings(anchor: "Privacy_Microphone")
+    }
+
+    func refreshPermissionState() {
+        permissionState = audioCapture.permissionState()
+        registerHotkeys()
     }
 
     func updatePopoverSize(expandedTextPanels: Bool) {
@@ -334,6 +351,8 @@ final class AppShell: ObservableObject {
             }
 
             do {
+                session.metadata.polishProvider = self.settings.polishProviderID
+                session.metadata.polishModel = self.settings.polishModel
                 self.sessionState = .polishing
                 self.beginPolishProgressTracking()
                 try self.sessionManager.transition(&session, to: .polishing, details: "Retry polish")
@@ -363,6 +382,79 @@ final class AppShell: ObservableObject {
                 self.lastError = error.localizedDescription
                 self.statusMessage = "Polish retry failed"
                 self.currentSession = session
+                self.endPolishProgressTracking()
+            }
+        }
+    }
+
+    func retryTranscription() {
+        Task { @MainActor [weak self] in
+            guard let self,
+                  var session = self.currentSession else {
+                return
+            }
+
+            guard FileManager.default.fileExists(atPath: session.paths.audioURL.path) else {
+                self.statusMessage = "No recorded audio available for re-transcription."
+                return
+            }
+
+            do {
+                self.lastError = nil
+                session.metadata.sttProvider = self.settings.transcriptionProviderID
+                session.metadata.sttModel = self.settings.transcriptionModel
+                session.metadata.polishProvider = self.settings.polishProviderID
+                session.metadata.polishModel = self.settings.polishModel
+                session.metadata.languageMode = self.settings.languageMode
+                self.sessionState = .transcribing
+                try self.sessionManager.transition(&session, to: .transcribing, details: "Retry transcription")
+
+                let transcript = try await self.transcriptionPipeline.run(audioFileURL: session.paths.audioURL, settings: self.settings)
+                self.rawTranscript = transcript.text
+                try self.sessionManager.writeRaw(transcript.text, for: &session)
+
+                do {
+                    self.sessionState = .polishing
+                    self.beginPolishProgressTracking()
+                    try self.sessionManager.transition(&session, to: .polishing, details: "Polish after re-transcription")
+
+                    let rules = try self.rulesStore.load()
+                    let polished = try await self.polishPipeline.run(
+                        rawText: transcript.text,
+                        rulesMarkdown: rules,
+                        settings: self.settings
+                    )
+
+                    self.polishedTranscript = polished.markdown
+                    self.latestPolishedTranscript = polished.markdown
+                    try self.sessionManager.writePolished(polished.markdown, for: &session)
+
+                    if self.settings.copyOnComplete {
+                        let clipboardText = self.normalizedClipboardText(polished.markdown)
+                        if !clipboardText.isEmpty {
+                            Clipboard.copy(text: clipboardText)
+                        }
+                    }
+                    self.endPolishProgressTracking()
+                } catch {
+                    self.polishedTranscript = ""
+                    self.lastError = error.localizedDescription
+                    self.statusMessage = "Re-transcription complete. Polish failed."
+                    self.endPolishProgressTracking()
+                }
+
+                try self.sessionManager.transition(&session, to: .completed, details: "Re-transcription complete")
+                self.sessionState = .completed
+                self.currentSession = session
+                if self.lastError == nil {
+                    self.statusMessage = "Re-transcription complete"
+                }
+            } catch {
+                self.sessionManager.recordFailure(&session, error: error.localizedDescription)
+                self.currentSession = session
+                self.lastError = error.localizedDescription
+                self.sessionState = .failed
+                self.statusMessage = "Re-transcription failed"
                 self.endPolishProgressTracking()
             }
         }
@@ -412,19 +504,19 @@ final class AppShell: ObservableObject {
                 }
             }
 
-            try hotkeyManager.register(action: .copyLatest, setting: .copyOnlyDefault) { [weak self] in
+            try hotkeyManager.register(action: .copyLatest, setting: settings.copyHotkey) { [weak self] in
                 Task { @MainActor [weak self] in
                     self?.copyLatestPolished()
                 }
             }
 
-            if settings.copyHotkey.normalizedForCarbonHotkey() == HotkeySetting.copyOnlyDefault.normalizedForCarbonHotkey() {
+            if settings.copyHotkey.normalizedForCarbonHotkey() == settings.pasteHotkey.normalizedForCarbonHotkey() {
                 throw HotkeyError.registrationFailed(
-                    "Paste hotkey cannot match copy hotkey Ctrl+Option+C. Choose a different paste shortcut."
+                    "Paste hotkey cannot match copy hotkey. Choose a different shortcut."
                 )
             }
 
-            try hotkeyManager.register(action: .pasteLatest, setting: settings.copyHotkey) { [weak self] in
+            try hotkeyManager.register(action: .pasteLatest, setting: settings.pasteHotkey) { [weak self] in
                 Task { @MainActor [weak self] in
                     self?.pasteLatestPolishedViaHotkey()
                 }
@@ -484,6 +576,13 @@ final class AppShell: ObservableObject {
                 self.statusMessage = "Latest polished transcript copied"
             }
         }
+    }
+
+    private func openPrivacySettings(anchor: String) {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     private func beginPolishProgressTracking() {

@@ -385,23 +385,21 @@ struct SettingsView: View {
             }
 
             settingsCard("COPY LATEST") {
-                settingRow("Shortcut") {
-                    Text(HotkeyDisplay.string(for: .copyOnlyDefault))
-                        .font(.system(.subheadline, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-
-                Text("Ctrl+Option+C always copies the latest polished transcript.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HotkeyEditor(
+                    title: "Copy latest polished transcript",
+                    hotkey: Binding(
+                        get: { shell.settings.copyHotkey },
+                        set: { value in shell.updateSettings { $0.copyHotkey = value } }
+                    )
+                )
             }
 
             settingsCard("PASTE LATEST") {
                 HotkeyEditor(
                     title: "Paste latest polished transcript",
                     hotkey: Binding(
-                        get: { shell.settings.copyHotkey },
-                        set: { value in shell.updateSettings { $0.copyHotkey = value } }
+                        get: { shell.settings.pasteHotkey },
+                        set: { value in shell.updateSettings { $0.pasteHotkey = value } }
                     )
                 )
 
@@ -409,9 +407,41 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(accessibilityPermissionGranted ? "Accessibility permission: granted" : "Accessibility permission: missing")
+                HStack(spacing: 8) {
+                    Text(shell.accessibilityPermissionGranted ? "Accessibility permission: granted" : "Accessibility permission: missing")
+                        .font(.caption)
+                        .foregroundColor(shell.accessibilityPermissionGranted ? .secondary : .orange)
+
+                    Spacer(minLength: 0)
+
+                    Button("Open Accessibility Settings") {
+                        shell.openAccessibilityPrivacySettings()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Refresh") {
+                        shell.refreshPermissionState()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            settingsCard("MICROPHONE") {
+                Text(microphonePermissionSummary)
                     .font(.caption)
-                    .foregroundColor(accessibilityPermissionGranted ? .secondary : .orange)
+                    .foregroundColor(shell.permissionState == .authorized ? .secondary : .orange)
+
+                HStack(spacing: 8) {
+                    Button("Open Microphone Settings") {
+                        shell.openMicrophonePrivacySettings()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Refresh") {
+                        shell.refreshPermissionState()
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
 
             if let hotkeyError = shell.hotkeyError {
@@ -637,8 +667,15 @@ struct SettingsView: View {
         }
     }
 
-    private var accessibilityPermissionGranted: Bool {
-        AccessibilityInputInjector.isTrusted(promptIfNeeded: false)
+    private var microphonePermissionSummary: String {
+        switch shell.permissionState {
+        case .authorized:
+            return "Microphone permission: granted"
+        case .denied:
+            return "Microphone permission: denied"
+        case .undetermined:
+            return "Microphone permission: not requested"
+        }
     }
 }
 

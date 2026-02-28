@@ -85,7 +85,7 @@ struct HotkeySetting: Codable, Equatable {
         modifiers: carbonFunctionMask
     )
 
-    static let copyOnlyDefault = HotkeySetting(
+    static let copyDefault = HotkeySetting(
         keyCode: cKeyCode,
         modifiers: UInt32(controlKey | optionKey)
     )
@@ -114,6 +114,7 @@ struct AppSettings: Codable, Equatable {
     var copyOnComplete: Bool
     var startStopHotkey: HotkeySetting
     var copyHotkey: HotkeySetting
+    var pasteHotkey: HotkeySetting
 
     static let `default` = AppSettings(
         transcriptionProviderID: "whispercpp",
@@ -123,7 +124,8 @@ struct AppSettings: Codable, Equatable {
         languageMode: "auto",
         copyOnComplete: true,
         startStopHotkey: .startStopDefault,
-        copyHotkey: .pasteDefault
+        copyHotkey: .copyDefault,
+        pasteHotkey: .pasteDefault
     )
 }
 

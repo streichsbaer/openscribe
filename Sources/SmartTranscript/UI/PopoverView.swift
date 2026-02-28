@@ -151,11 +151,23 @@ struct PopoverView: View {
                     .controlSize(.small)
                 }
 
-                TextEditor(text: Binding(
-                    get: { shell.rawTranscript },
-                    set: { shell.updateRawTranscriptFromEditor($0) }
-                ))
-                .font(.body)
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: Binding(
+                        get: { shell.rawTranscript },
+                        set: { shell.updateRawTranscriptFromEditor($0) }
+                    ))
+                    .font(.body)
+                    .disabled(rawEditorDisabled)
+                    .opacity(rawEditorDisabled ? 0.98 : 1)
+
+                    if shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(rawPlaceholderText)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 8)
+                            .padding(.leading, 6)
+                    }
+                }
                 .frame(height: textPanelHeight)
                 .padding(8)
                 .background(Color(NSColor.textBackgroundColor))
@@ -203,6 +215,12 @@ struct PopoverView: View {
                     .buttonStyle(.bordered)
 
                     Spacer()
+
+                    Button("Re-Transcribe") {
+                        shell.retryTranscription()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!canRetryTranscription)
 
                     Button("Retry Polish") {
                         shell.retryPolish()
@@ -336,6 +354,41 @@ struct PopoverView: View {
 
     private var textPanelHeight: CGFloat {
         expandedTextPanels ? 220 : 120
+    }
+
+    private var canRetryTranscription: Bool {
+        guard let session = shell.currentSession else {
+            return false
+        }
+        guard FileManager.default.fileExists(atPath: session.paths.audioURL.path) else {
+            return false
+        }
+        switch shell.sessionState {
+        case .recording, .finalizingAudio, .transcribing, .polishing:
+            return false
+        case .idle, .completed, .failed:
+            return true
+        }
+    }
+
+    private var rawEditorDisabled: Bool {
+        switch shell.sessionState {
+        case .recording, .finalizingAudio, .transcribing:
+            return true
+        case .idle, .polishing, .completed, .failed:
+            return false
+        }
+    }
+
+    private var rawPlaceholderText: String {
+        switch shell.sessionState {
+        case .recording:
+            return "Raw transcript appears after you stop recording."
+        case .finalizingAudio, .transcribing:
+            return "Transcribing audio..."
+        case .idle, .polishing, .completed, .failed:
+            return "Raw transcript will appear here."
+        }
     }
 
     private var popoverWidth: CGFloat {

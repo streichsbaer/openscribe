@@ -6,8 +6,8 @@ final class HotkeyDisplayTests: XCTestCase {
         XCTAssertEqual(HotkeyDisplay.string(for: .startStopDefault), "Fn+Space")
     }
 
-    func testCopyOnlyDefaultDisplayString() {
-        XCTAssertEqual(HotkeyDisplay.string(for: .copyOnlyDefault), "Ctrl+Option+C")
+    func testCopyDefaultDisplayString() {
+        XCTAssertEqual(HotkeyDisplay.string(for: .copyDefault), "Ctrl+Option+C")
     }
 
     func testPasteDefaultDisplayString() {
