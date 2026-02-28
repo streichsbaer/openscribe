@@ -18,7 +18,7 @@ let package = Package(
             name: "SmartTranscript",
             exclude: ["Resources/AppInfo.plist"],
             resources: [
-                .process("Resources/Assets.xcassets")
+                .process("Resources")
             ],
             linkerSettings: [
                 .unsafeFlags([

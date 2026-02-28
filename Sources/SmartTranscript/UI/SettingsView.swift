@@ -513,14 +513,33 @@ private struct BrandLink: View {
     var body: some View {
         Link(destination: destination) {
             HStack(spacing: 6) {
-                Image(assetName, bundle: .module)
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 14, height: 14)
+                if let image = BrandIconLoader.image(named: assetName) {
+                    Image(nsImage: image)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                } else {
+                    Image(systemName: "link.circle.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                }
                 Text(title)
             }
         }
+    }
+}
+
+private enum BrandIconLoader {
+    static func image(named name: String) -> NSImage? {
+        if let url = Bundle.module.url(forResource: name, withExtension: "svg"),
+           let image = NSImage(contentsOf: url) {
+            image.isTemplate = true
+            return image
+        }
+
+        return nil
     }
 }
 
