@@ -29,9 +29,9 @@
 - Add a commit body for every commit with these sections: `Why`, `What`, and `Instruction`.
 - `Instruction` must summarize Stefan's request that triggered the change in concise terms.
 - Use real line breaks in commit bodies. Do not include literal `\n` escape sequences.
-- Preferred multiline flow without temp files: pass a heredoc directly to `git commit -F -`.
+- Required multiline flow: pass a heredoc directly to `git commit -F -`.
+- Do not use temporary commit message files for multiline commit bodies.
 - Do not use shell-escaped multiline patterns like `-m $'...'` for commit bodies.
-- If a temporary commit message file is used, remove it after a successful commit.
 - After each commit, verify formatting with `git log -1 --pretty=medium`.
 - Do not amend or rewrite prior commits unless explicitly requested.
 - If unrelated files are already staged, commit only intended paths.
@@ -53,24 +53,6 @@ What
 Instruction
 - User asked for a neutral polishing color.
 EOF
-git log -1 --pretty=medium
-```
-
-```bash
-git add path/to/file.swift path/to/other.swift
-cat >/tmp/commitmsg.txt <<'EOF'
-feat: add provider retry selector
-
-Why
-- Users need quick re-run with another provider.
-
-What
-- Added provider/model selector and re-transcribe action.
-
-Instruction
-- User asked to re-transcribe with a different provider.
-EOF
-git commit -F /tmp/commitmsg.txt
 git log -1 --pretty=medium
 ```
 
