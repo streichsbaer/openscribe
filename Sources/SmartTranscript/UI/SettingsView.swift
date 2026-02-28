@@ -6,7 +6,8 @@ private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     case general
     case providers
     case hotkeys
-    case rulesData
+    case rules
+    case data
     case about
 
     var id: String { rawValue }
@@ -19,8 +20,10 @@ private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return "Providers"
         case .hotkeys:
             return "Hotkeys"
-        case .rulesData:
-            return "Rules & Data"
+        case .rules:
+            return "Rules"
+        case .data:
+            return "Data"
         case .about:
             return "About"
         }
@@ -34,8 +37,10 @@ private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return "square.grid.2x2"
         case .hotkeys:
             return "keyboard"
-        case .rulesData:
+        case .rules:
             return "doc.text"
+        case .data:
+            return "externaldrive"
         case .about:
             return "info.circle"
         }
@@ -49,7 +54,9 @@ private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return CGSize(width: 860, height: 700)
         case .hotkeys:
             return CGSize(width: 760, height: 640)
-        case .rulesData:
+        case .rules:
+            return CGSize(width: 920, height: 760)
+        case .data:
             return CGSize(width: 920, height: 760)
         case .about:
             return CGSize(width: 760, height: 580)
@@ -145,8 +152,10 @@ struct SettingsView: View {
             providersTab
         case .hotkeys:
             hotkeysTab
-        case .rulesData:
-            rulesAndDataTab
+        case .rules:
+            rulesTab
+        case .data:
+            dataTab
         case .about:
             aboutTab
         }
@@ -474,7 +483,7 @@ struct SettingsView: View {
         }
     }
 
-    private var rulesAndDataTab: some View {
+    private var rulesTab: some View {
         settingsPage {
             settingsCard("RULES") {
                 TextEditor(text: $shell.rulesDraft)
@@ -501,7 +510,11 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                 }
             }
+        }
+    }
 
+    private var dataTab: some View {
+        settingsPage {
             settingsCard("LOCAL MODELS") {
                 let modelCatalog = shell.modelManager.catalog
 
@@ -565,7 +578,16 @@ struct SettingsView: View {
                         NSWorkspace.shared.activateFileViewerSelecting([shell.layout.appSupport])
                     }
                     .buttonStyle(.bordered)
+
+                    Button("Move App Support to Trash") {
+                        shell.moveAppSupportToTrash()
+                    }
+                    .buttonStyle(.bordered)
                 }
+
+                Text("Moving App Support to Trash removes local sessions, models, rules, and settings.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

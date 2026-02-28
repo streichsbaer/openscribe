@@ -582,6 +582,23 @@ final class AppShell: ObservableObject {
         }
     }
 
+    func moveAppSupportToTrash() {
+        let fileManager = FileManager.default
+        let appSupportURL = layout.appSupport
+        guard fileManager.fileExists(atPath: appSupportURL.path) else {
+            statusMessage = "App Support folder is already missing"
+            return
+        }
+
+        do {
+            _ = try fileManager.trashItem(at: appSupportURL, resultingItemURL: nil)
+            statusMessage = "App Support moved to Trash"
+        } catch {
+            lastError = error.localizedDescription
+            statusMessage = "Failed to move App Support to Trash"
+        }
+    }
+
     func revealCurrentSessionInFinder() {
         guard let session = currentSession else {
             return
