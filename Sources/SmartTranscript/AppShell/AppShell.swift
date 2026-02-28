@@ -99,6 +99,7 @@ final class AppShell: ObservableObject {
         latestPolishedTranscript = sessionManager.loadLatestPolishedTranscript() ?? ""
 
         registerHotkeys()
+        applyAppearanceMode()
     }
 
     var settings: AppSettings {
@@ -131,6 +132,7 @@ final class AppShell: ObservableObject {
     func updateSettings(_ mutate: (inout AppSettings) -> Void) {
         settingsStore.update(mutate)
         registerHotkeys()
+        applyAppearanceMode()
     }
 
     func saveAPIKeys() {
@@ -693,6 +695,18 @@ final class AppShell: ObservableObject {
             return
         }
         NSWorkspace.shared.open(url)
+    }
+
+    private func applyAppearanceMode() {
+        let mode = AppearanceMode(rawValue: settings.appearanceMode) ?? .system
+        switch mode {
+        case .system:
+            NSApp.appearance = nil
+        case .light:
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 
     private func ensureLocalModelInstalledIfNeeded(using settings: AppSettings) async throws {

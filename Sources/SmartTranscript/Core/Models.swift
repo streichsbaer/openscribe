@@ -111,6 +111,7 @@ struct AppSettings: Codable, Equatable {
     var polishEnabled: Bool
     var polishProviderID: String
     var polishModel: String
+    var appearanceMode: String
     var languageMode: String
     var copyOnComplete: Bool
     var startStopHotkey: HotkeySetting
@@ -123,12 +124,30 @@ struct AppSettings: Codable, Equatable {
         polishEnabled: true,
         polishProviderID: "openai_polish",
         polishModel: "gpt-5-mini",
+        appearanceMode: "system",
         languageMode: "auto",
         copyOnComplete: true,
         startStopHotkey: .startStopDefault,
         copyHotkey: .copyDefault,
         pasteHotkey: .pasteDefault
     )
+}
+
+enum AppearanceMode: String, CaseIterable, Codable, Equatable {
+    case system
+    case light
+    case dark
+
+    var label: String {
+        switch self {
+        case .system:
+            return "System"
+        case .light:
+            return "Light"
+        case .dark:
+            return "Dark"
+        }
+    }
 }
 
 struct ModelAsset: Codable, Equatable, Identifiable {

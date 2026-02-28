@@ -226,6 +226,24 @@ struct SettingsView: View {
     private var generalTab: some View {
         settingsPage {
             settingsCard("USAGE") {
+                settingRow("Appearance") {
+                    Picker("", selection: Binding(
+                        get: { shell.settings.appearanceMode },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.appearanceMode = newValue
+                            }
+                        }
+                    )) {
+                        ForEach(AppearanceMode.allCases, id: \.rawValue) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: providerPickerWidth, alignment: .trailing)
+                }
+
                 settingRow("Copy polished on completion") {
                     Toggle("", isOn: Binding(
                         get: { shell.settings.copyOnComplete },

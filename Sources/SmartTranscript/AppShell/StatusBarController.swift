@@ -327,20 +327,68 @@ final class StatusBarController: NSObject {
     }
 
     private func tintColor(for state: MicIconState, blinkPhase: Bool) -> NSColor? {
+        let appearanceMode = AppearanceMode(rawValue: shell.settings.appearanceMode) ?? .system
+
         switch state {
         case .idle:
-            return nil
+            return monochromeTintColor(for: appearanceMode)
         case .working:
-            return NSColor.systemGreen
+            return adjustedAccentColor(NSColor.systemGreen, for: appearanceMode, blinkPhase: blinkPhase)
         case .paused:
-            return blinkPhase ? NSColor.systemGreen : NSColor.systemGray
+            if blinkPhase {
+                return adjustedAccentColor(NSColor.systemGreen, for: appearanceMode, blinkPhase: true)
+            }
+            return monochromeTintColor(for: appearanceMode).withAlphaComponent(0.62)
         case .noAudio:
-            return NSColor.systemRed
+            return adjustedAccentColor(NSColor.systemRed, for: appearanceMode, blinkPhase: blinkPhase)
         case .transcribing:
-            return blinkPhase ? NSColor.systemOrange : NSColor.systemOrange.withAlphaComponent(0.65)
+            return adjustedAccentColor(NSColor.systemOrange, for: appearanceMode, blinkPhase: blinkPhase)
         case .polishing:
-            return blinkPhase ? NSColor.systemBlue : NSColor.systemBlue.withAlphaComponent(0.65)
+            return adjustedAccentColor(NSColor.systemBlue, for: appearanceMode, blinkPhase: blinkPhase)
         }
+    }
+
+    private func monochromeTintColor(for appearanceMode: AppearanceMode) -> NSColor {
+        switch appearanceMode {
+        case .system:
+            return NSColor.labelColor
+        case .light:
+            return NSColor(calibratedWhite: 0.10, alpha: 1.0)
+        case .dark:
+            return NSColor(calibratedWhite: 0.92, alpha: 1.0)
+        }
+    }
+
+    private func adjustedAccentColor(
+        _ baseColor: NSColor,
+        for appearanceMode: AppearanceMode,
+        blinkPhase: Bool
+    ) -> NSColor {
+        let alpha: CGFloat = blinkPhase ? 1.0 : 0.65
+        switch appearanceMode {
+        case .system:
+            return baseColor.withAlphaComponent(alpha)
+        case .light:
+            return baseColor.withAlphaComponent(alpha)
+        case .dark:
+            let lightened = blend(baseColor: baseColor, target: .white, amount: 0.18)
+            return lightened.withAlphaComponent(alpha)
+        }
+    }
+
+    private func blend(baseColor: NSColor, target: NSColor, amount: CGFloat) -> NSColor {
+        let clamped = min(max(amount, 0), 1)
+        guard let base = baseColor.usingColorSpace(.deviceRGB),
+              let target = target.usingColorSpace(.deviceRGB) else {
+            return baseColor
+        }
+
+        return NSColor(
+            calibratedRed: base.redComponent + (target.redComponent - base.redComponent) * clamped,
+            green: base.greenComponent + (target.greenComponent - base.greenComponent) * clamped,
+            blue: base.blueComponent + (target.blueComponent - base.blueComponent) * clamped,
+            alpha: base.alphaComponent
+        )
     }
 
     private func updateNoiseFloor(using level: Float) {
