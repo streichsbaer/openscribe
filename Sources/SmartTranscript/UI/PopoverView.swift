@@ -6,7 +6,7 @@ struct PopoverView: View {
     @EnvironmentObject private var shell: AppShell
     @StateObject private var playbackManager = AudioPlaybackManager()
     @AppStorage("ui.transcriptPanelsExpanded") private var expandedTextPanels = false
-    @State private var selectedRetryApproachID = "settings"
+    @State private var selectedRetryApproachID = "whispercpp-base"
     @State private var selectedRetryPolishModel = ""
 
     var body: some View {
@@ -33,6 +33,12 @@ struct PopoverView: View {
         }
         .onChange(of: shell.settings.polishModel) { _, _ in
             syncRetryPolishSelection()
+        }
+        .onChange(of: shell.settings.transcriptionProviderID) { _, _ in
+            syncRetryTranscriptionSelection()
+        }
+        .onChange(of: shell.settings.transcriptionModel) { _, _ in
+            syncRetryTranscriptionSelection()
         }
         .onChange(of: shell.rawTranscriptProviderID) { _, _ in
             syncRetryTranscriptionSelection()
@@ -458,16 +464,11 @@ struct PopoverView: View {
     }
 
     private var retryApproaches: [RetryTranscriptionApproach] {
-        let settings = RetryTranscriptionApproach(
-            id: "settings",
-            title: "Settings",
-            providerID: nil,
-            model: nil
-        )
-
         return [
-            settings,
             RetryTranscriptionApproach(id: "whispercpp-base", title: "Local whisper.cpp / base", providerID: "whispercpp", model: "base"),
+            RetryTranscriptionApproach(id: "whispercpp-tiny", title: "Local whisper.cpp / tiny", providerID: "whispercpp", model: "tiny"),
+            RetryTranscriptionApproach(id: "whispercpp-small", title: "Local whisper.cpp / small", providerID: "whispercpp", model: "small"),
+            RetryTranscriptionApproach(id: "whispercpp-medium", title: "Local whisper.cpp / medium", providerID: "whispercpp", model: "medium"),
             RetryTranscriptionApproach(id: "openai-gpt-4o-mini-transcribe", title: "OpenAI / gpt-4o-mini-transcribe", providerID: "openai_whisper", model: "gpt-4o-mini-transcribe"),
             RetryTranscriptionApproach(id: "openai-gpt-4o-transcribe", title: "OpenAI / gpt-4o-transcribe", providerID: "openai_whisper", model: "gpt-4o-transcribe"),
             RetryTranscriptionApproach(id: "openai-whisper-1", title: "OpenAI / whisper-1", providerID: "openai_whisper", model: "whisper-1"),
@@ -523,21 +524,32 @@ struct PopoverView: View {
     }
 
     private func syncRetryTranscriptionSelection() {
-        let provider = shell.rawTranscriptProviderID.isEmpty ? (shell.currentSession?.metadata.sttProvider ?? "") : shell.rawTranscriptProviderID
-        let model = shell.rawTranscriptModel.isEmpty ? (shell.currentSession?.metadata.sttModel ?? "") : shell.rawTranscriptModel
+        let sourceProvider = shell.rawTranscriptProviderID.isEmpty ? (shell.currentSession?.metadata.sttProvider ?? "") : shell.rawTranscriptProviderID
+        let sourceModel = shell.rawTranscriptModel.isEmpty ? (shell.currentSession?.metadata.sttModel ?? "") : shell.rawTranscriptModel
 
-        guard !provider.isEmpty, !model.isEmpty else {
+        if let id = retryApproachID(providerID: sourceProvider, model: sourceModel) {
+            selectedRetryApproachID = id
             return
         }
 
-        if provider == shell.settings.transcriptionProviderID && model == shell.settings.transcriptionModel {
-            selectedRetryApproachID = "settings"
+        if let id = retryApproachID(
+            providerID: shell.settings.transcriptionProviderID,
+            model: shell.settings.transcriptionModel
+        ) {
+            selectedRetryApproachID = id
             return
         }
 
-        if let matched = retryApproaches.first(where: { $0.providerID == provider && $0.model == model }) {
-            selectedRetryApproachID = matched.id
+        if let first = retryApproaches.first {
+            selectedRetryApproachID = first.id
         }
+    }
+
+    private func retryApproachID(providerID: String, model: String) -> String? {
+        guard !providerID.isEmpty, !model.isEmpty else {
+            return nil
+        }
+        return retryApproaches.first(where: { $0.providerID == providerID && $0.model == model })?.id
     }
 
     private func providerDisplayName(for providerID: String) -> String {
