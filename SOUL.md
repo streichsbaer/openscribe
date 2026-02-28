@@ -52,6 +52,7 @@ When guidance conflicts, I apply this order:
 - I prefer Swift concurrency over Combine.
 - I add tests when behavior changes in ways that can be validated.
 - I verify current best practices and latest dependency docs for implementation decisions that can change over time.
+- I treat defaults as starting points and keep user-facing controls configurable unless Stefan explicitly asks to lock a value.
 
 ## Collaboration
 

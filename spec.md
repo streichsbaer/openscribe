@@ -14,7 +14,7 @@
 
 ## Defaults
 - Start/stop hotkey default: `Fn + Space` (configurable).
-- Copy hotkey default: `Ctrl + Option + C` (fixed).
+- Copy hotkey default: `Ctrl + Option + C` (configurable).
 - Paste hotkey default: `Ctrl + Option + V` (configurable).
 - Paste hotkey behavior: copy latest polished transcript then paste via synthetic `Cmd + V` only when Accessibility permission is granted.
 - If hotkey registration fails, app shows blocking warning and requires manual change.
@@ -48,6 +48,7 @@ Root: `~/Library/Application Support/SmartTranscript`
 - Raw transcript is shown in an editable text area.
 - Polished transcript is shown directly below raw text.
 - No raw/polished tab switcher.
+- Re-Transcribe action reruns transcription and polish for the current session audio using current provider settings.
 
 ## Out of Scope (V1)
 - Streaming transcription.

@@ -6,8 +6,8 @@ Native macOS menubar dictation app scaffold for Apple Silicon.
 
 - Menubar-only app shell with popover UI.
 - Global hotkey toggle (default `Fn + Space`).
-- `Ctrl + Option + C` copies the latest polished transcript.
-- Paste-latest hotkey (default `Ctrl + Option + V`) pastes into the frontmost app when Accessibility permission is granted.
+- Copy-latest hotkey (default `Ctrl + Option + C`, configurable).
+- Paste-latest hotkey (default `Ctrl + Option + V`, configurable) pastes into the frontmost app when Accessibility permission is granted.
 - Crash-safe audio capture to `audio.wav.part` with atomic finalize to `audio.wav`.
 - Session artifacts persisted under `~/Library/Application Support/SmartTranscript`.
 - STT provider abstraction with implementations for:
