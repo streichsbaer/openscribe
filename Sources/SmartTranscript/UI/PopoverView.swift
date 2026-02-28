@@ -338,36 +338,17 @@ struct PopoverView: View {
 
     @ViewBuilder
     private var rawTranscriptPanel: some View {
-        if rawEditorDisabled {
-            Text(rawReadOnlyText)
+        ScrollView {
+            Text(rawPanelText)
                 .font(.body)
-                .foregroundStyle(shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : .primary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .frame(height: textPanelHeight)
-            .padding(8)
-            .background(Color(NSColor.textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-        } else {
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: Binding(
-                    get: { shell.rawTranscript },
-                    set: { shell.updateRawTranscriptFromEditor($0) }
-                ))
-                .font(.body)
-
-                if shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(rawPlaceholderText)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 8)
-                        .padding(.leading, 6)
-                }
-            }
-            .frame(height: textPanelHeight)
-            .padding(8)
-            .background(Color(NSColor.textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(rawPanelIsPlaceholder ? .secondary : .primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
         }
+        .frame(height: textPanelHeight)
+        .padding(8)
+        .background(Color(NSColor.textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var canRetryTranscription: Bool {
@@ -385,15 +366,6 @@ struct PopoverView: View {
         }
     }
 
-    private var rawEditorDisabled: Bool {
-        switch shell.sessionState {
-        case .recording, .finalizingAudio, .transcribing:
-            return true
-        case .idle, .polishing, .completed, .failed:
-            return false
-        }
-    }
-
     private var rawPlaceholderText: String {
         switch shell.sessionState {
         case .recording:
@@ -405,12 +377,16 @@ struct PopoverView: View {
         }
     }
 
-    private var rawReadOnlyText: String {
+    private var rawPanelText: String {
         let trimmed = shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             return rawPlaceholderText
         }
         return shell.rawTranscript
+    }
+
+    private var rawPanelIsPlaceholder: Bool {
+        shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var popoverWidth: CGFloat {
