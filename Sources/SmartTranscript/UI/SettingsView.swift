@@ -2,18 +2,68 @@ import AppKit
 import Carbon
 import SwiftUI
 
-private enum SettingsTab: Hashable {
+private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     case general
     case providers
     case hotkeys
     case rulesData
     case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general:
+            return "General"
+        case .providers:
+            return "Providers"
+        case .hotkeys:
+            return "Hotkeys"
+        case .rulesData:
+            return "Rules & Data"
+        case .about:
+            return "About"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general:
+            return "gearshape"
+        case .providers:
+            return "square.grid.2x2"
+        case .hotkeys:
+            return "keyboard"
+        case .rulesData:
+            return "doc.text"
+        case .about:
+            return "info.circle"
+        }
+    }
+
+    var preferredSize: CGSize {
+        switch self {
+        case .general:
+            return CGSize(width: 760, height: 580)
+        case .providers:
+            return CGSize(width: 860, height: 700)
+        case .hotkeys:
+            return CGSize(width: 760, height: 640)
+        case .rulesData:
+            return CGSize(width: 920, height: 760)
+        case .about:
+            return CGSize(width: 760, height: 580)
+        }
+    }
 }
 
 struct SettingsView: View {
     @EnvironmentObject private var shell: AppShell
-    @State private var selectedTab: SettingsTab = .general
+    @State private var selectedTab = SettingsTab.general
+    @State private var contentWidth = SettingsTab.general.preferredSize.width
+    @State private var contentHeight = SettingsTab.general.preferredSize.height
     @AppStorage("ui.transcriptPanelsExpanded") private var transcriptPanelsExpanded = false
+    private let onPreferredSizeChange: ((CGSize, Bool) -> Void)?
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
@@ -30,29 +80,88 @@ struct SettingsView: View {
     private let soulGitHubURL = URL(string: "https://github.com/streichsbaer/SmartTranscript/blob/main/SOUL.md")!
     private let agentsGitHubURL = URL(string: "https://github.com/streichsbaer/SmartTranscript/blob/main/AGENTS.md")!
 
+    init(onPreferredSizeChange: ((CGSize, Bool) -> Void)? = nil) {
+        self.onPreferredSizeChange = onPreferredSizeChange
+    }
+
     var body: some View {
-        TabView(selection: $selectedTab) {
-            generalTab
-                .tabItem { Label("General", systemImage: "gearshape") }
-                .tag(SettingsTab.general)
+        VStack(spacing: 0) {
+            tabHeader
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
 
-            providersTab
-                .tabItem { Label("Providers", systemImage: "square.grid.2x2") }
-                .tag(SettingsTab.providers)
+            Divider()
 
-            hotkeysTab
-                .tabItem { Label("Hotkeys", systemImage: "keyboard") }
-                .tag(SettingsTab.hotkeys)
-
-            rulesAndDataTab
-                .tabItem { Label("Rules & Data", systemImage: "doc.text") }
-                .tag(SettingsTab.rulesData)
-
-            aboutTab
-                .tabItem { Label("About", systemImage: "info.circle") }
-                .tag(SettingsTab.about)
+            currentTabContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 940, minHeight: 760)
+        .background(Color(NSColor.windowBackgroundColor))
+        .frame(width: contentWidth, height: contentHeight)
+        .onAppear {
+            updateLayout(for: selectedTab, animate: false)
+        }
+        .onChange(of: selectedTab) { _, newValue in
+            updateLayout(for: newValue, animate: true)
+        }
+    }
+
+    private var tabHeader: some View {
+        HStack(spacing: 8) {
+            ForEach(SettingsTab.allCases) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tab.symbol)
+                            .font(.system(size: 14, weight: .medium))
+                        Text(tab.title)
+                            .font(.caption)
+                    }
+                    .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
+                    .frame(minWidth: 86)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private var currentTabContent: some View {
+        switch selectedTab {
+        case .general:
+            generalTab
+        case .providers:
+            providersTab
+        case .hotkeys:
+            hotkeysTab
+        case .rulesData:
+            rulesAndDataTab
+        case .about:
+            aboutTab
+        }
+    }
+
+    private func updateLayout(for tab: SettingsTab, animate: Bool) {
+        let preferred = tab.preferredSize
+        let apply = {
+            contentWidth = preferred.width
+            contentHeight = preferred.height
+            onPreferredSizeChange?(preferred, animate)
+        }
+        if animate {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                apply()
+            }
+        } else {
+            apply()
+        }
     }
 
     private var generalTab: some View {
@@ -434,7 +543,8 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 content()
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -442,21 +552,23 @@ struct SettingsView: View {
     private func settingsCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.7)
 
             VStack(alignment: .leading, spacing: 10) {
                 content()
             }
-            .padding(14)
+            .padding(13)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 11)
                     .fill(Color(NSColor.controlBackgroundColor))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 11)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             )
         }
     }
@@ -465,6 +577,7 @@ struct SettingsView: View {
         HStack(alignment: .center, spacing: 12) {
             Text(title)
                 .font(.subheadline)
+                .frame(minWidth: 180, alignment: .leading)
 
             Spacer(minLength: 12)
 
