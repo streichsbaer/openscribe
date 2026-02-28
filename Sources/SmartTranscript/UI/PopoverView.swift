@@ -6,6 +6,7 @@ struct PopoverView: View {
     @EnvironmentObject private var shell: AppShell
     @StateObject private var playbackManager = AudioPlaybackManager()
     @AppStorage("ui.transcriptPanelsExpanded") private var expandedTextPanels = false
+    @State private var selectedRetryApproachID = "current"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -123,7 +124,34 @@ struct PopoverView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    Spacer()
+                    Spacer(minLength: 8)
+
+                    Button("Copy Raw") {
+                        shell.copyRawTranscript()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Picker("Transcriber", selection: $selectedRetryApproachID) {
+                        ForEach(retryApproaches) { approach in
+                            Text(approach.title)
+                                .tag(approach.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                    .frame(width: 220)
+
+                    Button("Re-Transcribe") {
+                        shell.retryTranscription(
+                            temporaryProviderID: selectedRetryApproach.providerID,
+                            temporaryModel: selectedRetryApproach.model
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(!canRetryTranscription)
 
                     Button(expandedTextPanels ? "Compact" : "Expand") {
                         withAnimation(.easeInOut(duration: 0.18)) {
@@ -136,9 +164,26 @@ struct PopoverView: View {
 
                 rawTranscriptPanel
 
-                Text("Polished transcript")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .center, spacing: 8) {
+                    Text("Polished transcript")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button("Copy Polished") {
+                        shell.copyLatestPolished()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button("Retry Polish") {
+                        shell.retryPolish()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(shell.rawTranscript.isEmpty)
+                }
 
                 ScrollView {
                     Text(polishedBodyText)
@@ -151,36 +196,6 @@ struct PopoverView: View {
                 .background(Color(NSColor.textBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                HStack(spacing: 8) {
-                    Button("Copy Path") {
-                        shell.copyCurrentSessionPath()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Copy Raw") {
-                        shell.copyRawTranscript()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Copy Polished") {
-                        shell.copyLatestPolished()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Spacer()
-
-                    Button("Re-Transcribe") {
-                        shell.retryTranscription()
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!canRetryTranscription)
-
-                    Button("Retry Polish") {
-                        shell.retryPolish()
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(shell.rawTranscript.isEmpty)
-                }
             }
         }
     }
@@ -363,6 +378,42 @@ struct PopoverView: View {
         }
     }
 
+    private var retryApproaches: [RetryTranscriptionApproach] {
+        let current = RetryTranscriptionApproach(
+            id: "current",
+            title: "Current (\(transcriberDisplayName(for: shell.settings.transcriptionProviderID)) / \(shell.settings.transcriptionModel))",
+            providerID: nil,
+            model: nil
+        )
+
+        return [
+            current,
+            RetryTranscriptionApproach(id: "whispercpp-base", title: "Local whisper.cpp / base", providerID: "whispercpp", model: "base"),
+            RetryTranscriptionApproach(id: "openai-gpt-4o-mini-transcribe", title: "OpenAI / gpt-4o-mini-transcribe", providerID: "openai_whisper", model: "gpt-4o-mini-transcribe"),
+            RetryTranscriptionApproach(id: "openai-gpt-4o-transcribe", title: "OpenAI / gpt-4o-transcribe", providerID: "openai_whisper", model: "gpt-4o-transcribe"),
+            RetryTranscriptionApproach(id: "openai-whisper-1", title: "OpenAI / whisper-1", providerID: "openai_whisper", model: "whisper-1"),
+            RetryTranscriptionApproach(id: "groq-whisper-large-v3", title: "Groq / whisper-large-v3", providerID: "groq_whisper", model: "whisper-large-v3"),
+            RetryTranscriptionApproach(id: "groq-whisper-large-v3-turbo", title: "Groq / whisper-large-v3-turbo", providerID: "groq_whisper", model: "whisper-large-v3-turbo")
+        ]
+    }
+
+    private var selectedRetryApproach: RetryTranscriptionApproach {
+        retryApproaches.first(where: { $0.id == selectedRetryApproachID }) ?? retryApproaches[0]
+    }
+
+    private func transcriberDisplayName(for providerID: String) -> String {
+        switch providerID {
+        case "whispercpp":
+            return "Local whisper.cpp"
+        case "openai_whisper":
+            return "OpenAI"
+        case "groq_whisper":
+            return "Groq"
+        default:
+            return providerID
+        }
+    }
+
     private var rawPlaceholderText: String {
         switch shell.sessionState {
         case .recording:
@@ -393,6 +444,13 @@ struct PopoverView: View {
     private var popoverHeight: CGFloat {
         expandedTextPanels ? 980 : 760
     }
+}
+
+private struct RetryTranscriptionApproach: Identifiable {
+    let id: String
+    let title: String
+    let providerID: String?
+    let model: String?
 }
 
 enum AVAudioSessionBridge {

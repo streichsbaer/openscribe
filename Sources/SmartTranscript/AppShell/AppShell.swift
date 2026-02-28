@@ -394,7 +394,7 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func retryTranscription() {
+    func retryTranscription(temporaryProviderID: String? = nil, temporaryModel: String? = nil) {
         Task { @MainActor [weak self] in
             guard let self,
                   var session = self.currentSession else {
@@ -408,8 +408,14 @@ final class AppShell: ObservableObject {
 
             do {
                 self.lastError = nil
-                session.metadata.sttProvider = self.settings.transcriptionProviderID
-                session.metadata.sttModel = self.settings.transcriptionModel
+                let effectiveProviderID = temporaryProviderID ?? self.settings.transcriptionProviderID
+                let effectiveModel = temporaryModel ?? self.settings.transcriptionModel
+                var retrySettings = self.settings
+                retrySettings.transcriptionProviderID = effectiveProviderID
+                retrySettings.transcriptionModel = effectiveModel
+
+                session.metadata.sttProvider = effectiveProviderID
+                session.metadata.sttModel = effectiveModel
                 session.metadata.polishProvider = self.settings.polishProviderID
                 session.metadata.polishModel = self.settings.polishModel
                 session.metadata.languageMode = self.settings.languageMode
@@ -417,7 +423,7 @@ final class AppShell: ObservableObject {
                 self.beginTranscribeProgressTracking()
                 try self.sessionManager.transition(&session, to: .transcribing, details: "Retry transcription")
 
-                let transcript = try await self.transcriptionPipeline.run(audioFileURL: session.paths.audioURL, settings: self.settings)
+                let transcript = try await self.transcriptionPipeline.run(audioFileURL: session.paths.audioURL, settings: retrySettings)
                 self.endTranscribeProgressTracking()
                 self.rawTranscript = transcript.text
                 try self.sessionManager.writeRaw(transcript.text, for: &session)
