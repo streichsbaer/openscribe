@@ -151,27 +151,7 @@ struct PopoverView: View {
                     .controlSize(.small)
                 }
 
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: Binding(
-                        get: { shell.rawTranscript },
-                        set: { shell.updateRawTranscriptFromEditor($0) }
-                    ))
-                    .font(.body)
-                    .disabled(rawEditorDisabled)
-                    .opacity(rawEditorDisabled ? 0.98 : 1)
-
-                    if shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(rawPlaceholderText)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 8)
-                            .padding(.leading, 6)
-                    }
-                }
-                .frame(height: textPanelHeight)
-                .padding(8)
-                .background(Color(NSColor.textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                rawTranscriptPanel
 
                 Text("Polished transcript")
                     .font(.subheadline)
@@ -356,6 +336,40 @@ struct PopoverView: View {
         expandedTextPanels ? 220 : 120
     }
 
+    @ViewBuilder
+    private var rawTranscriptPanel: some View {
+        if rawEditorDisabled {
+            Text(rawReadOnlyText)
+                .font(.body)
+                .foregroundStyle(shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .secondary : .primary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(height: textPanelHeight)
+            .padding(8)
+            .background(Color(NSColor.textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        } else {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: Binding(
+                    get: { shell.rawTranscript },
+                    set: { shell.updateRawTranscriptFromEditor($0) }
+                ))
+                .font(.body)
+
+                if shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(rawPlaceholderText)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                        .padding(.leading, 6)
+                }
+            }
+            .frame(height: textPanelHeight)
+            .padding(8)
+            .background(Color(NSColor.textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
     private var canRetryTranscription: Bool {
         guard let session = shell.currentSession else {
             return false
@@ -389,6 +403,14 @@ struct PopoverView: View {
         case .idle, .polishing, .completed, .failed:
             return "Raw transcript will appear here."
         }
+    }
+
+    private var rawReadOnlyText: String {
+        let trimmed = shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return rawPlaceholderText
+        }
+        return shell.rawTranscript
     }
 
     private var popoverWidth: CGFloat {
