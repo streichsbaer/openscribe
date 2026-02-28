@@ -9,6 +9,8 @@ final class StatusBarController: NSObject {
         case working
         case paused
         case noAudio
+        case transcribing
+        case polishing
     }
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -184,30 +186,31 @@ final class StatusBarController: NSObject {
 
     private func reevaluateMicIconState() {
         var silenceDuration: TimeInterval = 0
+        switch currentSessionState {
+        case .recording:
+            if currentPermissionState != .authorized {
+                iconState = .noAudio
+                updateIconAppearance()
+                publishDebug(silenceDuration: silenceDuration)
+                return
+            }
 
-        if currentSessionState != .recording {
+            silenceDuration = Date().timeIntervalSince(lastDetectedActivityAt ?? .distantPast)
+            if silenceDuration <= activityHoldSeconds {
+                iconState = .working
+                updateIconAppearance()
+                publishDebug(silenceDuration: silenceDuration)
+                return
+            }
+
+            iconState = silenceDuration >= noAudioTimeoutSeconds ? .noAudio : .paused
+        case .finalizingAudio, .transcribing:
+            iconState = .transcribing
+        case .polishing:
+            iconState = .polishing
+        case .idle, .completed, .failed:
             iconState = .idle
-            updateIconAppearance()
-            publishDebug(silenceDuration: silenceDuration)
-            return
         }
-
-        if currentPermissionState != .authorized {
-            iconState = .noAudio
-            updateIconAppearance()
-            publishDebug(silenceDuration: silenceDuration)
-            return
-        }
-
-        silenceDuration = Date().timeIntervalSince(lastDetectedActivityAt ?? .distantPast)
-        if silenceDuration <= activityHoldSeconds {
-            iconState = .working
-            updateIconAppearance()
-            publishDebug(silenceDuration: silenceDuration)
-            return
-        }
-
-        iconState = silenceDuration >= noAudioTimeoutSeconds ? .noAudio : .paused
         updateIconAppearance()
         publishDebug(silenceDuration: silenceDuration)
     }
@@ -228,7 +231,7 @@ final class StatusBarController: NSObject {
         }
 
         button.image = image
-        button.contentTintColor = nil
+        button.contentTintColor = tintColor(for: state, blinkPhase: blinkPhase)
         button.title = ""
     }
 
@@ -239,46 +242,57 @@ final class StatusBarController: NSObject {
         defer { image.unlockFocus() }
 
         let bounds = NSRect(origin: .zero, size: size).insetBy(dx: 1.25, dy: 1.25)
-        let strokeColor: NSColor
-        let fillColor: NSColor
-        let barColor: NSColor
+        let strokeAlpha: CGFloat
+        let fillAlpha: CGFloat
+        let barAlpha: CGFloat
         let barProfile: [CGFloat]
         let drawSlash: Bool
 
         switch state {
         case .idle:
-            strokeColor = NSColor.labelColor.withAlphaComponent(0.9)
-            fillColor = NSColor.labelColor.withAlphaComponent(0.08)
-            barColor = NSColor.labelColor.withAlphaComponent(0.75)
+            strokeAlpha = 0.90
+            fillAlpha = 0.08
+            barAlpha = 0.75
             barProfile = [0.24, 0.42, 0.24]
             drawSlash = false
         case .working:
-            let activeGreen = blinkPhase ? NSColor.systemGreen : NSColor.systemGreen.withAlphaComponent(0.45)
-            strokeColor = activeGreen
-            fillColor = activeGreen.withAlphaComponent(0.14)
-            barColor = activeGreen
+            strokeAlpha = 1.00
+            fillAlpha = 0.14
+            barAlpha = 1.00
             barProfile = blinkPhase ? [0.55, 0.90, 0.65] : [0.40, 0.70, 0.50]
             drawSlash = false
         case .paused:
-            let pausedColor = blinkPhase ? NSColor.systemGreen : NSColor.systemGray
-            strokeColor = pausedColor
-            fillColor = pausedColor.withAlphaComponent(0.12)
-            barColor = pausedColor
+            strokeAlpha = blinkPhase ? 1.00 : 0.70
+            fillAlpha = 0.12
+            barAlpha = blinkPhase ? 0.96 : 0.58
             barProfile = [0.22, 0.52, 0.22]
             drawSlash = false
         case .noAudio:
-            strokeColor = NSColor.systemRed
-            fillColor = NSColor.systemRed.withAlphaComponent(0.14)
-            barColor = NSColor.systemRed
+            strokeAlpha = 1.00
+            fillAlpha = 0.14
+            barAlpha = 0.80
             barProfile = [0.22, 0.22, 0.22]
             drawSlash = true
+        case .transcribing:
+            strokeAlpha = 1.00
+            fillAlpha = 0.13
+            barAlpha = 0.96
+            barProfile = blinkPhase ? [0.30, 0.88, 0.45] : [0.55, 0.36, 0.82]
+            drawSlash = false
+        case .polishing:
+            strokeAlpha = 1.00
+            fillAlpha = 0.13
+            barAlpha = 0.96
+            barProfile = blinkPhase ? [0.82, 0.42, 0.64] : [0.38, 0.86, 0.48]
+            drawSlash = false
         }
 
-        fillColor.setFill()
+        let baseColor = NSColor.labelColor
+        baseColor.withAlphaComponent(fillAlpha).setFill()
         let outerCircle = NSBezierPath(ovalIn: bounds)
         outerCircle.fill()
 
-        strokeColor.setStroke()
+        baseColor.withAlphaComponent(strokeAlpha).setStroke()
         outerCircle.lineWidth = 1.3
         outerCircle.stroke()
 
@@ -288,7 +302,7 @@ final class StatusBarController: NSObject {
         let totalSpacing = spacing * CGFloat(max(0, barCount - 1))
         let barWidth = max(1.6, (innerRect.width - totalSpacing) / CGFloat(barCount))
 
-        barColor.setFill()
+        baseColor.withAlphaComponent(barAlpha).setFill()
         for index in 0..<barCount {
             let normalizedHeight = min(max(barProfile[index], 0.12), 1.0)
             let height = max(1.6, innerRect.height * normalizedHeight)
@@ -304,12 +318,29 @@ final class StatusBarController: NSObject {
             slash.move(to: CGPoint(x: bounds.minX + 2.0, y: bounds.maxY - 2.0))
             slash.line(to: CGPoint(x: bounds.maxX - 2.0, y: bounds.minY + 2.0))
             slash.lineWidth = 2.0
-            strokeColor.setStroke()
+            baseColor.withAlphaComponent(strokeAlpha).setStroke()
             slash.stroke()
         }
 
-        image.isTemplate = false
+        image.isTemplate = true
         return image
+    }
+
+    private func tintColor(for state: MicIconState, blinkPhase: Bool) -> NSColor? {
+        switch state {
+        case .idle:
+            return nil
+        case .working:
+            return NSColor.systemGreen
+        case .paused:
+            return blinkPhase ? NSColor.systemGreen : NSColor.systemGray
+        case .noAudio:
+            return NSColor.systemRed
+        case .transcribing:
+            return blinkPhase ? NSColor.systemOrange : NSColor.systemOrange.withAlphaComponent(0.65)
+        case .polishing:
+            return blinkPhase ? NSColor.systemBlue : NSColor.systemBlue.withAlphaComponent(0.65)
+        }
     }
 
     private func updateNoiseFloor(using level: Float) {
@@ -347,6 +378,10 @@ final class StatusBarController: NSObject {
             return "paused"
         case .noAudio:
             return "no-audio"
+        case .transcribing:
+            return "transcribing"
+        case .polishing:
+            return "polishing"
         }
     }
 }
