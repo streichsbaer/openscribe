@@ -95,6 +95,10 @@ final class RulesStore: ObservableObject {
     ## Style
     - Keep punctuation clean and spacing normalized.
     - Keep headings and lists in valid Markdown.
+    - Do not use em dashes.
+    - Do not use contrastive negation phrasing like "it is not X, it is Y."
+    - Remove filler words by default while preserving meaning.
+    - Remove described background audio/noises like "(keyboard clicking)" unless they are contextually relevant.
     - Do not invent facts.
 
     ## Glossary
