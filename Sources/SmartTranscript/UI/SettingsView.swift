@@ -113,22 +113,22 @@ struct SettingsView: View {
                 Button {
                     selectedTab = tab
                 } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: tab.symbol)
-                            .font(.system(size: 14, weight: .medium))
-                        Text(tab.title)
-                            .font(.caption)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
+
+                        VStack(spacing: 4) {
+                            Image(systemName: tab.symbol)
+                                .font(.system(size: 14, weight: .medium))
+                            Text(tab.title)
+                                .font(.caption)
+                        }
+                        .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
                     }
-                    .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(width: 98, height: 48)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .frame(width: 98, height: 48)
-                .contentShape(RoundedRectangle(cornerRadius: 10))
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
-                )
             }
 
             Spacer(minLength: 0)
