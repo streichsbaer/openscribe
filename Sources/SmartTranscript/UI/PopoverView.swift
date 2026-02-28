@@ -307,7 +307,7 @@ struct PopoverView: View {
         case .transcribing:
             stateChipLabel("Transcribing \(formattedDuration(shell.transcribeElapsedSeconds))", color: .orange)
         case .polishing:
-            stateChipLabel("Polishing \(formattedDuration(shell.polishElapsedSeconds))", color: .blue)
+            stateChipLabel("Polishing \(formattedDuration(shell.polishElapsedSeconds))", color: .pink)
         default:
             stateChipLabel(shell.sessionState.rawValue.capitalized, color: stateChipColor)
         }
@@ -331,7 +331,7 @@ struct PopoverView: View {
         case .transcribing, .finalizingAudio:
             return .orange
         case .polishing:
-            return .blue
+            return .pink
         case .failed:
             return .red
         case .completed:

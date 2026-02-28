@@ -355,7 +355,7 @@ final class StatusBarController: NSObject {
         case .transcribing:
             return adjustedAccentColor(NSColor.systemOrange, blinkPhase: blinkPhase)
         case .polishing:
-            return adjustedAccentColor(NSColor.systemBlue, blinkPhase: blinkPhase)
+            return adjustedAccentColor(NSColor.systemPink, blinkPhase: blinkPhase)
         }
     }
 
