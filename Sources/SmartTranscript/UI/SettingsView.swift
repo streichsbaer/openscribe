@@ -278,6 +278,18 @@ struct SettingsView: View {
             }
 
             settingsCard("POLISH") {
+                settingRow("Enable polish") {
+                    Toggle("", isOn: Binding(
+                        get: { shell.settings.polishEnabled },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.polishEnabled = newValue
+                            }
+                        }
+                    ))
+                    .labelsHidden()
+                }
+
                 settingRow("Provider") {
                     Picker("", selection: Binding(
                         get: { shell.settings.polishProviderID },
@@ -298,6 +310,7 @@ struct SettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .frame(width: 300)
+                    .disabled(!shell.settings.polishEnabled)
                 }
 
                 settingRow("Model") {
@@ -316,6 +329,13 @@ struct SettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .frame(width: 300)
+                    .disabled(!shell.settings.polishEnabled)
+                }
+
+                if !shell.settings.polishEnabled {
+                    Text("Polish is disabled. Sessions will keep raw and polished files, with polished text set to raw transcript.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -483,7 +503,9 @@ struct SettingsView: View {
             }
 
             settingsCard("LOCAL MODELS") {
-                Text("Installed: \(shell.modelManager.installedModels().joined(separator: ", "))")
+                let modelCatalog = shell.modelManager.catalog
+
+                Text("Total disk usage: \(formattedFileSize(shell.modelManager.totalInstalledSizeBytes()))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -491,19 +513,42 @@ struct SettingsView: View {
                     ProgressView("Downloading \(active)", value: shell.modelManager.progress)
                 }
 
-                HStack(spacing: 8) {
-                    Button("Install selected model") {
-                        shell.downloadDefaultModelIfNeeded()
-                    }
-                    .buttonStyle(.borderedProminent)
+                ForEach(modelCatalog, id: \ModelAsset.id) { (asset: ModelAsset) in
+                    let isInstalled = shell.modelManager.isInstalled(modelID: asset.id)
+                    let sizeBytes = isInstalled
+                        ? shell.modelManager.installedSizeBytes(modelID: asset.id)
+                        : asset.expectedSizeBytes
 
-                    Button("Remove selected model") {
-                        let modelID = shell.settings.transcriptionModel
-                        try? shell.modelManager.remove(modelID: modelID)
-                        shell.objectWillChange.send()
+                    HStack(alignment: .center, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(asset.displayName)
+                                .font(.subheadline.weight(.semibold))
+                            Text(isInstalled ? "Installed · \(formattedFileSize(sizeBytes))" : "Not installed · \(formattedFileSize(sizeBytes))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if isInstalled {
+                            Button("Delete") {
+                                shell.removeWhisperModel(asset.id)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(shell.modelManager.activeDownloadModelID != nil)
+                        } else {
+                            Button("Download") {
+                                shell.installWhisperModel(asset.id)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(shell.modelManager.activeDownloadModelID != nil)
+                        }
                     }
-                    .buttonStyle(.bordered)
                 }
+
+                Text("If local transcription is selected and the model is missing, SmartTranscript auto-downloads it before transcription starts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             settingsCard("STORAGE") {
@@ -641,6 +686,10 @@ struct SettingsView: View {
 
     private var appBuild: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
+    }
+
+    private func formattedFileSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     private func transcriptionModels(for provider: String) -> [String] {

@@ -108,6 +108,7 @@ struct HotkeySetting: Codable, Equatable {
 struct AppSettings: Codable, Equatable {
     var transcriptionProviderID: String
     var transcriptionModel: String
+    var polishEnabled: Bool
     var polishProviderID: String
     var polishModel: String
     var languageMode: String
@@ -119,6 +120,7 @@ struct AppSettings: Codable, Equatable {
     static let `default` = AppSettings(
         transcriptionProviderID: "whispercpp",
         transcriptionModel: "base",
+        polishEnabled: true,
         polishProviderID: "openai_polish",
         polishModel: "gpt-5-mini",
         languageMode: "auto",
@@ -129,7 +131,7 @@ struct AppSettings: Codable, Equatable {
     )
 }
 
-struct ModelAsset: Codable, Equatable {
+struct ModelAsset: Codable, Equatable, Identifiable {
     let id: String
     let displayName: String
     let downloadURL: URL

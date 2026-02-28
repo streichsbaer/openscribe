@@ -301,6 +301,7 @@ final class AppShell: ObservableObject {
             try sessionManager.finalizeAudioFile(&session)
             try sessionManager.stopSession(&session)
 
+            try await ensureLocalModelInstalledIfNeeded(using: settings)
             sessionState = .transcribing
             beginTranscribeProgressTracking()
             try sessionManager.transition(&session, to: .transcribing, details: "Running transcription")
@@ -312,41 +313,51 @@ final class AppShell: ObservableObject {
             rawTranscriptModel = transcript.model
             try sessionManager.writeRaw(transcript.text, for: &session)
 
-            do {
-                sessionState = .polishing
-                beginPolishProgressTracking()
-                try sessionManager.transition(&session, to: .polishing, details: "Running polish")
+            if settings.polishEnabled {
+                do {
+                    sessionState = .polishing
+                    beginPolishProgressTracking()
+                    try sessionManager.transition(&session, to: .polishing, details: "Running polish")
 
-                let rules = try rulesStore.load()
-                let polished = try await polishPipeline.run(
-                    rawText: transcript.text,
-                    rulesMarkdown: rules,
-                    settings: settings
-                )
+                    let rules = try rulesStore.load()
+                    let polished = try await polishPipeline.run(
+                        rawText: transcript.text,
+                        rulesMarkdown: rules,
+                        settings: settings
+                    )
 
-                polishedTranscript = polished.markdown
-                latestPolishedTranscript = polished.markdown
-                polishedTranscriptProviderID = polished.providerId
-                polishedTranscriptModel = polished.model
-                try sessionManager.writePolished(polished.markdown, for: &session)
+                    polishedTranscript = polished.markdown
+                    latestPolishedTranscript = polished.markdown
+                    polishedTranscriptProviderID = polished.providerId
+                    polishedTranscriptModel = polished.model
+                    try sessionManager.writePolished(polished.markdown, for: &session)
 
-                if settings.copyOnComplete {
-                    let clipboardText = normalizedClipboardText(polished.markdown)
-                    if !clipboardText.isEmpty {
-                        Clipboard.copy(text: clipboardText)
+                    if settings.copyOnComplete {
+                        let clipboardText = normalizedClipboardText(polished.markdown)
+                        if !clipboardText.isEmpty {
+                            Clipboard.copy(text: clipboardText)
+                        }
+                        statusMessage = "Polished transcript copied"
+                    } else {
+                        statusMessage = "Transcription complete"
                     }
-                    statusMessage = "Polished transcript copied"
-                } else {
-                    statusMessage = "Transcription complete"
+                    endPolishProgressTracking()
+                } catch {
+                    polishedTranscript = ""
+                    polishedTranscriptProviderID = ""
+                    polishedTranscriptModel = ""
+                    statusMessage = "Raw transcript ready. Polish failed or needs API key."
+                    lastError = error.localizedDescription
+                    endPolishProgressTracking()
                 }
-                endPolishProgressTracking()
-            } catch {
-                polishedTranscript = ""
-                polishedTranscriptProviderID = ""
-                polishedTranscriptModel = ""
-                statusMessage = "Raw transcript ready. Polish failed or needs API key."
-                lastError = error.localizedDescription
-                endPolishProgressTracking()
+            } else {
+                try completeWithoutPolish(
+                    rawText: transcript.text,
+                    session: &session,
+                    copyOnComplete: settings.copyOnComplete,
+                    completionMessage: "Transcription complete",
+                    copiedMessage: "Transcript copied (polish disabled)"
+                )
             }
 
             try sessionManager.transition(&session, to: .completed, details: "Session complete")
@@ -368,6 +379,11 @@ final class AppShell: ObservableObject {
             guard let self,
                   var session = self.currentSession,
                   !self.rawTranscript.isEmpty else {
+                return
+            }
+
+            guard self.settings.polishEnabled else {
+                self.statusMessage = "Polish is disabled in Settings."
                 return
             }
 
@@ -436,9 +452,10 @@ final class AppShell: ObservableObject {
 
                 session.metadata.sttProvider = effectiveProviderID
                 session.metadata.sttModel = effectiveModel
-                session.metadata.polishProvider = self.settings.polishProviderID
-                session.metadata.polishModel = self.settings.polishModel
+                session.metadata.polishProvider = self.settings.polishEnabled ? self.settings.polishProviderID : "disabled"
+                session.metadata.polishModel = self.settings.polishEnabled ? self.settings.polishModel : "passthrough"
                 session.metadata.languageMode = self.settings.languageMode
+                try await self.ensureLocalModelInstalledIfNeeded(using: retrySettings)
                 self.sessionState = .transcribing
                 self.beginTranscribeProgressTracking()
                 try self.sessionManager.transition(&session, to: .transcribing, details: "Retry transcription")
@@ -450,38 +467,48 @@ final class AppShell: ObservableObject {
                 self.rawTranscriptModel = transcript.model
                 try self.sessionManager.writeRaw(transcript.text, for: &session)
 
-                do {
-                    self.sessionState = .polishing
-                    self.beginPolishProgressTracking()
-                    try self.sessionManager.transition(&session, to: .polishing, details: "Polish after re-transcription")
+                if self.settings.polishEnabled {
+                    do {
+                        self.sessionState = .polishing
+                        self.beginPolishProgressTracking()
+                        try self.sessionManager.transition(&session, to: .polishing, details: "Polish after re-transcription")
 
-                    let rules = try self.rulesStore.load()
-                    let polished = try await self.polishPipeline.run(
-                        rawText: transcript.text,
-                        rulesMarkdown: rules,
-                        settings: self.settings
-                    )
+                        let rules = try self.rulesStore.load()
+                        let polished = try await self.polishPipeline.run(
+                            rawText: transcript.text,
+                            rulesMarkdown: rules,
+                            settings: self.settings
+                        )
 
-                    self.polishedTranscript = polished.markdown
-                    self.latestPolishedTranscript = polished.markdown
-                    self.polishedTranscriptProviderID = polished.providerId
-                    self.polishedTranscriptModel = polished.model
-                    try self.sessionManager.writePolished(polished.markdown, for: &session)
+                        self.polishedTranscript = polished.markdown
+                        self.latestPolishedTranscript = polished.markdown
+                        self.polishedTranscriptProviderID = polished.providerId
+                        self.polishedTranscriptModel = polished.model
+                        try self.sessionManager.writePolished(polished.markdown, for: &session)
 
-                    if self.settings.copyOnComplete {
-                        let clipboardText = self.normalizedClipboardText(polished.markdown)
-                        if !clipboardText.isEmpty {
-                            Clipboard.copy(text: clipboardText)
+                        if self.settings.copyOnComplete {
+                            let clipboardText = self.normalizedClipboardText(polished.markdown)
+                            if !clipboardText.isEmpty {
+                                Clipboard.copy(text: clipboardText)
+                            }
                         }
+                        self.endPolishProgressTracking()
+                    } catch {
+                        self.polishedTranscript = ""
+                        self.polishedTranscriptProviderID = ""
+                        self.polishedTranscriptModel = ""
+                        self.lastError = error.localizedDescription
+                        self.statusMessage = "Re-transcription complete. Polish failed."
+                        self.endPolishProgressTracking()
                     }
-                    self.endPolishProgressTracking()
-                } catch {
-                    self.polishedTranscript = ""
-                    self.polishedTranscriptProviderID = ""
-                    self.polishedTranscriptModel = ""
-                    self.lastError = error.localizedDescription
-                    self.statusMessage = "Re-transcription complete. Polish failed."
-                    self.endPolishProgressTracking()
+                } else {
+                    try self.completeWithoutPolish(
+                        rawText: transcript.text,
+                        session: &session,
+                        copyOnComplete: self.settings.copyOnComplete,
+                        completionMessage: "Re-transcription complete",
+                        copiedMessage: "Transcript copied (polish disabled)"
+                    )
                 }
 
                 try self.sessionManager.transition(&session, to: .completed, details: "Re-transcription complete")
@@ -528,6 +555,30 @@ final class AppShell: ObservableObject {
                 self.lastError = error.localizedDescription
                 self.statusMessage = "Failed to download model"
             }
+        }
+    }
+
+    func installWhisperModel(_ modelID: String) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                _ = try await self.modelManager.ensureInstalled(modelID: modelID)
+                self.statusMessage = "Model \(modelID) installed"
+            } catch {
+                self.lastError = error.localizedDescription
+                self.statusMessage = "Failed to download model"
+            }
+        }
+    }
+
+    func removeWhisperModel(_ modelID: String) {
+        do {
+            try modelManager.remove(modelID: modelID)
+            objectWillChange.send()
+            statusMessage = "Model \(modelID) removed"
+        } catch {
+            lastError = error.localizedDescription
+            statusMessage = "Failed to remove model"
         }
     }
 
@@ -625,6 +676,45 @@ final class AppShell: ObservableObject {
             return
         }
         NSWorkspace.shared.open(url)
+    }
+
+    private func ensureLocalModelInstalledIfNeeded(using settings: AppSettings) async throws {
+        guard settings.transcriptionProviderID == "whispercpp" else {
+            return
+        }
+        let modelID = settings.transcriptionModel
+        guard !modelManager.isInstalled(modelID: modelID) else {
+            return
+        }
+
+        statusMessage = "Downloading local model \(modelID)..."
+        _ = try await modelManager.ensureInstalled(modelID: modelID)
+    }
+
+    private func completeWithoutPolish(
+        rawText: String,
+        session: inout SessionContext,
+        copyOnComplete: Bool,
+        completionMessage: String,
+        copiedMessage: String
+    ) throws {
+        polishedTranscript = rawText
+        latestPolishedTranscript = rawText
+        polishedTranscriptProviderID = "disabled"
+        polishedTranscriptModel = "passthrough"
+        session.metadata.polishProvider = "disabled"
+        session.metadata.polishModel = "passthrough"
+        try sessionManager.writePolished(rawText, for: &session)
+
+        if copyOnComplete {
+            let clipboardText = normalizedClipboardText(rawText)
+            if !clipboardText.isEmpty {
+                Clipboard.copy(text: clipboardText)
+            }
+            statusMessage = copiedMessage
+        } else {
+            statusMessage = completionMessage
+        }
     }
 
     private func beginPolishProgressTracking() {

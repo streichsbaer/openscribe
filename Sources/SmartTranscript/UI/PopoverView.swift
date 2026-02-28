@@ -225,13 +225,14 @@ struct PopoverView: View {
                         .pickerStyle(.menu)
                         .controlSize(.small)
                         .fixedSize(horizontal: true, vertical: false)
+                        .disabled(!shell.settings.polishEnabled)
 
                         Button("Re-Polish") {
                             shell.retryPolish(temporaryModel: selectedRetryPolishModel)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
-                        .disabled(shell.rawTranscript.isEmpty)
+                        .disabled(shell.rawTranscript.isEmpty || !shell.settings.polishEnabled)
 
                         Button {
                             shell.copyLatestPolished()
@@ -502,6 +503,9 @@ struct PopoverView: View {
     }
 
     private var retryPolishModels: [String] {
+        if !shell.settings.polishEnabled {
+            return [shell.settings.polishModel]
+        }
         switch shell.settings.polishProviderID {
         case "openai_polish":
             return ["gpt-5-mini"]

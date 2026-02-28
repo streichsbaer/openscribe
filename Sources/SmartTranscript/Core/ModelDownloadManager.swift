@@ -72,6 +72,21 @@ final class ModelDownloadManager: ObservableObject {
         }
     }
 
+    func installedSizeBytes(modelID: String) -> Int64 {
+        let url = localPath(for: modelID)
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+              let size = values.fileSize else {
+            return 0
+        }
+        return Int64(size)
+    }
+
+    func totalInstalledSizeBytes() -> Int64 {
+        installedModels().reduce(0) { partial, modelID in
+            partial + installedSizeBytes(modelID: modelID)
+        }
+    }
+
     @MainActor
     func ensureInstalled(modelID: String) async throws -> URL {
         let destination = localPath(for: modelID)
