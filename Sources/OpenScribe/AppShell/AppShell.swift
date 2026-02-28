@@ -173,10 +173,13 @@ final class AppShell: ObservableObject {
     func toggleRecording() {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            if self.sessionState == .recording {
+            switch self.sessionState {
+            case .recording:
                 await self.stopRecordingAndProcess()
-            } else {
+            case .idle, .completed, .failed:
                 await self.startRecording()
+            case .finalizingAudio, .transcribing, .polishing:
+                self.statusMessage = "\(self.sessionState.displayLabel) in progress"
             }
         }
     }
@@ -245,7 +248,8 @@ final class AppShell: ObservableObject {
     }
 
     func startRecording() async {
-        if sessionState == .recording {
+        guard canStartRecording else {
+            statusMessage = "\(sessionState.displayLabel) in progress"
             return
         }
 
@@ -287,6 +291,15 @@ final class AppShell: ObservableObject {
             lastError = error.localizedDescription
             statusMessage = "Failed to start recording"
             sessionState = .failed
+        }
+    }
+
+    private var canStartRecording: Bool {
+        switch sessionState {
+        case .idle, .completed, .failed:
+            return true
+        case .recording, .finalizingAudio, .transcribing, .polishing:
+            return false
         }
     }
 
