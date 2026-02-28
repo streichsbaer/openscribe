@@ -53,7 +53,7 @@ private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         case .providers:
             return CGSize(width: 860, height: 700)
         case .hotkeys:
-            return CGSize(width: 760, height: 640)
+            return CGSize(width: 860, height: 700)
         case .rules:
             return CGSize(width: 920, height: 760)
         case .data:
@@ -69,8 +69,11 @@ struct SettingsView: View {
     @State private var selectedTab = SettingsTab.general
     @State private var contentWidth = SettingsTab.general.preferredSize.width
     @State private var contentHeight = SettingsTab.general.preferredSize.height
+    @State private var pendingLocalModelAction: LocalModelAction?
+    @State private var showDeleteAppSupportConfirmation = false
     @AppStorage("ui.transcriptPanelsExpanded") private var transcriptPanelsExpanded = false
     private let onPreferredSizeChange: ((CGSize, Bool) -> Void)?
+    private let providerPickerWidth: CGFloat = 240
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
@@ -109,6 +112,49 @@ struct SettingsView: View {
         }
         .onChange(of: selectedTab) { _, newValue in
             updateLayout(for: newValue, animate: true)
+        }
+        .confirmationDialog(
+            pendingLocalModelAction?.dialogTitle ?? "Confirm",
+            isPresented: Binding(
+                get: { pendingLocalModelAction != nil },
+                set: { newValue in
+                    if !newValue {
+                        pendingLocalModelAction = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingLocalModelAction
+        ) { action in
+            switch action {
+            case .download(let modelID, _):
+                Button("Download") {
+                    shell.installWhisperModel(modelID)
+                    pendingLocalModelAction = nil
+                }
+            case .delete(let modelID, _):
+                Button("Delete", role: .destructive) {
+                    shell.removeWhisperModel(modelID)
+                    pendingLocalModelAction = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingLocalModelAction = nil
+            }
+        } message: { action in
+            Text(action.dialogMessage)
+        }
+        .confirmationDialog(
+            "Delete App Support Data",
+            isPresented: $showDeleteAppSupportConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                shell.moveAppSupportToTrash()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This moves SmartTranscript local sessions, models, rules, and settings to Trash.")
         }
     }
 
@@ -244,7 +290,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 300)
+                    .frame(width: providerPickerWidth, alignment: .trailing)
                 }
 
                 settingRow("Model") {
@@ -262,7 +308,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 300)
+                    .frame(width: providerPickerWidth, alignment: .trailing)
                 }
 
                 settingRow("Language") {
@@ -282,7 +328,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 300)
+                    .frame(width: providerPickerWidth, alignment: .trailing)
                 }
             }
 
@@ -318,7 +364,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 300)
+                    .frame(width: providerPickerWidth, alignment: .trailing)
                     .disabled(!shell.settings.polishEnabled)
                 }
 
@@ -337,7 +383,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 300)
+                    .frame(width: providerPickerWidth, alignment: .trailing)
                     .disabled(!shell.settings.polishEnabled)
                 }
 
@@ -545,13 +591,13 @@ struct SettingsView: View {
 
                         if isInstalled {
                             Button("Delete") {
-                                shell.removeWhisperModel(asset.id)
+                                pendingLocalModelAction = .delete(modelID: asset.id, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.bordered)
                             .disabled(shell.modelManager.activeDownloadModelID != nil)
                         } else {
                             Button("Download") {
-                                shell.installWhisperModel(asset.id)
+                                pendingLocalModelAction = .download(modelID: asset.id, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(shell.modelManager.activeDownloadModelID != nil)
@@ -579,8 +625,10 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Button("Move App Support to Trash") {
-                        shell.moveAppSupportToTrash()
+                    Spacer(minLength: 8)
+
+                    Button("Delete") {
+                        showDeleteAppSupportConfirmation = true
                     }
                     .buttonStyle(.bordered)
                 }
@@ -746,6 +794,29 @@ struct SettingsView: View {
             return "Microphone permission: denied"
         case .undetermined:
             return "Microphone permission: not requested"
+        }
+    }
+}
+
+private enum LocalModelAction: Equatable {
+    case download(modelID: String, sizeBytes: Int64)
+    case delete(modelID: String, sizeBytes: Int64)
+
+    var dialogTitle: String {
+        switch self {
+        case .download:
+            return "Download Local Model"
+        case .delete:
+            return "Delete Local Model"
+        }
+    }
+
+    var dialogMessage: String {
+        switch self {
+        case .download(let modelID, let sizeBytes):
+            return "Download model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
+        case .delete(let modelID, let sizeBytes):
+            return "Delete model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
         }
     }
 }
