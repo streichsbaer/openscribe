@@ -107,6 +107,8 @@ struct SettingsView: View {
 
     private var tabHeader: some View {
         HStack(spacing: 8) {
+            Spacer(minLength: 0)
+
             ForEach(SettingsTab.allCases) { tab in
                 Button {
                     selectedTab = tab
@@ -118,18 +120,20 @@ struct SettingsView: View {
                             .font(.caption)
                     }
                     .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
-                    .frame(minWidth: 86)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
-                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .buttonStyle(.plain)
+                .frame(width: 98, height: 48)
+                .contentShape(RoundedRectangle(cornerRadius: 10))
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
+                )
             }
 
             Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     @ViewBuilder
