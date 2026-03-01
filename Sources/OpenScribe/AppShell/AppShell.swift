@@ -47,6 +47,8 @@ struct ProviderConnectivityStatus: Equatable {
 
 @MainActor
 final class AppShell: ObservableObject {
+    private static let autoPasteOnCompleteDefaultsKey = "behavior.autoPasteOnComplete"
+
     @Published var meterLevel: Float = 0
     @Published var permissionState: MicrophonePermissionState = .undetermined
     @Published var sessionState: SessionState = .idle
@@ -75,6 +77,11 @@ final class AppShell: ObservableObject {
     @Published var polishElapsedSeconds: Int = 0
     @Published private(set) var providerModelsByBackend: [String: [String]] = [:]
     @Published private(set) var providerConnectivityByBackend: [String: ProviderConnectivityStatus] = [:]
+    @Published var autoPasteOnComplete: Bool {
+        didSet {
+            userDefaults.set(autoPasteOnComplete, forKey: Self.autoPasteOnCompleteDefaultsKey)
+        }
+    }
 
     var openSettingsWindowHandler: (() -> Void)?
     var updatePopoverSizeHandler: ((CGSize) -> Void)?
@@ -92,6 +99,7 @@ final class AppShell: ObservableObject {
     private let providerFactory: ProviderFactory
     private let transcriptionPipeline: TranscriptionPipeline
     private let polishPipeline: PolishPipeline
+    private let userDefaults: UserDefaults
     private var transcribeTimer: Timer?
     private var transcribeStartedAt: Date?
     private var polishTimer: Timer?
@@ -126,6 +134,8 @@ final class AppShell: ObservableObject {
         self.providerFactory = factory
         self.transcriptionPipeline = TranscriptionPipeline(providerFactory: factory)
         self.polishPipeline = PolishPipeline(providerFactory: factory)
+        self.userDefaults = .standard
+        self.autoPasteOnComplete = userDefaults.object(forKey: Self.autoPasteOnCompleteDefaultsKey) as? Bool ?? false
 
         self.rulesDraft = rulesStore.currentRules
         self.permissionState = audioCapture.permissionState()
@@ -425,15 +435,12 @@ final class AppShell: ObservableObject {
                     polishedTranscriptModel = polished.model
                     try sessionManager.writePolished(polished.markdown, for: &session)
 
-                    if settings.copyOnComplete {
-                        let clipboardText = normalizedClipboardText(polished.markdown)
-                        if !clipboardText.isEmpty {
-                            Clipboard.copy(text: clipboardText)
-                        }
-                        statusMessage = "Polished transcript copied"
-                    } else {
-                        statusMessage = "Transcription complete"
-                    }
+                    deliverOutput(
+                        polished.markdown,
+                        completionMessage: "Transcription complete",
+                        copiedMessage: "Polished transcript copied",
+                        pastedMessage: "Polished transcript pasted"
+                    )
                     endPolishProgressTracking()
                 } catch {
                     polishedTranscript = ""
@@ -447,9 +454,9 @@ final class AppShell: ObservableObject {
                 try completeWithoutPolish(
                     rawText: transcript.text,
                     session: &session,
-                    copyOnComplete: settings.copyOnComplete,
                     completionMessage: "Transcription complete",
-                    copiedMessage: "Transcript copied (polish disabled)"
+                    copiedMessage: "Transcript copied (polish disabled)",
+                    pastedMessage: "Transcript pasted (polish disabled)"
                 )
             }
 
@@ -506,13 +513,12 @@ final class AppShell: ObservableObject {
                 self.sessionState = .completed
                 self.currentSession = session
 
-                if self.settings.copyOnComplete {
-                    let clipboardText = self.normalizedClipboardText(polished.markdown)
-                    if !clipboardText.isEmpty {
-                        Clipboard.copy(text: clipboardText)
-                    }
-                }
-                self.statusMessage = "Polish retry complete"
+                self.deliverOutput(
+                    polished.markdown,
+                    completionMessage: "Polish retry complete",
+                    copiedMessage: "Polished transcript copied",
+                    pastedMessage: "Polished transcript pasted"
+                )
                 self.endPolishProgressTracking()
             } catch {
                 self.lastError = error.localizedDescription
@@ -579,12 +585,12 @@ final class AppShell: ObservableObject {
                         self.polishedTranscriptModel = polished.model
                         try self.sessionManager.writePolished(polished.markdown, for: &session)
 
-                        if self.settings.copyOnComplete {
-                            let clipboardText = self.normalizedClipboardText(polished.markdown)
-                            if !clipboardText.isEmpty {
-                                Clipboard.copy(text: clipboardText)
-                            }
-                        }
+                        self.deliverOutput(
+                            polished.markdown,
+                            completionMessage: "Re-transcription complete",
+                            copiedMessage: "Polished transcript copied",
+                            pastedMessage: "Polished transcript pasted"
+                        )
                         self.endPolishProgressTracking()
                     } catch {
                         self.polishedTranscript = ""
@@ -598,18 +604,15 @@ final class AppShell: ObservableObject {
                     try self.completeWithoutPolish(
                         rawText: transcript.text,
                         session: &session,
-                        copyOnComplete: self.settings.copyOnComplete,
                         completionMessage: "Re-transcription complete",
-                        copiedMessage: "Transcript copied (polish disabled)"
+                        copiedMessage: "Transcript copied (polish disabled)",
+                        pastedMessage: "Transcript pasted (polish disabled)"
                     )
                 }
 
                 try self.sessionManager.transition(&session, to: .completed, details: "Re-transcription complete")
                 self.sessionState = .completed
                 self.currentSession = session
-                if self.lastError == nil {
-                    self.statusMessage = "Re-transcription complete"
-                }
             } catch {
                 self.sessionManager.recordFailure(&session, error: error.localizedDescription)
                 self.currentSession = session
@@ -1026,9 +1029,9 @@ final class AppShell: ObservableObject {
     private func completeWithoutPolish(
         rawText: String,
         session: inout SessionContext,
-        copyOnComplete: Bool,
         completionMessage: String,
-        copiedMessage: String
+        copiedMessage: String,
+        pastedMessage: String
     ) throws {
         polishedTranscript = rawText
         latestPolishedTranscript = rawText
@@ -1037,15 +1040,45 @@ final class AppShell: ObservableObject {
         session.metadata.polishProvider = "disabled"
         session.metadata.polishModel = "passthrough"
         try sessionManager.writePolished(rawText, for: &session)
+        deliverOutput(
+            rawText,
+            completionMessage: completionMessage,
+            copiedMessage: copiedMessage,
+            pastedMessage: pastedMessage
+        )
+    }
 
-        if copyOnComplete {
-            let clipboardText = normalizedClipboardText(rawText)
-            if !clipboardText.isEmpty {
-                Clipboard.copy(text: clipboardText)
-            }
-            statusMessage = copiedMessage
-        } else {
+    private func deliverOutput(
+        _ text: String,
+        completionMessage: String,
+        copiedMessage: String,
+        pastedMessage: String
+    ) {
+        let clipboardText = normalizedClipboardText(text)
+        guard !clipboardText.isEmpty else {
             statusMessage = completionMessage
+            return
+        }
+
+        let shouldCopy = settings.copyOnComplete || autoPasteOnComplete
+        if shouldCopy {
+            Clipboard.copy(text: clipboardText)
+        }
+
+        guard autoPasteOnComplete else {
+            statusMessage = settings.copyOnComplete ? copiedMessage : completionMessage
+            return
+        }
+
+        guard AccessibilityInputInjector.isTrusted(promptIfNeeded: false) else {
+            statusMessage = "Auto-paste requires Accessibility permission. Transcript copied."
+            return
+        }
+
+        if AccessibilityInputInjector.triggerPasteShortcut() {
+            statusMessage = pastedMessage
+        } else {
+            statusMessage = settings.copyOnComplete ? copiedMessage : completionMessage
         }
     }
 

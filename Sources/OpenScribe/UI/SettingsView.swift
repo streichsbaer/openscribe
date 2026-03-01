@@ -264,6 +264,19 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
 
+                settingRow("Auto-paste on completion") {
+                    Toggle("", isOn: $shell.autoPasteOnComplete)
+                        .labelsHidden()
+                }
+
+                if shell.autoPasteOnComplete {
+                    Text(shell.accessibilityPermissionGranted
+                         ? "Auto-paste enabled. Completed output will paste into the currently focused app."
+                         : "Auto-paste enabled but Accessibility permission is missing. Open Accessibility Settings in Hotkeys.")
+                        .font(.caption)
+                        .foregroundColor(shell.accessibilityPermissionGranted ? .secondary : .orange)
+                }
+
                 settingRow("Expanded transcript panels by default") {
                     Toggle("", isOn: $transcriptPanelsExpanded)
                         .labelsHidden()
