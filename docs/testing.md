@@ -45,5 +45,5 @@ After building a release package, run one install smoke pass:
 1. Launch app.
 2. Confirm menubar icon appears.
 3. Record and stop once.
-4. Confirm `audio.wav`, `session.json`, `raw.txt`, and `polished.md` exist.
+4. Confirm `audio.m4a`, `session.json`, `raw.txt`, and `polished.md` exist.
 5. Confirm copy latest works.

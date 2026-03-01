@@ -6,11 +6,11 @@
 
 ## Core Flow
 1. Global hotkey toggles recording.
-2. Audio is captured to `audio.wav.part`.
-3. On stop, audio is finalized atomically to `audio.wav`.
+2. Audio is captured to `audio.capture.wav.part`.
+3. On stop, audio is finalized atomically to `audio.m4a`.
 4. STT runs via selected provider.
 5. Polish runs via selected LLM provider with `Rules/rules.md`.
-6. Session artifacts are written: `audio.wav`, `session.json`, `raw.txt`, `polished.md`.
+6. Session artifacts are written: `audio.m4a`, `session.json`, `raw.txt`, `polished.md`.
 
 ## Defaults
 - Start/stop hotkey default: `Fn + Space` (configurable).
@@ -26,7 +26,7 @@
 ## Storage Layout
 Root: `~/Library/Application Support/OpenScribe`
 
-- `Recordings/YYYY-MM-DD/HHmmss-<uuid>/audio.wav`
+- `Recordings/YYYY-MM-DD/HHmmss-<uuid>/audio.m4a`
 - `Recordings/YYYY-MM-DD/HHmmss-<uuid>/session.json`
 - `Recordings/YYYY-MM-DD/HHmmss-<uuid>/raw.txt`
 - `Recordings/YYYY-MM-DD/HHmmss-<uuid>/polished.md`

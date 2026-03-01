@@ -173,7 +173,7 @@ func performWhisperRequest(
         fields: fields,
         fileFieldName: "file",
         fileURL: audioFileURL,
-        mimeType: "audio/wav"
+        mimeType: mimeTypeForWhisperUpload(audioFileURL)
     )
 
     var request = URLRequest(url: endpoint)
@@ -258,7 +258,13 @@ func performAudioTranscriptionViaChatRequest(
     audioFileURL: URL,
     language: String?
 ) async throws -> String {
-    let audioData = try Data(contentsOf: audioFileURL)
+    let preparedAudio = try prepareAudioForInputAudioPayload(audioFileURL)
+    defer {
+        if let cleanupURL = preparedAudio.cleanupURL {
+            try? FileManager.default.removeItem(at: cleanupURL)
+        }
+    }
+    let audioData = try Data(contentsOf: preparedAudio.fileURL)
     let audioBase64 = audioData.base64EncodedString()
 
     var instructions = "Transcribe the provided audio exactly. Return plain text only."
@@ -276,7 +282,7 @@ func performAudioTranscriptionViaChatRequest(
                     .init(type: "text", text: instructions),
                     .init(
                         type: "input_audio",
-                        inputAudio: .init(format: "wav", data: audioBase64)
+                        inputAudio: .init(format: preparedAudio.format, data: audioBase64)
                     )
                 ]
             )
@@ -309,4 +315,41 @@ func performAudioTranscriptionViaChatRequest(
     }
 
     return content
+}
+
+private func mimeTypeForWhisperUpload(_ url: URL) -> String {
+    switch url.pathExtension.lowercased() {
+    case "wav":
+        return "audio/wav"
+    case "m4a":
+        return "audio/m4a"
+    case "mp3":
+        return "audio/mpeg"
+    case "mpga", "mpeg":
+        return "audio/mpeg"
+    case "mp4":
+        return "audio/mp4"
+    case "webm":
+        return "audio/webm"
+    default:
+        return "application/octet-stream"
+    }
+}
+
+private struct PreparedInputAudio {
+    let fileURL: URL
+    let format: String
+    let cleanupURL: URL?
+}
+
+private func prepareAudioForInputAudioPayload(_ sourceURL: URL) throws -> PreparedInputAudio {
+    let ext = sourceURL.pathExtension.lowercased()
+    if ext == "wav" || ext == "mp3" {
+        return PreparedInputAudio(fileURL: sourceURL, format: ext, cleanupURL: nil)
+    }
+
+    let tempWAV = FileManager.default.temporaryDirectory
+        .appendingPathComponent("openscribe-input-audio-\(UUID().uuidString).wav")
+    try AudioTranscoder.transcodeToWAV(sourceURL: sourceURL, destinationURL: tempWAV)
+    return PreparedInputAudio(fileURL: tempWAV, format: "wav", cleanupURL: tempWAV)
 }

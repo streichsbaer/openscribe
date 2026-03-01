@@ -19,13 +19,14 @@ final class WhisperCppProvider: TranscriptionProvider {
             throw ProviderError.missingModel(model)
         }
         let modelURL = modelManager.localPath(for: model)
+        let preparedInputURL = try prepareInputWAV(for: audioFileURL)
 
         let outputBase = FileManager.default.temporaryDirectory
             .appendingPathComponent("whisper-\(UUID().uuidString)")
 
         var args = [
             "-m", modelURL.path,
-            "-f", audioFileURL.path,
+            "-f", preparedInputURL.path,
             "-otxt",
             "-of", outputBase.path,
             "-nt",
@@ -57,6 +58,20 @@ final class WhisperCppProvider: TranscriptionProvider {
 
         let latency = Int(Date().timeIntervalSince(start) * 1_000)
         return TranscriptResult(text: text, providerId: id, model: model, latencyMs: latency)
+    }
+
+    private func prepareInputWAV(for audioFileURL: URL) throws -> URL {
+        if audioFileURL.pathExtension.lowercased() == "wav" {
+            return audioFileURL
+        }
+
+        let siblingWAV = audioFileURL.deletingPathExtension().appendingPathExtension("wav")
+        if FileManager.default.fileExists(atPath: siblingWAV.path) {
+            return siblingWAV
+        }
+
+        try AudioTranscoder.transcodeToWAV(sourceURL: audioFileURL, destinationURL: siblingWAV)
+        return siblingWAV
     }
 
     private func runWhisperProcess(arguments: [String]) async throws -> WhisperProcessResult {

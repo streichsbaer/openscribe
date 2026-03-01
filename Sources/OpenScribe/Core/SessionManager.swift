@@ -27,8 +27,8 @@ final class SessionManager {
 
         let paths = SessionPaths(
             folderURL: folder,
-            audioTempURL: folder.appendingPathComponent("audio.wav.part"),
-            audioURL: folder.appendingPathComponent("audio.wav"),
+            audioTempURL: folder.appendingPathComponent("audio.capture.wav.part"),
+            audioURL: folder.appendingPathComponent("audio.m4a"),
             metadataURL: folder.appendingPathComponent("session.json"),
             rawURL: folder.appendingPathComponent("raw.txt"),
             polishedURL: folder.appendingPathComponent("polished.md")
@@ -84,11 +84,11 @@ final class SessionManager {
             return
         }
 
-        if fileManager.fileExists(atPath: session.paths.audioURL.path) {
-            try fileManager.removeItem(at: session.paths.audioURL)
-        }
-
-        try fileManager.moveItem(at: session.paths.audioTempURL, to: session.paths.audioURL)
+        try AudioTranscoder.transcodeToM4A(
+            sourceWAVURL: session.paths.audioTempURL,
+            destinationURL: session.paths.audioURL
+        )
+        try fileManager.removeItem(at: session.paths.audioTempURL)
     }
 
     func writeRaw(_ text: String, for session: inout SessionContext) throws {
@@ -108,7 +108,7 @@ final class SessionManager {
 
         var recovered: [URL] = []
 
-        for case let url as URL in enumerator where url.lastPathComponent == "audio.wav.part" {
+        for case let url as URL in enumerator where url.lastPathComponent.hasSuffix(".wav.part") {
             recovered.append(url)
         }
 

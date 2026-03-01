@@ -11,6 +11,8 @@ final class SessionManagerTests: XCTestCase {
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: session.paths.folderURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: session.paths.metadataURL.path))
+        XCTAssertEqual(session.paths.audioURL.lastPathComponent, "audio.m4a")
+        XCTAssertEqual(session.paths.audioTempURL.lastPathComponent, "audio.capture.wav.part")
 
         let metadataData = try Data(contentsOf: session.paths.metadataURL)
         let metadata = try JSONDecoder.iso8601.decode(SessionMetadata.self, from: metadataData)
@@ -23,11 +25,13 @@ final class SessionManagerTests: XCTestCase {
         let manager = SessionManager(layout: layout)
         var session = try manager.startSession(settings: .default, inputDeviceName: nil)
 
-        try "data".write(to: session.paths.audioTempURL, atomically: true, encoding: .utf8)
+        let sourceWAV = try fixtureWAVURL()
+        try FileManager.default.copyItem(at: sourceWAV, to: session.paths.audioTempURL)
         try manager.finalizeAudioFile(&session)
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: session.paths.audioTempURL.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: session.paths.audioURL.path))
+        XCTAssertEqual(session.paths.audioURL.pathExtension.lowercased(), "m4a")
     }
 
     func testStateTransitionPersistsToMetadata() throws {
@@ -76,6 +80,26 @@ final class SessionManagerTests: XCTestCase {
 
         try layout.ensureExists()
         return layout
+    }
+
+    private func fixtureWAVURL() throws -> URL {
+        let candidates: [URL?] = [
+            Bundle.module.url(forResource: "basic_en_smoke", withExtension: "wav", subdirectory: "Fixtures/audio"),
+            Bundle.module.url(forResource: "basic_en_smoke", withExtension: "wav", subdirectory: "audio"),
+            Bundle.module.url(forResource: "basic_en_smoke", withExtension: "wav")
+        ]
+
+        for candidate in candidates {
+            if let candidate {
+                return candidate
+            }
+        }
+
+        throw NSError(
+            domain: "SessionManagerTests",
+            code: 3,
+            userInfo: [NSLocalizedDescriptionKey: "Missing fixture wav for finalize test."]
+        )
     }
 }
 

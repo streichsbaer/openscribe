@@ -101,6 +101,36 @@ final class FixturePipelineTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testWhisperCppAcceptsM4AInput() async throws {
+        guard ProcessInfo.processInfo.environment["RUN_AUDIO_FIXTURE_TESTS"] == "1" else {
+            throw XCTSkip("Set RUN_AUDIO_FIXTURE_TESTS=1 to run offline whisper fixture integration tests.")
+        }
+
+        guard let binaryURL = resolveWhisperBinary() else {
+            throw XCTSkip("whisper.cpp binary not found in standard locations.")
+        }
+
+        let layout = try DirectoryLayout.resolve()
+        let modelManager = ModelDownloadManager(layout: layout)
+        guard modelManager.isInstalled(modelID: "base") else {
+            throw XCTSkip("Missing local model: base.")
+        }
+
+        let sourceWAV = try fixtureAudioURL(named: "basic_en_smoke.wav")
+        let tempM4A = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openscribe-m4a-fixture-\(UUID().uuidString).m4a")
+        defer { try? FileManager.default.removeItem(at: tempM4A) }
+
+        try AudioTranscoder.transcodeToM4A(sourceWAVURL: sourceWAV, destinationURL: tempM4A)
+
+        let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager)
+        let result = try await provider.transcribe(audioFileURL: tempM4A, language: "auto", model: "base")
+        let normalized = normalizeForAssertions(result.text)
+        XCTAssertFalse(normalized.isEmpty, "m4a transcription should not be empty")
+        XCTAssertTrue(normalized.contains("open scribe"), "Expected m4a transcript to include 'open scribe'. Transcript: \(result.text)")
+    }
+
     private func loadFixtureSuite() throws -> FixtureSuite {
         let url = try fixtureJSONURL()
         let data = try Data(contentsOf: url)
