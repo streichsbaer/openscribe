@@ -2,7 +2,7 @@ import AppKit
 import Carbon
 import SwiftUI
 
-private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
+enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     case general
     case providers
     case hotkeys
@@ -66,7 +66,7 @@ private enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
 
 struct SettingsView: View {
     @EnvironmentObject private var shell: AppShell
-    @State private var selectedTab = SettingsTab.general
+    @EnvironmentObject private var tabState: SettingsTabState
     @State private var contentWidth = SettingsTab.general.preferredSize.width
     @State private var contentHeight = SettingsTab.general.preferredSize.height
     @State private var pendingLocalModelAction: LocalModelAction?
@@ -87,6 +87,7 @@ struct SettingsView: View {
     ]
     private let authorGitHubURL = URL(string: "https://github.com/streichsbaer")!
     private let authorXURL = URL(string: "https://x.com/s_streichsbier")!
+    private let repositoryURL = URL(string: "https://github.com/streichsbaer/OpenScribe")!
     private let soulGitHubURL = URL(string: "https://github.com/streichsbaer/OpenScribe/blob/main/SOUL.md")!
     private let agentsGitHubURL = URL(string: "https://github.com/streichsbaer/OpenScribe/blob/main/AGENTS.md")!
 
@@ -108,9 +109,9 @@ struct SettingsView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .frame(width: contentWidth, height: contentHeight)
         .onAppear {
-            updateLayout(for: selectedTab, animate: false)
+            updateLayout(for: tabState.selectedTab, animate: false)
         }
-        .onChange(of: selectedTab) { _, newValue in
+        .onChange(of: tabState.selectedTab) { _, newValue in
             updateLayout(for: newValue, animate: true)
         }
         .confirmationDialog(
@@ -164,11 +165,11 @@ struct SettingsView: View {
 
             ForEach(SettingsTab.allCases) { tab in
                 Button {
-                    selectedTab = tab
+                    tabState.selectedTab = tab
                 } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
+                            .fill(tabState.selectedTab == tab ? Color.accentColor.opacity(0.13) : Color.clear)
 
                         VStack(spacing: 4) {
                             Image(systemName: tab.symbol)
@@ -176,7 +177,7 @@ struct SettingsView: View {
                             Text(tab.title)
                                 .font(.caption)
                         }
-                        .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(tabState.selectedTab == tab ? Color.accentColor : Color.secondary)
                     }
                     .frame(width: 98, height: 48)
                     .contentShape(Rectangle())
@@ -191,7 +192,7 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var currentTabContent: some View {
-        switch selectedTab {
+        switch tabState.selectedTab {
         case .general:
             generalTab
         case .providers:
@@ -694,6 +695,9 @@ struct SettingsView: View {
                     Text("Built in collaboration with Scribe, the OpenScribe coding partner.")
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
+                        Link("Repository", destination: repositoryURL)
+                        Text("·")
+                            .foregroundStyle(.tertiary)
                         Link("SOUL.md", destination: soulGitHubURL)
                         Text("·")
                             .foregroundStyle(.tertiary)

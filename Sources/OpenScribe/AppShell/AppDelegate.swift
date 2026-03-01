@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let shell = AppShell()
+    private let uiSmokeModeEnabled = ProcessInfo.processInfo.environment["OPENSCRIBE_UI_SMOKE"] == "1"
 
     private var statusBarController: StatusBarController?
 
@@ -12,6 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if shell.settings.transcriptionProviderID == "whispercpp" {
             shell.downloadDefaultModelIfNeeded()
+        }
+
+        if uiSmokeModeEnabled {
+            statusBarController?.runUISmokeCaptureIfConfigured()
         }
     }
 }

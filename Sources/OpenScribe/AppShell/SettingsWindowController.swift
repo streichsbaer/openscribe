@@ -2,12 +2,20 @@ import AppKit
 import SwiftUI
 
 @MainActor
+final class SettingsTabState: ObservableObject {
+    @Published var selectedTab: SettingsTab = .general
+}
+
+@MainActor
 final class SettingsWindowController: NSWindowController {
     private static let minimumContentSize = NSSize(width: 700, height: 540)
     private static let defaultContentSize = NSSize(width: 760, height: 580)
+    private let tabState = SettingsTabState()
 
     init(shell: AppShell) {
-        let host = NSHostingController(rootView: SettingsView().environmentObject(shell))
+        let host = NSHostingController(rootView: SettingsView()
+            .environmentObject(shell)
+            .environmentObject(tabState))
         let window = NSWindow(contentViewController: host)
         window.title = "OpenScribe Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -20,6 +28,7 @@ final class SettingsWindowController: NSWindowController {
             self?.resize(to: NSSize(width: size.width, height: size.height), animated: animated)
         }
         .environmentObject(shell)
+        .environmentObject(tabState)
     }
 
     @available(*, unavailable)
@@ -31,6 +40,10 @@ final class SettingsWindowController: NSWindowController {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func selectTab(_ tab: SettingsTab) {
+        tabState.selectedTab = tab
     }
 
     private func resize(to contentSize: NSSize, animated: Bool) {

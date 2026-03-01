@@ -83,8 +83,151 @@ final class StatusBarController: NSObject {
         settingsWindowController.show()
     }
 
+    func runUISmokeCaptureIfConfigured() {
+        guard let outputPath = ProcessInfo.processInfo.environment["OPENSCRIBE_UI_SMOKE_OUT"],
+              !outputPath.isEmpty else {
+            return
+        }
+
+        let outputDirectory = URL(fileURLWithPath: outputPath, isDirectory: true)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await runUISmokeCapture(outputDirectory: outputDirectory)
+            NSApp.terminate(nil)
+        }
+    }
+
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    private func runUISmokeCapture(outputDirectory: URL) async {
+        try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        NSApp.activate(ignoringOtherApps: true)
+        try? await Task.sleep(nanoseconds: 500_000_000)
+
+        let popoverImageURL = outputDirectory.appendingPathComponent("openscribe-window.png")
+        let settingsImageURL = outputDirectory.appendingPathComponent("settings-window.png")
+        let debugURL = outputDirectory.appendingPathComponent("ui-smoke-debug.txt")
+
+        var popoverStatus = "fail"
+        var settingsStatus = "fail"
+        var debugLines: [String] = []
+        debugLines.append("statusButton=\(statusItem.button != nil)")
+        let originalPopoverBehavior = popover.behavior
+        popover.behavior = .applicationDefined
+
+        if showPopoverForUISmoke() {
+            debugLines.append("popoverShown=true")
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            let popoverView = popover.contentViewController?.view.window?.contentView
+                ?? popover.contentViewController?.view
+            if let popoverView {
+                let b = popoverView.bounds
+                debugLines.append("popoverBounds=\(Int(b.width))x\(Int(b.height))")
+            } else {
+                debugLines.append("popoverBounds=missing")
+            }
+            if captureViewSnapshot(popoverView, to: popoverImageURL) {
+                popoverStatus = "pass"
+                debugLines.append("popoverCapture=pass")
+            } else {
+                debugLines.append("popoverCapture=fail")
+            }
+        } else {
+            debugLines.append("popoverShown=false")
+        }
+
+        openSettings()
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        if let settingsView = settingsWindowController.window?.contentView {
+            let b = settingsView.bounds
+            debugLines.append("settingsBounds=\(Int(b.width))x\(Int(b.height))")
+        } else {
+            debugLines.append("settingsBounds=missing")
+        }
+        if captureViewSnapshot(settingsWindowController.window?.contentView, to: settingsImageURL) {
+            settingsStatus = "pass"
+            debugLines.append("settingsCapture=pass")
+        } else {
+            debugLines.append("settingsCapture=fail")
+        }
+
+        var tabCaptureFailures = 0
+        for tab in SettingsTab.allCases {
+            settingsWindowController.selectTab(tab)
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let tabURL = outputDirectory.appendingPathComponent("settings-\(tab.rawValue).png")
+            if captureViewSnapshot(settingsWindowController.window?.contentView, to: tabURL) {
+                debugLines.append("settingsTab[\(tab.rawValue)]=pass")
+            } else {
+                tabCaptureFailures += 1
+                debugLines.append("settingsTab[\(tab.rawValue)]=fail")
+            }
+        }
+        if tabCaptureFailures > 0 {
+            settingsStatus = "partial"
+        }
+
+        popover.behavior = originalPopoverBehavior
+
+        let summary = """
+        popover=\(popoverStatus)
+        settings=\(settingsStatus)
+        settingsTabsFailed=\(tabCaptureFailures)
+        """
+        try? summary.write(
+            to: outputDirectory.appendingPathComponent("ui-smoke-status.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try? debugLines.joined(separator: "\n").write(
+            to: debugURL,
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    private func showPopoverForUISmoke() -> Bool {
+        guard let button = statusItem.button else {
+            return false
+        }
+
+        if !popover.isShown {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
+        popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
+        return popover.isShown
+    }
+
+    private func captureViewSnapshot(_ view: NSView?, to outputURL: URL) -> Bool {
+        guard let view else {
+            return false
+        }
+
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+        let bounds = view.bounds.integral
+        guard bounds.width > 0, bounds.height > 0 else {
+            return false
+        }
+
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: bounds) else {
+            return false
+        }
+        bitmap.size = bounds.size
+        view.cacheDisplay(in: bounds, to: bitmap)
+
+        guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            return false
+        }
+
+        do {
+            try pngData.write(to: outputURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func configureStatusItem() {
