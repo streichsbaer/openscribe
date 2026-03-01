@@ -535,7 +535,7 @@ struct PopoverView: View {
         }
         switch shell.settings.polishProviderID {
         case "openai_polish":
-            return ["gpt-5-mini"]
+            return ["gpt-5-nano", "gpt-5-mini"]
         case "groq_polish":
             return ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
         case "openrouter_polish":

@@ -1,6 +1,50 @@
 import AppKit
 import Foundation
 
+enum ProviderModelUsage {
+    case transcription
+    case polish
+}
+
+enum ProviderBackend: String {
+    case whispercpp
+    case openai
+    case groq
+    case openrouter
+    case gemini
+
+    var displayName: String {
+        switch self {
+        case .whispercpp:
+            return "Local whisper.cpp"
+        case .openai:
+            return "OpenAI"
+        case .groq:
+            return "Groq"
+        case .openrouter:
+            return "OpenRouter"
+        case .gemini:
+            return "Gemini"
+        }
+    }
+
+    var statusID: String { rawValue }
+}
+
+struct ProviderConnectivityStatus: Equatable {
+    enum State: Equatable {
+        case idle
+        case verifying
+        case verified
+        case failed
+    }
+
+    var state: State
+    var detail: String
+
+    static let idle = ProviderConnectivityStatus(state: .idle, detail: "Not verified")
+}
+
 @MainActor
 final class AppShell: ObservableObject {
     @Published var meterLevel: Float = 0
@@ -29,6 +73,8 @@ final class AppShell: ObservableObject {
     @Published var menubarIconDebug: String = "icon=idle"
     @Published var transcribeElapsedSeconds: Int = 0
     @Published var polishElapsedSeconds: Int = 0
+    @Published private(set) var providerModelsByBackend: [String: [String]] = [:]
+    @Published private(set) var providerConnectivityByBackend: [String: ProviderConnectivityStatus] = [:]
 
     var openSettingsWindowHandler: (() -> Void)?
     var updatePopoverSizeHandler: ((CGSize) -> Void)?
@@ -653,6 +699,65 @@ final class AppShell: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([session.paths.folderURL])
     }
 
+    func availableModels(
+        for providerID: String,
+        usage: ProviderModelUsage,
+        fallback: [String]
+    ) -> [String] {
+        let backend = backend(for: providerID)
+        guard let backend else { return fallback }
+
+        let fetched = providerModelsByBackend[backend.statusID] ?? []
+        guard !fetched.isEmpty else {
+            return fallback
+        }
+
+        let filtered = filterModels(fetched, backend: backend, usage: usage)
+        if filtered.isEmpty {
+            return fallback
+        }
+
+        return filtered
+    }
+
+    func providerConnectivityStatus(for providerID: String) -> ProviderConnectivityStatus {
+        guard let backend = backend(for: providerID) else {
+            return .idle
+        }
+        return providerConnectivityByBackend[backend.statusID] ?? .idle
+    }
+
+    func verifyProvider(for providerID: String) {
+        guard let backend = backend(for: providerID) else {
+            return
+        }
+
+        providerConnectivityByBackend[backend.statusID] = .init(state: .verifying, detail: "Verifying...")
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let models = try await self.fetchModels(for: backend)
+                self.providerModelsByBackend[backend.statusID] = models
+                self.providerConnectivityByBackend[backend.statusID] = .init(
+                    state: .verified,
+                    detail: "Verified (\(models.count) models)"
+                )
+                self.statusMessage = "\(backend.displayName) verified"
+            } catch {
+                self.providerConnectivityByBackend[backend.statusID] = .init(
+                    state: .failed,
+                    detail: "Failed: \(error.localizedDescription)"
+                )
+                self.statusMessage = "\(backend.displayName) verification failed"
+            }
+        }
+    }
+
+    func refreshModels(for providerID: String) {
+        verifyProvider(for: providerID)
+    }
+
     private func registerHotkeys() {
         do {
             try hotkeyManager.register(action: .startStop, setting: settings.startStopHotkey) { [weak self] in
@@ -684,6 +789,152 @@ final class AppShell: ObservableObject {
             hotkeyError = error.localizedDescription
             statusMessage = "Hotkey registration failed. Change hotkey in Settings."
         }
+    }
+
+    private func backend(for providerID: String) -> ProviderBackend? {
+        switch providerID {
+        case "whispercpp":
+            return .whispercpp
+        case "openai_whisper", "openai_polish":
+            return .openai
+        case "groq_whisper", "groq_polish":
+            return .groq
+        case "openrouter_transcribe", "openrouter_polish":
+            return .openrouter
+        case "gemini_transcribe", "gemini_polish":
+            return .gemini
+        default:
+            return nil
+        }
+    }
+
+    private func filterModels(
+        _ models: [String],
+        backend: ProviderBackend,
+        usage: ProviderModelUsage
+    ) -> [String] {
+        switch (backend, usage) {
+        case (.openai, .transcription):
+            let filtered = models.filter { id in
+                let value = id.lowercased()
+                return value.contains("transcribe") || value.contains("whisper")
+            }
+            return filtered.sorted()
+        case (.openai, .polish):
+            let filtered = models.filter { id in
+                let value = id.lowercased()
+                return !value.contains("transcribe")
+            }
+            return filtered.sorted()
+        case (.groq, .transcription):
+            let filtered = models.filter { $0.lowercased().contains("whisper") }
+            return filtered.sorted()
+        case (.groq, .polish):
+            let filtered = models.filter { !$0.lowercased().contains("whisper") }
+            return filtered.sorted()
+        case (.whispercpp, _), (.openrouter, _), (.gemini, _):
+            return models.sorted()
+        }
+    }
+
+    private func fetchModels(for backend: ProviderBackend) async throws -> [String] {
+        switch backend {
+        case .whispercpp:
+            return modelManager.catalog.map(\.id).sorted()
+        case .openai:
+            let key = apiKeyResolver.resolve(.openAI).value
+            guard let key else { throw ProviderError.missingAPIKey("OpenAI") }
+            return try await fetchOpenAICompatibleModels(
+                endpoint: URL(string: "https://api.openai.com/v1/models")!,
+                apiKey: key
+            )
+        case .groq:
+            let key = apiKeyResolver.resolve(.groq).value
+            guard let key else { throw ProviderError.missingAPIKey("Groq") }
+            return try await fetchOpenAICompatibleModels(
+                endpoint: URL(string: "https://api.groq.com/openai/v1/models")!,
+                apiKey: key
+            )
+        case .openrouter:
+            let key = apiKeyResolver.resolve(.openRouter).value
+            guard let key else { throw ProviderError.missingAPIKey("OpenRouter") }
+            return try await fetchOpenAICompatibleModels(
+                endpoint: URL(string: "https://openrouter.ai/api/v1/models")!,
+                apiKey: key
+            )
+        case .gemini:
+            let key = apiKeyResolver.resolve(.gemini).value
+            guard let key else { throw ProviderError.missingAPIKey("Gemini") }
+            return try await fetchGeminiModels(apiKey: key)
+        }
+    }
+
+    private func fetchOpenAICompatibleModels(endpoint: URL, apiKey: String) async throws -> [String] {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ProviderError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw OpenAICompatibleError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+
+        return extractModelIDs(from: data)
+    }
+
+    private func fetchGeminiModels(apiKey: String) async throws -> [String] {
+        var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models")!
+        components.queryItems = [URLQueryItem(name: "key", value: apiKey)]
+        guard let endpoint = components.url else {
+            throw ProviderError.invalidResponse
+        }
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ProviderError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw OpenAICompatibleError.http(http.statusCode, String(data: data, encoding: .utf8) ?? "")
+        }
+
+        return extractModelIDs(from: data)
+    }
+
+    private func extractModelIDs(from data: Data) -> [String] {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return []
+        }
+
+        var modelIDs: [String] = []
+
+        if let entries = raw["data"] as? [[String: Any]] {
+            modelIDs.append(contentsOf: entries.compactMap { entry in
+                (entry["id"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            })
+        }
+
+        if let entries = raw["models"] as? [[String: Any]] {
+            modelIDs.append(contentsOf: entries.compactMap { entry in
+                let name = (entry["name"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if name.hasPrefix("models/") {
+                    return String(name.dropFirst("models/".count))
+                }
+                return name.isEmpty ? nil : name
+            })
+        }
+
+        let unique = Array(Set(modelIDs.filter { !$0.isEmpty }))
+        return unique.sorted()
     }
 
     private func apiKeyStatusDescription(for entry: KeychainEntry) -> String {

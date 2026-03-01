@@ -71,9 +71,12 @@ struct SettingsView: View {
     @State private var contentHeight = SettingsTab.general.preferredSize.height
     @State private var pendingLocalModelAction: LocalModelAction?
     @State private var showDeleteAppSupportConfirmation = false
+    @State private var sttModelFilter = ""
+    @State private var polishModelFilter = ""
     @AppStorage("ui.transcriptPanelsExpanded") private var transcriptPanelsExpanded = false
     private let onPreferredSizeChange: ((CGSize, Bool) -> Void)?
     private let providerPickerWidth: CGFloat = 240
+    private let modelSelectorWidth: CGFloat = 360
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
@@ -305,6 +308,7 @@ struct SettingsView: View {
                                     $0.transcriptionModel = available.first ?? $0.transcriptionModel
                                 }
                             }
+                            shell.refreshModels(for: newValue)
                         }
                     )) {
                         ForEach(sttProviders, id: \.id) { provider in
@@ -316,21 +320,38 @@ struct SettingsView: View {
                     .frame(width: providerPickerWidth, alignment: .trailing)
                 }
 
-                settingRow("Model") {
-                    Picker("", selection: Binding(
-                        get: { shell.settings.transcriptionModel },
-                        set: { newValue in
-                            shell.updateSettings { settings in
-                                settings.transcriptionModel = newValue
-                            }
-                        }
-                    )) {
-                        ForEach(transcriptionModels(for: shell.settings.transcriptionProviderID), id: \.self) {
-                            Text($0).tag($0)
+                settingRow("Models") {
+                    FilterableModelSelector(
+                        models: transcriptionModels(for: shell.settings.transcriptionProviderID),
+                        selectedModel: shell.settings.transcriptionModel,
+                        filterText: $sttModelFilter,
+                        width: modelSelectorWidth,
+                        isDisabled: false
+                    ) { selected in
+                        shell.updateSettings { settings in
+                            settings.transcriptionModel = selected
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
+                }
+
+                settingRow("Provider status") {
+                    HStack(spacing: 8) {
+                        Button("Verify") {
+                            shell.verifyProvider(for: shell.settings.transcriptionProviderID)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Refresh models") {
+                            shell.refreshModels(for: shell.settings.transcriptionProviderID)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Text(shell.providerConnectivityStatus(for: shell.settings.transcriptionProviderID).detail)
+                            .font(.caption)
+                            .foregroundColor(
+                                connectivityColor(shell.providerConnectivityStatus(for: shell.settings.transcriptionProviderID))
+                            )
+                    }
                     .frame(width: providerPickerWidth, alignment: .trailing)
                 }
 
@@ -379,6 +400,7 @@ struct SettingsView: View {
                                     $0.polishModel = available.first ?? $0.polishModel
                                 }
                             }
+                            shell.refreshModels(for: newValue)
                         }
                     )) {
                         ForEach(polishProviders, id: \.id) { provider in
@@ -391,23 +413,41 @@ struct SettingsView: View {
                     .disabled(!shell.settings.polishEnabled)
                 }
 
-                settingRow("Model") {
-                    Picker("", selection: Binding(
-                        get: { shell.settings.polishModel },
-                        set: { newValue in
-                            shell.updateSettings { settings in
-                                settings.polishModel = newValue
-                            }
-                        }
-                    )) {
-                        ForEach(polishModels(for: shell.settings.polishProviderID), id: \.self) {
-                            Text($0).tag($0)
+                settingRow("Models") {
+                    FilterableModelSelector(
+                        models: polishModels(for: shell.settings.polishProviderID),
+                        selectedModel: shell.settings.polishModel,
+                        filterText: $polishModelFilter,
+                        width: modelSelectorWidth,
+                        isDisabled: !shell.settings.polishEnabled
+                    ) { selected in
+                        shell.updateSettings { settings in
+                            settings.polishModel = selected
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
+                }
+
+                settingRow("Provider status") {
+                    HStack(spacing: 8) {
+                        Button("Verify") {
+                            shell.verifyProvider(for: shell.settings.polishProviderID)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!shell.settings.polishEnabled)
+
+                        Button("Refresh models") {
+                            shell.refreshModels(for: shell.settings.polishProviderID)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!shell.settings.polishEnabled)
+
+                        Text(shell.providerConnectivityStatus(for: shell.settings.polishProviderID).detail)
+                            .font(.caption)
+                            .foregroundColor(
+                                connectivityColor(shell.providerConnectivityStatus(for: shell.settings.polishProviderID))
+                            )
+                    }
                     .frame(width: providerPickerWidth, alignment: .trailing)
-                    .disabled(!shell.settings.polishEnabled)
                 }
 
                 if !shell.settings.polishEnabled {
@@ -435,6 +475,7 @@ struct SettingsView: View {
                     Text(shell.openAIKeyStatusDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    keyVerificationRow(for: "openai_polish")
 
                     Text("Groq API Key")
                     .font(.subheadline)
@@ -452,6 +493,7 @@ struct SettingsView: View {
                     Text(shell.groqKeyStatusDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    keyVerificationRow(for: "groq_polish")
 
                     Text("OpenRouter API Key")
                         .font(.subheadline)
@@ -469,6 +511,7 @@ struct SettingsView: View {
                     Text(shell.openRouterKeyStatusDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    keyVerificationRow(for: "openrouter_polish")
 
                     Text("Gemini API Key")
                         .font(.subheadline)
@@ -486,6 +529,7 @@ struct SettingsView: View {
                     Text(shell.geminiKeyStatusDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    keyVerificationRow(for: "gemini_polish")
 
                     HStack(spacing: 8) {
                         Button("Save keys") {
@@ -500,6 +544,12 @@ struct SettingsView: View {
                     }
                     .padding(.top, 4)
                 }
+            }
+        }
+        .onAppear {
+            shell.refreshModels(for: shell.settings.transcriptionProviderID)
+            if shell.settings.polishEnabled {
+                shell.refreshModels(for: shell.settings.polishProviderID)
             }
         }
     }
@@ -799,7 +849,7 @@ struct SettingsView: View {
     }
 
     private func settingRow<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Text(title)
                 .font(.subheadline)
                 .frame(minWidth: 180, alignment: .leading)
@@ -823,35 +873,41 @@ struct SettingsView: View {
     }
 
     private func transcriptionModels(for provider: String) -> [String] {
+        let fallback: [String]
         switch provider {
         case "whispercpp":
-            return ["tiny", "base", "small", "medium"]
+            fallback = ["tiny", "base", "small", "medium"]
         case "openai_whisper":
-            return ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
+            fallback = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
         case "groq_whisper":
-            return ["whisper-large-v3", "whisper-large-v3-turbo"]
+            fallback = ["whisper-large-v3", "whisper-large-v3-turbo"]
         case "openrouter_transcribe":
-            return ["google/gemini-2.5-flash", "openai/gpt-4o-mini"]
+            fallback = ["google/gemini-2.5-flash", "openai/gpt-4o-mini"]
         case "gemini_transcribe":
-            return ["gemini-3-flash-preview", "gemini-2.5-flash"]
+            fallback = ["gemini-3-flash-preview", "gemini-2.5-flash"]
         default:
-            return ["base"]
+            fallback = ["base"]
         }
+
+        return shell.availableModels(for: provider, usage: .transcription, fallback: fallback)
     }
 
     private func polishModels(for provider: String) -> [String] {
+        let fallback: [String]
         switch provider {
         case "openai_polish":
-            return ["gpt-5-mini"]
+            fallback = ["gpt-5-nano", "gpt-5-mini"]
         case "groq_polish":
-            return ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
+            fallback = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
         case "openrouter_polish":
-            return ["openai/gpt-5-mini", "google/gemini-2.5-flash"]
+            fallback = ["openai/gpt-5-nano", "openai/gpt-5-mini", "google/gemini-2.5-flash"]
         case "gemini_polish":
-            return ["gemini-2.5-flash"]
+            fallback = ["gemini-2.5-flash"]
         default:
-            return ["gpt-5-mini"]
+            fallback = ["gpt-5-nano"]
         }
+
+        return shell.availableModels(for: provider, usage: .polish, fallback: fallback)
     }
 
     private var microphonePermissionSummary: String {
@@ -862,6 +918,34 @@ struct SettingsView: View {
             return "Microphone permission: denied"
         case .undetermined:
             return "Microphone permission: not requested"
+        }
+    }
+
+    @ViewBuilder
+    private func keyVerificationRow(for providerID: String) -> some View {
+        HStack(spacing: 8) {
+            Button("Verify") {
+                shell.verifyProvider(for: providerID)
+            }
+            .buttonStyle(.bordered)
+
+            let status = shell.providerConnectivityStatus(for: providerID)
+            Text(status.detail)
+                .font(.caption)
+                .foregroundColor(connectivityColor(status))
+        }
+    }
+
+    private func connectivityColor(_ status: ProviderConnectivityStatus) -> Color {
+        switch status.state {
+        case .idle:
+            return .secondary
+        case .verifying:
+            return .orange
+        case .verified:
+            return .green
+        case .failed:
+            return .red
         }
     }
 }
@@ -924,6 +1008,94 @@ private enum BrandIconLoader {
         }
 
         return nil
+    }
+}
+
+private struct FilterableModelSelector: View {
+    let models: [String]
+    let selectedModel: String
+    @Binding var filterText: String
+    let width: CGFloat
+    let isDisabled: Bool
+    let onSelect: (String) -> Void
+
+    private var filteredModels: [String] {
+        let filter = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if filter.isEmpty {
+            return models
+        }
+        return models.filter { $0.lowercased().contains(filter) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextField("Filter models", text: $filterText)
+                .textFieldStyle(.roundedBorder)
+                .disabled(isDisabled)
+
+            modelList
+
+            Text("Selected: \(selectedModel)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .frame(width: width, alignment: .trailing)
+    }
+
+    private var modelList: some View {
+        ScrollView {
+            if filteredModels.isEmpty {
+                Text("No models match the filter.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+            } else {
+                LazyVStack(alignment: .leading, spacing: 3) {
+                    ForEach(filteredModels, id: \.self, content: modelRow)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(height: 118)
+        .padding(4)
+        .background(Color(NSColor.textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func modelRow(_ model: String) -> some View {
+        Button {
+            onSelect(model)
+        } label: {
+            HStack(spacing: 8) {
+                Text(model)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 6)
+                if model == selectedModel {
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.accentColor)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(model == selectedModel ? Color.accentColor.opacity(0.15) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
     }
 }
 

@@ -140,9 +140,9 @@ struct AppSettings: Codable, Equatable {
     static let `default` = AppSettings(
         transcriptionProviderID: "whispercpp",
         transcriptionModel: "base",
-        polishEnabled: true,
+        polishEnabled: false,
         polishProviderID: "openai_polish",
-        polishModel: "gpt-5-mini",
+        polishModel: "gpt-5-nano",
         appearanceMode: "system",
         languageMode: "auto",
         copyOnComplete: true,
