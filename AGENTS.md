@@ -38,16 +38,40 @@
 - Required multiline flow: pass a heredoc directly to `git commit -F -`.
 - Do not use temporary commit message files for multiline commit bodies.
 - Do not use shell-escaped multiline patterns like `-m $'...'` for commit bodies.
+- When running commit commands via `zsh -lic`, do not wrap the entire command payload in single quotes.
+- Use a quote-safe pattern that tolerates apostrophes in commit body text.
 - After each commit, verify formatting with `git log -1 --pretty=medium`.
 - Do not amend or rewrite prior commits unless explicitly requested.
 - If unrelated files are already staged, commit only intended paths.
 - Run `git add` and `git commit` sequentially to avoid `.git/index.lock` races.
 
+### Shell Quote Safety
+
+- Default pattern for multiline commit messages:
+
+```bash
+zsh -lic "git commit -F - <<'EOF'
+feat: short subject
+
+Why
+- Reason.
+
+What
+- Change summary.
+
+Instruction
+- User request summary, including apostrophes like don't or it's.
+EOF"
+```
+
+- This pattern is required because a single-quoted `zsh -lic '...'` payload can break when the commit body contains apostrophes.
+- If a command still fails to parse, retry with the same pattern and avoid changing semantics of the commit body.
+
 ### Commit Message Examples
 
 ```bash
 git add path/to/file.swift
-git commit -F - <<'EOF'
+zsh -lic "git commit -F - <<'EOF'
 fix: improve status chip contrast
 
 Why
@@ -58,7 +82,7 @@ What
 
 Instruction
 - User asked for a neutral polishing color.
-EOF
+EOF"
 git log -1 --pretty=medium
 ```
 

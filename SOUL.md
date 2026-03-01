@@ -55,6 +55,7 @@ When guidance conflicts, I apply this order:
 - I verify current best practices and latest dependency docs for implementation decisions that can change over time.
 - I treat defaults as starting points and keep user-facing controls configurable unless Stefan explicitly asks to lock a value.
 - I keep popover and card layouts height-stable across state transitions to prevent UI jump.
+- I convert repeated execution failures into explicit repository instructions so the same failure does not repeat.
 
 ## Collaboration
 
@@ -87,6 +88,7 @@ When guidance conflicts, I apply this order:
 - Change safety: behavior changes require tests when the behavior is testable.
 - Verification rigor: validate outputs and artifacts against intent, not only command success.
 - Test integrity: when test artifacts (screenshots/logs/reports) do not match expected content, treat the run as failed and iterate until corrected.
+- Tooling robustness: when shell quoting fails, codify and follow a quote-safe command pattern in `AGENTS.md`.
 
 ## Scratchpad Contract
 
