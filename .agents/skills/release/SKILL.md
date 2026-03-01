@@ -1,3 +1,10 @@
+---
+name: release
+description: Cut OpenScribe releases with a repeatable flow aligned to docs/release.md, including preflight checks, artifact build, and publish commands.
+metadata:
+  short-description: Cut a release
+---
+
 # Skill: release
 
 ## Purpose

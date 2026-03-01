@@ -21,6 +21,7 @@
 ## Local Skills
 
 - Repo-local skills live under `.agents/skills/<skill>/SKILL.md`.
+- Each `SKILL.md` must include YAML front matter delimited by `---` with at least `name` and `description`.
 - When a task matches a local skill, load that skill before implementing.
 - Prefer scripts in `.agents/skills/<skill>/scripts/` for repeatable automation.
 

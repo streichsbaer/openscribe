@@ -1,18 +1,40 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+START_PWD="$(pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 cd "$ROOT_DIR"
 
 OUT_DIR=""
+
+usage() {
+  cat <<USAGE
+Usage: zsh .agents/skills/ui-smoke/scripts/run.sh [--out <dir>]
+
+Defaults:
+  --out omitted  -> artifacts/ui-smoke/<timestamp> under repo root
+  --out relative -> resolved from invocation working directory (pwd)
+USAGE
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
     --out)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --out" >&2
+        usage >&2
+        exit 1
+      fi
       OUT_DIR="$2"
       shift 2
       ;;
     *)
       echo "Unknown arg: $1" >&2
+      usage >&2
       exit 1
       ;;
   esac
@@ -21,6 +43,8 @@ done
 if [[ -z "$OUT_DIR" ]]; then
   stamp="$(date +%Y%m%d-%H%M%S)"
   OUT_DIR="$ROOT_DIR/artifacts/ui-smoke/$stamp"
+elif [[ "$OUT_DIR" != /* ]]; then
+  OUT_DIR="$START_PWD/$OUT_DIR"
 fi
 
 mkdir -p "$OUT_DIR"
@@ -219,6 +243,8 @@ cat > "$OUT_DIR/report.md" <<REPORT
 ## Notes
 
 - OpenScribe writes screenshots from inside the app in smoke mode for deterministic captures.
+- The smoke run validates artifact presence and required file coverage.
+- Visual correctness still requires manual screenshot review.
 REPORT
 
 echo "[ui-smoke] done"
