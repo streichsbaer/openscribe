@@ -10,14 +10,17 @@ final class SettingsStoreTests: XCTestCase {
         let store = SettingsStore(layout: layout)
 
         let updatedCopy = HotkeySetting(keyCode: 12, modifiers: UInt32(controlKey | optionKey))
+        let updatedRawCopy = HotkeySetting(keyCode: 15, modifiers: UInt32(controlKey | optionKey))
         let updatedPaste = HotkeySetting(keyCode: 13, modifiers: UInt32(controlKey | optionKey))
         store.update {
             $0.copyHotkey = updatedCopy
+            $0.copyRawHotkey = updatedRawCopy
             $0.pasteHotkey = updatedPaste
         }
 
         let reloaded = SettingsStore(layout: layout)
         XCTAssertEqual(reloaded.settings.copyHotkey, updatedCopy)
+        XCTAssertEqual(reloaded.settings.copyRawHotkey, updatedRawCopy)
         XCTAssertEqual(reloaded.settings.pasteHotkey, updatedPaste)
     }
 

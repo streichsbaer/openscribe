@@ -5,6 +5,9 @@ enum HotkeyAction: UInt32, CaseIterable {
     case startStop = 1
     case copyLatest = 2
     case pasteLatest = 3
+    case togglePopover = 4
+    case openSettings = 5
+    case copyRaw = 6
 }
 
 enum HotkeyError: Error, LocalizedError {

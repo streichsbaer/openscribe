@@ -579,12 +579,46 @@ struct SettingsView: View {
                 )
             }
 
+            settingsCard("POPOVER") {
+                HotkeyEditor(
+                    title: "Toggle OpenScribe popover",
+                    hotkey: Binding(
+                        get: { shell.settings.togglePopoverHotkey },
+                        set: { value in shell.updateSettings { $0.togglePopoverHotkey = value } }
+                    )
+                )
+            }
+
+            settingsCard("SETTINGS") {
+                HotkeyEditor(
+                    title: "Open settings window",
+                    hotkey: Binding(
+                        get: { shell.settings.openSettingsHotkey },
+                        set: { value in shell.updateSettings { $0.openSettingsHotkey = value } }
+                    )
+                )
+
+                Text("Cmd+, still works when OpenScribe is focused.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             settingsCard("COPY LATEST") {
                 HotkeyEditor(
                     title: "Copy latest polished transcript",
                     hotkey: Binding(
                         get: { shell.settings.copyHotkey },
                         set: { value in shell.updateSettings { $0.copyHotkey = value } }
+                    )
+                )
+            }
+
+            settingsCard("COPY RAW") {
+                HotkeyEditor(
+                    title: "Copy latest raw transcript",
+                    hotkey: Binding(
+                        get: { shell.settings.copyRawHotkey },
+                        set: { value in shell.updateSettings { $0.copyRawHotkey = value } }
                     )
                 )
             }

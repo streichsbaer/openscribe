@@ -7,10 +7,22 @@ final class HotkeyDisplayTests: XCTestCase {
     }
 
     func testCopyDefaultDisplayString() {
-        XCTAssertEqual(HotkeyDisplay.string(for: .copyDefault), "Ctrl+Option+C")
+        XCTAssertEqual(HotkeyDisplay.string(for: .copyDefault), "Ctrl+Option+P")
+    }
+
+    func testCopyRawDefaultDisplayString() {
+        XCTAssertEqual(HotkeyDisplay.string(for: .copyRawDefault), "Ctrl+Option+R")
     }
 
     func testPasteDefaultDisplayString() {
         XCTAssertEqual(HotkeyDisplay.string(for: .pasteDefault), "Ctrl+Option+V")
+    }
+
+    func testTogglePopoverDefaultDisplayString() {
+        XCTAssertEqual(HotkeyDisplay.string(for: .togglePopoverDefault), "Ctrl+Option+O")
+    }
+
+    func testOpenSettingsDefaultDisplayString() {
+        XCTAssertEqual(HotkeyDisplay.string(for: .openSettingsDefault), "Ctrl+Option+,")
     }
 }

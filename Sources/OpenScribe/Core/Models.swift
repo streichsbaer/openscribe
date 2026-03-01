@@ -88,14 +88,17 @@ struct SessionContext {
     var metadata: SessionMetadata
 }
 
-struct HotkeySetting: Codable, Equatable {
+struct HotkeySetting: Codable, Equatable, Hashable {
     var keyCode: UInt32
     var modifiers: UInt32
 
-    // Space, ANSI C, and ANSI V are stable virtual keycodes on macOS.
+    // Space, ANSI P, ANSI R, and ANSI V are stable virtual keycodes on macOS.
     private static let spaceKeyCode: UInt32 = 49
-    private static let cKeyCode: UInt32 = 8
+    private static let pKeyCode: UInt32 = 35
+    private static let rKeyCode: UInt32 = 15
     private static let vKeyCode: UInt32 = 9
+    private static let oKeyCode: UInt32 = 31
+    private static let commaKeyCode: UInt32 = 43
     static let legacyNSEventFunctionMask: UInt32 = UInt32(NSEvent.ModifierFlags.function.rawValue)
     static let carbonFunctionMask: UInt32 = UInt32(kEventKeyModifierFnMask)
 
@@ -105,12 +108,27 @@ struct HotkeySetting: Codable, Equatable {
     )
 
     static let copyDefault = HotkeySetting(
-        keyCode: cKeyCode,
+        keyCode: pKeyCode,
+        modifiers: UInt32(controlKey | optionKey)
+    )
+
+    static let copyRawDefault = HotkeySetting(
+        keyCode: rKeyCode,
         modifiers: UInt32(controlKey | optionKey)
     )
 
     static let pasteDefault = HotkeySetting(
         keyCode: vKeyCode,
+        modifiers: UInt32(controlKey | optionKey)
+    )
+
+    static let togglePopoverDefault = HotkeySetting(
+        keyCode: oKeyCode,
+        modifiers: UInt32(controlKey | optionKey)
+    )
+
+    static let openSettingsDefault = HotkeySetting(
+        keyCode: commaKeyCode,
         modifiers: UInt32(controlKey | optionKey)
     )
 
@@ -135,7 +153,10 @@ struct AppSettings: Codable, Equatable {
     var copyOnComplete: Bool
     var startStopHotkey: HotkeySetting
     var copyHotkey: HotkeySetting
+    var copyRawHotkey: HotkeySetting
     var pasteHotkey: HotkeySetting
+    var togglePopoverHotkey: HotkeySetting
+    var openSettingsHotkey: HotkeySetting
 
     static let `default` = AppSettings(
         transcriptionProviderID: "whispercpp",
@@ -148,7 +169,10 @@ struct AppSettings: Codable, Equatable {
         copyOnComplete: true,
         startStopHotkey: .startStopDefault,
         copyHotkey: .copyDefault,
-        pasteHotkey: .pasteDefault
+        copyRawHotkey: .copyRawDefault,
+        pasteHotkey: .pasteDefault,
+        togglePopoverHotkey: .togglePopoverDefault,
+        openSettingsHotkey: .openSettingsDefault
     )
 }
 

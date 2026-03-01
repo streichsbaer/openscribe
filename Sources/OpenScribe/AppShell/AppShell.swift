@@ -84,6 +84,7 @@ final class AppShell: ObservableObject {
     }
 
     var openSettingsWindowHandler: (() -> Void)?
+    var togglePopoverHandler: (() -> Void)?
     var updatePopoverSizeHandler: ((CGSize) -> Void)?
 
     let layout: DirectoryLayout
@@ -305,6 +306,10 @@ final class AppShell: ObservableObject {
 
     func openSettingsWindow() {
         openSettingsWindowHandler?()
+    }
+
+    func togglePopoverWindow() {
+        togglePopoverHandler?()
     }
 
     func openAccessibilityPrivacySettings() {
@@ -785,6 +790,8 @@ final class AppShell: ObservableObject {
 
     private func registerHotkeys() {
         do {
+            try validateUniqueHotkeys()
+
             try hotkeyManager.register(action: .startStop, setting: settings.startStopHotkey) { [weak self] in
                 Task { @MainActor [weak self] in
                     self?.toggleRecording()
@@ -797,10 +804,10 @@ final class AppShell: ObservableObject {
                 }
             }
 
-            if settings.copyHotkey.normalizedForCarbonHotkey() == settings.pasteHotkey.normalizedForCarbonHotkey() {
-                throw HotkeyError.registrationFailed(
-                    "Paste hotkey cannot match copy hotkey. Choose a different shortcut."
-                )
+            try hotkeyManager.register(action: .copyRaw, setting: settings.copyRawHotkey) { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.copyRawTranscript()
+                }
             }
 
             try hotkeyManager.register(action: .pasteLatest, setting: settings.pasteHotkey) { [weak self] in
@@ -809,10 +816,44 @@ final class AppShell: ObservableObject {
                 }
             }
 
+            try hotkeyManager.register(action: .togglePopover, setting: settings.togglePopoverHotkey) { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.togglePopoverWindow()
+                }
+            }
+
+            try hotkeyManager.register(action: .openSettings, setting: settings.openSettingsHotkey) { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.openSettingsWindow()
+                }
+            }
+
             hotkeyError = nil
         } catch {
             hotkeyError = error.localizedDescription
             statusMessage = "Hotkey registration failed. Change hotkey in Settings."
+        }
+    }
+
+    private func validateUniqueHotkeys() throws {
+        let entries: [(name: String, setting: HotkeySetting)] = [
+            ("Start/Stop", settings.startStopHotkey),
+            ("Copy latest", settings.copyHotkey),
+            ("Copy raw", settings.copyRawHotkey),
+            ("Paste latest", settings.pasteHotkey),
+            ("Toggle popover", settings.togglePopoverHotkey),
+            ("Open settings", settings.openSettingsHotkey)
+        ]
+
+        var seen: [HotkeySetting: String] = [:]
+        for entry in entries {
+            let normalized = entry.setting.normalizedForCarbonHotkey()
+            if let existing = seen[normalized] {
+                throw HotkeyError.registrationFailed(
+                    "\(entry.name) hotkey cannot match \(existing). Choose a different shortcut."
+                )
+            }
+            seen[normalized] = entry.name
         }
     }
 

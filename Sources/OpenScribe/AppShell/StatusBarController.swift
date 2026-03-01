@@ -47,6 +47,9 @@ final class StatusBarController: NSObject {
         shell.openSettingsWindowHandler = { [weak self] in
             self?.openSettings()
         }
+        shell.togglePopoverHandler = { [weak self] in
+            self?.togglePopoverFromHotkey()
+        }
         shell.updatePopoverSizeHandler = { [weak self] size in
             self?.updatePopoverSize(size)
         }
@@ -104,6 +107,13 @@ final class StatusBarController: NSObject {
 
     func openSettingsFromShortcut() {
         openSettings()
+    }
+
+    func togglePopoverFromHotkey() {
+        guard let button = statusItem.button else {
+            return
+        }
+        togglePopover(button)
     }
 
     func runUISmokeCaptureIfConfigured() {

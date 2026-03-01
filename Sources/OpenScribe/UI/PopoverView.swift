@@ -10,6 +10,7 @@ struct PopoverView: View {
     @State private var selectedRetryPolishOptionID = ""
     @State private var retryTranscriptionFilter = ""
     @State private var retryPolishFilter = ""
+    @State private var hoverHint: String?
     private let openAITranscriptionFallbackModels = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
     private let groqTranscriptionFallbackModels = ["whisper-large-v3", "whisper-large-v3-turbo"]
     private let openRouterTranscriptionFallbackModels = ["google/gemini-2.5-flash", "openai/gpt-4o-mini"]
@@ -114,6 +115,7 @@ struct PopoverView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(startStopButtonDisabled)
+                    .instantHint(startStopHelpText, hoverHint: $hoverHint)
 
                     if let audioURL = shell.currentSession?.paths.audioURL,
                        FileManager.default.fileExists(atPath: audioURL.path) {
@@ -121,12 +123,14 @@ struct PopoverView: View {
                             playbackManager.toggle(url: audioURL)
                         }
                         .buttonStyle(.bordered)
+                        .instantHint("Play or stop latest session audio", hoverHint: $hoverHint)
                     }
 
                     Button("Reveal") {
                         shell.revealCurrentSessionInFinder()
                     }
                     .buttonStyle(.bordered)
+                    .instantHint("Reveal latest session in Finder", hoverHint: $hoverHint)
                 }
 
                 if let session = shell.currentSession {
@@ -146,7 +150,7 @@ struct PopoverView: View {
                             Image(systemName: "doc.on.doc")
                         }
                         .buttonStyle(.borderless)
-                        .help("Copy session path")
+                        .instantHint("Copy session path", hoverHint: $hoverHint)
                     }
                 }
             }
@@ -164,7 +168,7 @@ struct PopoverView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .help(expandedTextPanels ? "Compact transcript panels" : "Expand transcript panels")
+            .instantHint(expandedTextPanels ? "Compact transcript panels" : "Expand transcript panels", hoverHint: $hoverHint)
         }) {
             VStack(alignment: .leading, spacing: 10) {
                 transcriptSubsection {
@@ -182,7 +186,7 @@ struct PopoverView: View {
                             Image(systemName: "doc.on.doc")
                         }
                         .buttonStyle(.borderless)
-                        .help("Copy raw transcript")
+                        .instantHint(copyRawHelpText, hoverHint: $hoverHint)
                     }
 
                     HStack(alignment: .center, spacing: 8) {
@@ -212,7 +216,7 @@ struct PopoverView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .disabled(!canRetryTranscription)
-                        .help("Rerun raw transcription using selected provider/model")
+                        .instantHint("Rerun raw transcription using selected provider/model", hoverHint: $hoverHint)
                     }
                 }
 
@@ -240,7 +244,7 @@ struct PopoverView: View {
                             Image(systemName: "doc.on.doc")
                         }
                         .buttonStyle(.borderless)
-                        .help("Copy polished transcript")
+                        .instantHint(copyPolishedHelpText, hoverHint: $hoverHint)
                     }
 
                     HStack(alignment: .center, spacing: 8) {
@@ -272,7 +276,7 @@ struct PopoverView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                         .disabled(shell.rawTranscript.isEmpty || !shell.settings.polishEnabled)
-                        .help("Rerun polish using selected provider/model")
+                        .instantHint("Rerun polish using selected provider/model", hoverHint: $hoverHint)
                     }
                 }
             }
@@ -290,12 +294,17 @@ struct PopoverView: View {
                 openSettings()
             }
             .buttonStyle(.bordered)
+            .instantHint(settingsHelpText, hoverHint: $hoverHint)
         }
     }
 
     @ViewBuilder
     private var statusText: some View {
-        if let hotkeyError = shell.hotkeyError {
+        if let hoverHint {
+            Text(hoverHint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else if let hotkeyError = shell.hotkeyError {
             Text("Hotkey issue: \(hotkeyError)")
                 .font(.caption)
                 .foregroundColor(.orange)
@@ -532,12 +541,48 @@ struct PopoverView: View {
     private var startStopButtonLabel: String {
         switch shell.sessionState {
         case .recording:
-            return "Stop (Fn+Space)"
+            return "Stop (\(startStopHotkeyDisplay))"
         case .finalizingAudio, .transcribing, .polishing:
             return "Processing..."
         case .idle, .completed, .failed:
-            return "Start (Fn+Space)"
+            return "Start (\(startStopHotkeyDisplay))"
         }
+    }
+
+    private var startStopHotkeyDisplay: String {
+        HotkeyDisplay.string(for: shell.settings.startStopHotkey)
+    }
+
+    private var copyHotkeyDisplay: String {
+        HotkeyDisplay.string(for: shell.settings.copyHotkey)
+    }
+
+    private var copyRawHotkeyDisplay: String {
+        HotkeyDisplay.string(for: shell.settings.copyRawHotkey)
+    }
+
+    private var pasteHotkeyDisplay: String {
+        HotkeyDisplay.string(for: shell.settings.pasteHotkey)
+    }
+
+    private var openSettingsHotkeyDisplay: String {
+        HotkeyDisplay.string(for: shell.settings.openSettingsHotkey)
+    }
+
+    private var startStopHelpText: String {
+        "Toggle recording (\(startStopHotkeyDisplay))"
+    }
+
+    private var copyPolishedHelpText: String {
+        "Copy polished transcript (\(copyHotkeyDisplay)). Paste latest with \(pasteHotkeyDisplay) when Accessibility permission is granted."
+    }
+
+    private var copyRawHelpText: String {
+        "Copy raw transcript (\(copyRawHotkeyDisplay))."
+    }
+
+    private var settingsHelpText: String {
+        "Open Settings (\(openSettingsHotkeyDisplay)). Cmd+, works when OpenScribe is focused."
     }
 
     private var startStopButtonDisabled: Bool {
@@ -844,6 +889,29 @@ private struct RetryModelOption: Identifiable {
     let title: String
     let providerID: String
     let model: String
+}
+
+private struct InstantHintModifier: ViewModifier {
+    let text: String
+    @Binding var hoverHint: String?
+
+    func body(content: Content) -> some View {
+        content
+            .help(text)
+            .onHover { isHovering in
+                if isHovering {
+                    hoverHint = text
+                } else if hoverHint == text {
+                    hoverHint = nil
+                }
+            }
+    }
+}
+
+private extension View {
+    func instantHint(_ text: String, hoverHint: Binding<String?>) -> some View {
+        modifier(InstantHintModifier(text: text, hoverHint: hoverHint))
+    }
 }
 
 enum AVAudioSessionBridge {
