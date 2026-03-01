@@ -84,3 +84,7 @@ Root: `~/Library/Application Support/OpenScribe`
 - `swift run OpenScribe`
 
 For full app signing/notarization and polished packaging, use a follow-up release phase.
+
+## Release Status
+- Current blocker: Apple Developer Program enrollment is pending.
+- Until enrollment is complete, distribution uses unsigned GitHub release zips for tester installs.

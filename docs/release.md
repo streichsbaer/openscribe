@@ -4,6 +4,19 @@
 
 Create a shareable `.app` and optional signed+notarized package from `main`.
 
+## Versioning Policy
+
+- Use SemVer: `MAJOR.MINOR.PATCH`.
+- Use git tag format: `vMAJOR.MINOR.PATCH`.
+- Keep `CFBundleShortVersionString` in sync with SemVer.
+- Increment `CFBundleVersion` for each release cut.
+
+## Release Notes Policy
+
+- GitHub Releases is the canonical release history.
+- Do not maintain a manual `CHANGELOG.md`.
+- Generate release notes from GitHub during release creation.
+
 ## Prerequisites
 
 1. Xcode + command line tools installed.
@@ -34,7 +47,7 @@ git tag v<version>
 git push origin v<version>
 ```
 
-2. Create a GitHub release for that tag and upload:
+2. Create a GitHub release for that tag with generated notes and upload:
    - `dist/OpenScribe-<version>.zip` for unsigned internal testing, or
    - `dist/OpenScribe-<version>/OpenScribe-notarized.zip` for external users.
 
@@ -97,3 +110,12 @@ brew install --cask openscribe
    - grant microphone permission
    - run one short recording
    - verify raw + polished output
+
+## Optional Automation Skill
+
+Use the repo-local release skill to run the standard release flow:
+
+```bash
+zsh .agents/release/scripts/cut.sh --version <x.y.z> --build <n>
+```
+The script prepares version/build, preflight checks, artifact build, and Homebrew cask output, then prints commit/tag/release commands.
