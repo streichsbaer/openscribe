@@ -25,7 +25,7 @@ Create a shareable `.app` and optional signed+notarized package from `main`.
    - `swift build`
    - `swift test`
    - `RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests`
-   - `zsh .agents/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
+   - `zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
 
 ## Build Unsigned App
 
@@ -116,6 +116,6 @@ brew install --cask openscribe
 Use the repo-local release skill to run the standard release flow:
 
 ```bash
-zsh .agents/release/scripts/cut.sh --version <x.y.z> --build <n>
+zsh .agents/skills/release/scripts/cut.sh --version <x.y.z> --build <n>
 ```
 The script prepares version/build, preflight checks, artifact build, and Homebrew cask output, then prints commit/tag/release commands.

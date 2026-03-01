@@ -32,7 +32,7 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
    - `swift build`
    - `swift test`
    - `RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests`
-   - `zsh .agents/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
+   - `zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
 4. Build release artifact:
    - `zsh Scripts/build_release_app.sh`
 5. Generate Homebrew cask from the zip:

@@ -113,7 +113,7 @@ Root: `~/Library/Application Support/OpenScribe`
 - Scope:
   - Top-level overview page with clickable deep dives.
   - Feature pages for recording, providers, polish, history, stats, release.
-  - Add dedicated docs Q&A skill in `.agents/docs/` that indexes and answers from repo docs.
+  - Add dedicated docs Q&A skill in `.agents/skills/docs/` that indexes and answers from repo docs.
 - Acceptance:
   - New contributor can navigate from overview to implementation details quickly.
   - Agent can answer product and technical questions from local docs with source references.

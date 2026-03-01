@@ -20,9 +20,9 @@
 
 ## Local Skills
 
-- Repo-local skills live under `.agents/<skill>/SKILL.md`.
+- Repo-local skills live under `.agents/skills/<skill>/SKILL.md`.
 - When a task matches a local skill, load that skill before implementing.
-- Prefer scripts in `.agents/<skill>/scripts/` for repeatable automation.
+- Prefer scripts in `.agents/skills/<skill>/scripts/` for repeatable automation.
 
 ## Git Commit Policy
 

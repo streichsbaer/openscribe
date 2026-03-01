@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 cd "$ROOT_DIR"
 
 VERSION=""
@@ -62,7 +62,7 @@ echo "[release] preflight verification"
 swift build
 swift test
 RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
-zsh .agents/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
+zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 
 echo "[release] build artifact"
 zsh Scripts/build_release_app.sh

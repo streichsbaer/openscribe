@@ -20,6 +20,6 @@ This folder contains repo-local skills that extend autonomous workflows for this
 Run skill scripts directly from repo root.
 
 ```bash
-zsh .agents/ui-smoke/scripts/run.sh
-zsh .agents/release/scripts/cut.sh --version 0.1.1 --build 2
+zsh .agents/skills/ui-smoke/scripts/run.sh
+zsh .agents/skills/release/scripts/cut.sh --version 0.1.1 --build 2
 ```
