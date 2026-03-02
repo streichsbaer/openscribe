@@ -607,6 +607,15 @@ struct SettingsView: View {
                 )
             }
 
+            settingsCard("TAB NAVIGATION") {
+                Text("Live tab: Ctrl + Option + L")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("History tab: Ctrl + Option + H")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             settingsCard("SETTINGS") {
                 HotkeyEditor(
                     title: "Open settings window",
@@ -920,41 +929,11 @@ struct SettingsView: View {
     }
 
     private func transcriptionModels(for provider: String) -> [String] {
-        let fallback: [String]
-        switch provider {
-        case "whispercpp":
-            fallback = ["tiny", "base", "small", "medium"]
-        case "openai_whisper":
-            fallback = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
-        case "groq_whisper":
-            fallback = ["whisper-large-v3", "whisper-large-v3-turbo"]
-        case "openrouter_transcribe":
-            fallback = ["google/gemini-2.5-flash", "openai/gpt-4o-mini"]
-        case "gemini_transcribe":
-            fallback = ["gemini-3-flash-preview", "gemini-2.5-flash"]
-        default:
-            fallback = ["base"]
-        }
-
-        return shell.availableModels(for: provider, usage: .transcription, fallback: fallback)
+        shell.availableModels(for: provider, usage: .transcription)
     }
 
     private func polishModels(for provider: String) -> [String] {
-        let fallback: [String]
-        switch provider {
-        case "openai_polish":
-            fallback = ["gpt-5-nano", "gpt-5-mini"]
-        case "groq_polish":
-            fallback = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
-        case "openrouter_polish":
-            fallback = ["openai/gpt-5-nano", "openai/gpt-5-mini", "google/gemini-2.5-flash"]
-        case "gemini_polish":
-            fallback = ["gemini-2.5-flash"]
-        default:
-            fallback = ["gpt-5-nano"]
-        }
-
-        return shell.availableModels(for: provider, usage: .polish, fallback: fallback)
+        shell.availableModels(for: provider, usage: .polish)
     }
 
     private var microphonePermissionSummary: String {

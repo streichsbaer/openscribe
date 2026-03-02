@@ -10,36 +10,44 @@ struct PopoverView: View {
     @State private var selectedRetryPolishOptionID = ""
     @State private var retryTranscriptionFilter = ""
     @State private var retryPolishFilter = ""
+    @State private var historySelectionMode = false
+    @State private var selectedHistorySessionIDs: Set<UUID> = []
+    @State private var pendingDeleteEntries: [SessionHistoryEntry] = []
     @State private var hoverHint: String?
-    private let openAITranscriptionFallbackModels = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
-    private let groqTranscriptionFallbackModels = ["whisper-large-v3", "whisper-large-v3-turbo"]
-    private let openRouterTranscriptionFallbackModels = ["google/gemini-2.5-flash", "openai/gpt-4o-mini"]
-    private let geminiTranscriptionFallbackModels = ["gemini-3-flash-preview", "gemini-2.5-flash"]
-    private let openAIPolishFallbackModels = ["gpt-5-nano", "gpt-5-mini"]
-    private let groqPolishFallbackModels = ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
-    private let openRouterPolishFallbackModels = ["openai/gpt-5-nano", "openai/gpt-5-mini", "google/gemini-2.5-flash"]
-    private let geminiPolishFallbackModels = ["gemini-2.5-flash"]
     private let infoLabelWidth: CGFloat = 44
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             headerSection
-            inputSection
-            sessionSection
-            textSection
+            mainTabBar
+
+            if shell.selectedPopoverTab == .live {
+                inputSection
+                sessionSection
+                textSection
+            } else {
+                historySection
+            }
 
             footerSection
         }
         .padding(12)
         .frame(width: popoverWidth)
         .fixedSize(horizontal: false, vertical: true)
+        .frame(maxHeight: .infinity, alignment: .top)
         .onAppear {
-            shell.updatePopoverSize(expandedTextPanels: expandedTextPanels)
+            syncPopoverSize()
             syncRetryPolishSelection()
             syncRetryTranscriptionSelection()
+            if shell.selectedPopoverTab == .history {
+                shell.refreshHistorySessions(preserveLoadedCount: true)
+            }
         }
         .onChange(of: expandedTextPanels) { _, newValue in
-            shell.updatePopoverSize(expandedTextPanels: newValue)
+            handleExpandedTextPanelsChanged(newValue)
+        }
+        .onChange(of: shell.selectedPopoverTab) { _, newValue in
+            handleSelectedTabChanged(newValue)
         }
         .onChange(of: shell.settings.polishProviderID) { _, _ in
             syncRetryPolishSelection()
@@ -59,6 +67,53 @@ struct PopoverView: View {
         .onChange(of: shell.rawTranscriptModel) { _, _ in
             syncRetryTranscriptionSelection()
         }
+        .onChange(of: shell.historySessions) { _, sessions in
+            let validIDs = Set(sessions.map(\.id))
+            selectedHistorySessionIDs = selectedHistorySessionIDs.intersection(validIDs)
+        }
+        .confirmationDialog(
+            historyDeleteConfirmationTitle,
+            isPresented: Binding(
+                get: { !pendingDeleteEntries.isEmpty },
+                set: { newValue in
+                    if !newValue {
+                        pendingDeleteEntries = []
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(historyDeleteConfirmationActionLabel, role: .destructive) {
+                shell.deleteHistorySessions(pendingDeleteEntries)
+                clearHistorySelectionAfterDelete()
+                pendingDeleteEntries = []
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeleteEntries = []
+            }
+        } message: {
+            Text(historyDeleteConfirmationMessage)
+        }
+    }
+
+    private var mainTabBar: some View {
+        HStack {
+            Spacer(minLength: 0)
+            mainTabPicker
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
+        .padding(.bottom, 2)
+    }
+
+    private var mainTabPicker: some View {
+        Picker("Popover tab", selection: $shell.selectedPopoverTab) {
+            Text("Live").tag(PopoverTabSelection.live)
+            Text("History").tag(PopoverTabSelection.history)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 210)
     }
 
     private var headerSection: some View {
@@ -283,6 +338,116 @@ struct PopoverView: View {
         }
     }
 
+    private var historySection: some View {
+        card(title: "History", trailing: {
+            HStack(spacing: 6) {
+                Button(historySelectionMode ? "Done" : "Select") {
+                    historySelectionMode.toggle()
+                    if !historySelectionMode {
+                        selectedHistorySessionIDs.removeAll()
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(shell.historyIsLoading || shell.visibleHistorySessions.isEmpty)
+                .instantHint(historySelectionMode ? "Exit multi-select mode" : "Select multiple sessions", hoverHint: $hoverHint)
+
+                Button {
+                    shell.refreshHistorySessions(preserveLoadedCount: true)
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(shell.historyIsLoading)
+                .instantHint("Refresh session history", hoverHint: $hoverHint)
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 8) {
+                if shell.visibleHistorySessions.isEmpty {
+                    Text("No sessions yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(shell.visibleHistorySessions) { entry in
+                                historyRow(entry)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: historyListHeight)
+                    .padding(.trailing, 2)
+                }
+
+                if historySelectionMode {
+                    HStack(alignment: .center, spacing: 8) {
+                        Text("\(selectedHistoryEntries.count) selected")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Button("Select all visible") {
+                            selectedHistorySessionIDs = Set(shell.visibleHistorySessions.map(\.id))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(shell.visibleHistorySessions.isEmpty || shell.historyIsLoading)
+
+                        Button("Delete selected") {
+                            guard !selectedHistoryEntries.isEmpty else {
+                                return
+                            }
+                            pendingDeleteEntries = selectedHistoryEntries
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(selectedHistoryEntries.isEmpty || shell.historyIsLoading)
+                    }
+                }
+
+                HStack(alignment: .center, spacing: 8) {
+                    Text("Loaded \(shell.visibleHistorySessions.count) session(s)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    if shell.historyCanLoadMore {
+                        Menu {
+                            ForEach(shell.historyLoadMoreModes) { mode in
+                                Button(mode.actionLabel) {
+                                    shell.loadMoreHistorySessions(mode: mode)
+                                    if historySelectionMode {
+                                        selectedHistorySessionIDs = selectedHistorySessionIDs.intersection(Set(shell.visibleHistorySessions.map(\.id)))
+                                    }
+                                }
+                            }
+                        } label: {
+                            if shell.historyIsLoading {
+                                Text("Loading...")
+                            } else {
+                                Text("Load more")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(shell.historyIsLoading)
+                        .instantHint("Load additional history sessions", hoverHint: $hoverHint)
+                    } else {
+                        Text("All sessions loaded")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
     private var footerSection: some View {
         HStack(alignment: .center) {
             statusText
@@ -370,6 +535,105 @@ struct PopoverView: View {
         }
     }
 
+    private func historyRow(_ entry: SessionHistoryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 8) {
+                if historySelectionMode {
+                    Button {
+                        toggleHistorySelection(entry)
+                    } label: {
+                        Image(systemName: selectedHistorySessionIDs.contains(entry.id) ? "checkmark.circle.fill" : "circle")
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Text(historyTimestamp(entry.createdAt))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                stateChipLabel(entry.state.displayLabel, color: historyStateColor(entry.state))
+                Spacer(minLength: 0)
+
+                if !historySelectionMode {
+                    historyRowActions(entry)
+                }
+            }
+
+            Text("\(providerDisplayName(for: entry.sttProvider)) / \(entry.sttModel)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            if entry.previewText.isEmpty {
+                Text("No transcript text yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(entry.previewText)
+                    .font(.subheadline)
+                    .lineLimit(expandedTextPanels ? 4 : 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(NSColor.textBackgroundColor).opacity(0.36))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+        .onTapGesture {
+            if historySelectionMode {
+                toggleHistorySelection(entry)
+            } else {
+                openHistorySessionAndShowLive(entry)
+            }
+        }
+    }
+
+    private func historyRowActions(_ entry: SessionHistoryEntry) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                openHistorySessionAndShowLive(entry)
+            } label: {
+                Image(systemName: "arrow.right.circle")
+            }
+            .buttonStyle(.borderless)
+            .disabled(!shell.canRunHistoryProcessingActions)
+            .instantHint("Load session in Live tab", hoverHint: $hoverHint)
+
+            if let audioURL = historyAudioURL(for: entry) {
+                Button {
+                    playbackManager.toggle(url: audioURL)
+                } label: {
+                    Image(systemName: playbackManager.isPlaying ? "stop.circle" : "play.circle")
+                }
+                .buttonStyle(.borderless)
+                .instantHint(playbackManager.isPlaying ? "Stop audio playback" : "Play session audio", hoverHint: $hoverHint)
+            }
+
+            Button {
+                shell.revealHistorySessionInFinder(entry)
+            } label: {
+                Image(systemName: "folder")
+            }
+            .buttonStyle(.borderless)
+            .instantHint("Reveal session folder in Finder", hoverHint: $hoverHint)
+
+            Button(role: .destructive) {
+                pendingDeleteEntries = [entry]
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .instantHint("Delete session", hoverHint: $hoverHint)
+        }
+    }
+
     private func card<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -442,6 +706,36 @@ struct PopoverView: View {
 
     private func openSettings() {
         shell.openSettingsWindow()
+    }
+
+    private func openHistorySessionAndShowLive(_ entry: SessionHistoryEntry) {
+        if shell.openHistorySession(entry) {
+            shell.selectedPopoverTab = .live
+        }
+    }
+
+    private func syncPopoverSize() {
+        shell.updatePopoverSize(
+            selectedTab: shell.selectedPopoverTab,
+            expandedTextPanels: expandedTextPanels
+        )
+    }
+
+    private func handleExpandedTextPanelsChanged(_ newValue: Bool) {
+        shell.updatePopoverSize(
+            selectedTab: shell.selectedPopoverTab,
+            expandedTextPanels: newValue
+        )
+    }
+
+    private func handleSelectedTabChanged(_ newValue: PopoverTabSelection) {
+        shell.updatePopoverSize(
+            selectedTab: newValue,
+            expandedTextPanels: expandedTextPanels
+        )
+        if newValue == .history {
+            shell.refreshHistorySessions(preserveLoadedCount: true)
+        }
     }
 
     private var polishedBodyText: String {
@@ -599,22 +893,22 @@ struct PopoverView: View {
         options.append(contentsOf: verifiedOptions(
             providerID: "openai_whisper",
             providerName: "OpenAI",
-            models: shell.availableModels(for: "openai_whisper", usage: .transcription, fallback: openAITranscriptionFallbackModels)
+            models: shell.availableModels(for: "openai_whisper", usage: .transcription)
         ))
         options.append(contentsOf: verifiedOptions(
             providerID: "groq_whisper",
             providerName: "Groq",
-            models: shell.availableModels(for: "groq_whisper", usage: .transcription, fallback: groqTranscriptionFallbackModels)
+            models: shell.availableModels(for: "groq_whisper", usage: .transcription)
         ))
         options.append(contentsOf: verifiedOptions(
             providerID: "openrouter_transcribe",
             providerName: "OpenRouter",
-            models: shell.availableModels(for: "openrouter_transcribe", usage: .transcription, fallback: openRouterTranscriptionFallbackModels)
+            models: shell.availableModels(for: "openrouter_transcribe", usage: .transcription)
         ))
         options.append(contentsOf: verifiedOptions(
             providerID: "gemini_transcribe",
             providerName: "Gemini",
-            models: shell.availableModels(for: "gemini_transcribe", usage: .transcription, fallback: geminiTranscriptionFallbackModels)
+            models: shell.availableModels(for: "gemini_transcribe", usage: .transcription)
         ))
         return options.sorted(by: { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending })
     }
@@ -667,22 +961,22 @@ struct PopoverView: View {
         options.append(contentsOf: verifiedOptions(
             providerID: "openai_polish",
             providerName: "OpenAI",
-            models: shell.availableModels(for: "openai_polish", usage: .polish, fallback: openAIPolishFallbackModels)
+            models: shell.availableModels(for: "openai_polish", usage: .polish)
         ))
         options.append(contentsOf: verifiedOptions(
             providerID: "groq_polish",
             providerName: "Groq",
-            models: shell.availableModels(for: "groq_polish", usage: .polish, fallback: groqPolishFallbackModels)
+            models: shell.availableModels(for: "groq_polish", usage: .polish)
         ))
         options.append(contentsOf: verifiedOptions(
             providerID: "openrouter_polish",
             providerName: "OpenRouter",
-            models: shell.availableModels(for: "openrouter_polish", usage: .polish, fallback: openRouterPolishFallbackModels)
+            models: shell.availableModels(for: "openrouter_polish", usage: .polish)
         ))
         options.append(contentsOf: verifiedOptions(
             providerID: "gemini_polish",
             providerName: "Gemini",
-            models: shell.availableModels(for: "gemini_polish", usage: .polish, fallback: geminiPolishFallbackModels)
+            models: shell.availableModels(for: "gemini_polish", usage: .polish)
         ))
 
         if options.isEmpty {
@@ -878,8 +1172,79 @@ struct PopoverView: View {
         shell.rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var selectedHistoryEntries: [SessionHistoryEntry] {
+        shell.visibleHistorySessions.filter { selectedHistorySessionIDs.contains($0.id) }
+    }
+
+    private var historyDeleteConfirmationTitle: String {
+        pendingDeleteEntries.count == 1 ? "Delete Session" : "Delete Sessions"
+    }
+
+    private var historyDeleteConfirmationActionLabel: String {
+        pendingDeleteEntries.count == 1 ? "Delete session" : "Delete \(pendingDeleteEntries.count) sessions"
+    }
+
+    private var historyDeleteConfirmationMessage: String {
+        if pendingDeleteEntries.count == 1 {
+            return "Move this session to Trash?"
+        }
+        return "Move \(pendingDeleteEntries.count) selected sessions to Trash?"
+    }
+
+    private func clearHistorySelectionAfterDelete() {
+        let pendingIDs = Set(pendingDeleteEntries.map(\.id))
+        selectedHistorySessionIDs = selectedHistorySessionIDs.subtracting(pendingIDs)
+        if historySelectionMode && selectedHistorySessionIDs.isEmpty {
+            historySelectionMode = false
+        }
+    }
+
+    private func historyAudioURL(for entry: SessionHistoryEntry) -> URL? {
+        let audioURL = entry.folderURL.appendingPathComponent("audio.m4a")
+        guard FileManager.default.fileExists(atPath: audioURL.path) else {
+            return nil
+        }
+        return audioURL
+    }
+
+    private func toggleHistorySelection(_ entry: SessionHistoryEntry) {
+        if selectedHistorySessionIDs.contains(entry.id) {
+            selectedHistorySessionIDs.remove(entry.id)
+        } else {
+            selectedHistorySessionIDs.insert(entry.id)
+        }
+    }
+
+    private var historyListHeight: CGFloat {
+        expandedTextPanels ? 560 : 380
+    }
+
+    private func historyTimestamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private func historyStateColor(_ state: SessionState) -> Color {
+        switch state {
+        case .recording:
+            return .green
+        case .finalizingAudio, .transcribing:
+            return .orange
+        case .polishing:
+            return .mint
+        case .failed:
+            return .red
+        case .completed:
+            return .blue
+        case .idle:
+            return .gray
+        }
+    }
+
     private var popoverWidth: CGFloat {
-        expandedTextPanels ? 620 : 540
+        (shell.selectedPopoverTab == .history || expandedTextPanels) ? 620 : 540
     }
 
 }

@@ -8,6 +8,8 @@ enum HotkeyAction: UInt32, CaseIterable {
     case togglePopover = 4
     case openSettings = 5
     case copyRaw = 6
+    case showLiveTab = 7
+    case showHistoryTab = 8
 }
 
 enum HotkeyError: Error, LocalizedError {

@@ -35,6 +35,10 @@ zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 - `test.log`
 - `run.log`
 - `openscribe-window.png`
+- `openscribe-window-hotkey-history-direct.png`
+- `openscribe-window-click-history.png`
+- `openscribe-window-hotkey-history.png`
+- `openscribe-window-hotkey-live.png`
 - `settings-window.png`
 - `settings-general.png`
 - `settings-providers.png`
@@ -72,5 +76,8 @@ When `--out` is set:
 
 - Internal capture avoids transient macOS focus/automation races for popover windows.
 - The run is strict: missing required screenshots causes a failing exit code.
+- The run is strict: tab parity checks must use real segmented-control click dispatch in smoke mode.
+- The run is strict: hotkey tab checks must use real hotkey dispatch in smoke mode.
+- The run is strict: history layout parity between click and hotkey tab switching must pass.
 - Artifact validation checks presence and required coverage. Visual QA is manual.
 - Agent-side image review can be parallelized by opening multiple screenshots at once with the image viewer tool.

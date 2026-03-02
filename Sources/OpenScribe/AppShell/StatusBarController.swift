@@ -13,6 +13,46 @@ final class StatusBarController: NSObject {
         case polishing
     }
 
+    private struct PopoverLayoutMetrics {
+        let frameWidth: CGFloat
+        let frameHeight: CGFloat
+        let windowWidth: CGFloat
+        let windowHeight: CGFloat
+        let hostWidth: CGFloat
+        let hostHeight: CGFloat
+        let hostOriginY: CGFloat
+        let hostFittingHeight: CGFloat
+
+        var hostVerticalSlack: CGFloat {
+            max(0, hostHeight - hostFittingHeight)
+        }
+
+        var topInset: CGFloat {
+            max(0, hostOriginY)
+        }
+
+        var bottomInset: CGFloat {
+            max(0, windowHeight - (hostOriginY + hostHeight))
+        }
+
+        var debugString: String {
+            String(
+                format: "frame=%dx%d window=%dx%d host=%dx%d y=%d fitting=%d slack=%d insetTop=%d insetBottom=%d",
+                Int(frameWidth),
+                Int(frameHeight),
+                Int(windowWidth),
+                Int(windowHeight),
+                Int(hostWidth),
+                Int(hostHeight),
+                Int(hostOriginY),
+                Int(hostFittingHeight),
+                Int(hostVerticalSlack),
+                Int(topInset),
+                Int(bottomInset)
+            )
+        }
+    }
+
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let shell: AppShell
@@ -50,8 +90,14 @@ final class StatusBarController: NSObject {
         shell.togglePopoverHandler = { [weak self] in
             self?.togglePopoverFromHotkey()
         }
-        shell.updatePopoverSizeHandler = { [weak self] size in
-            self?.updatePopoverSize(size)
+        shell.showPopoverHandler = { [weak self] in
+            self?.showPopoverFromHotkey()
+        }
+        shell.isPopoverShownHandler = { [weak self] in
+            self?.popover.isShown ?? false
+        }
+        shell.updatePopoverSizeHandler = { [weak self] size, allowContentExpansion in
+            self?.updatePopoverSize(size, allowContentExpansion: allowContentExpansion)
         }
         currentAppearanceMode = AppearanceMode(rawValue: shell.settings.appearanceMode) ?? .system
         configureStatusItem()
@@ -116,6 +162,22 @@ final class StatusBarController: NSObject {
         togglePopover(button)
     }
 
+    func showPopoverFromHotkey() {
+        guard let button = statusItem.button else {
+            return
+        }
+        if !popover.isShown {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+            fitPopoverToContent(
+                minSize: preferredMinSizeForCurrentTab(),
+                allowContentExpansion: shell.selectedPopoverTab == .live
+            )
+            return
+        }
+        popover.contentViewController?.view.window?.makeKey()
+    }
+
     func runUISmokeCaptureIfConfigured() {
         guard let outputPath = ProcessInfo.processInfo.environment["OPENSCRIBE_UI_SMOKE_OUT"],
               !outputPath.isEmpty else {
@@ -140,10 +202,23 @@ final class StatusBarController: NSObject {
         try? await Task.sleep(nanoseconds: 500_000_000)
 
         let popoverImageURL = outputDirectory.appendingPathComponent("openscribe-window.png")
+        let directHotkeyHistoryImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-history-direct.png")
+        let clickHistoryImageURL = outputDirectory.appendingPathComponent("openscribe-window-click-history.png")
+        let clickHistoryWindowImageURL = outputDirectory.appendingPathComponent("openscribe-window-click-history-full.png")
+        let hotkeyHistoryImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-history.png")
+        let hotkeyHistoryWindowImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-history-full.png")
+        let hotkeyLiveImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-live.png")
         let settingsImageURL = outputDirectory.appendingPathComponent("settings-window.png")
         let debugURL = outputDirectory.appendingPathComponent("ui-smoke-debug.txt")
 
         var popoverStatus = "fail"
+        var hotkeyTabsStatus = "fail"
+        var hotkeyDispatchStatus = "pass"
+        var tabClickDispatchStatus = "pass"
+        var historyDirectLayoutParityStatus = "fail"
+        var historyDirectLayoutParityReason = "not-evaluated"
+        var historyLayoutParityStatus = "fail"
+        var historyLayoutParityReason = "not-evaluated"
         var settingsStatus = "fail"
         var iconStatus = "fail"
         var debugLines: [String] = []
@@ -151,6 +226,7 @@ final class StatusBarController: NSObject {
         let originalPopoverBehavior = popover.behavior
         popover.behavior = .applicationDefined
 
+        var hotkeyCaptureFailures = 0
         if showPopoverForUISmoke() {
             debugLines.append("popoverShown=true")
             try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -168,9 +244,172 @@ final class StatusBarController: NSObject {
             } else {
                 debugLines.append("popoverCapture=fail")
             }
+
+            let liveTabClickedForDirectHotkey = selectPopoverTabViaSegmentedControlForUISmoke(.live)
+            debugLines.append("tabClickDispatch[live-direct]=\(liveTabClickedForDirectHotkey)")
+            if !liveTabClickedForDirectHotkey {
+                tabClickDispatchStatus = "fail"
+                shell.selectedPopoverTab = .live
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+
+            let historyDirectHotkeyDispatched = triggerTabHotkeyForUISmoke(.history)
+            debugLines.append("hotkeyDispatch[history-direct]=\(historyDirectHotkeyDispatched)")
+            if !historyDirectHotkeyDispatched {
+                hotkeyDispatchStatus = "fail"
+                shell.showHistoryTabFromHotkey()
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let historyDirectHotkeyView = popover.contentViewController?.view.window?.contentView
+                ?? popover.contentViewController?.view
+            let directHotkeyHistoryMetrics = currentPopoverLayoutMetrics()
+            if let directHotkeyHistoryMetrics {
+                debugLines.append("popoverDirectHotkeyHistoryMetrics=\(directHotkeyHistoryMetrics.debugString)")
+            } else {
+                debugLines.append("popoverDirectHotkeyHistoryMetrics=missing")
+            }
+            if captureViewSnapshot(historyDirectHotkeyView, to: directHotkeyHistoryImageURL) {
+                debugLines.append("popoverDirectHotkeyHistoryCapture=pass")
+            } else {
+                hotkeyCaptureFailures += 1
+                debugLines.append("popoverDirectHotkeyHistoryCapture=fail")
+            }
+
+            let liveTabClickedBeforeClickHistory = selectPopoverTabViaSegmentedControlForUISmoke(.live)
+            debugLines.append("tabClickDispatch[live-before-click-history]=\(liveTabClickedBeforeClickHistory)")
+            if !liveTabClickedBeforeClickHistory {
+                tabClickDispatchStatus = "fail"
+                shell.selectedPopoverTab = .live
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let historyTabClickedForBaseline = selectPopoverTabViaSegmentedControlForUISmoke(.history)
+            debugLines.append("tabClickDispatch[history-baseline]=\(historyTabClickedForBaseline)")
+            if !historyTabClickedForBaseline {
+                tabClickDispatchStatus = "fail"
+                shell.selectedPopoverTab = .history
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let historyClickView = popover.contentViewController?.view.window?.contentView
+                ?? popover.contentViewController?.view
+            let clickHistoryMetrics = currentPopoverLayoutMetrics()
+            if let clickHistoryMetrics {
+                debugLines.append("popoverClickHistoryMetrics=\(clickHistoryMetrics.debugString)")
+            } else {
+                debugLines.append("popoverClickHistoryMetrics=missing")
+            }
+            if captureViewSnapshot(historyClickView, to: clickHistoryImageURL) {
+                debugLines.append("popoverClickHistoryCapture=pass")
+            } else {
+                hotkeyCaptureFailures += 1
+                debugLines.append("popoverClickHistoryCapture=fail")
+            }
+            if captureWindowSnapshot(popover.contentViewController?.view.window, to: clickHistoryWindowImageURL) {
+                debugLines.append("popoverClickHistoryWindowCapture=pass")
+            } else {
+                debugLines.append("popoverClickHistoryWindowCapture=fail")
+            }
+
+            if let clickHistoryMetrics, let directHotkeyHistoryMetrics {
+                let directParity = evaluateHistoryLayoutParity(
+                    clickMetrics: clickHistoryMetrics,
+                    hotkeyMetrics: directHotkeyHistoryMetrics
+                )
+                historyDirectLayoutParityStatus = directParity.isMatch ? "pass" : "fail"
+                historyDirectLayoutParityReason = directParity.reason
+                debugLines.append("historyLayoutParityDirect=\(historyDirectLayoutParityStatus)")
+                debugLines.append("historyLayoutParityDirectReason=\(historyDirectLayoutParityReason)")
+            } else {
+                historyDirectLayoutParityStatus = "fail"
+                historyDirectLayoutParityReason = "missing-metrics"
+                debugLines.append("historyLayoutParityDirect=fail")
+                debugLines.append("historyLayoutParityDirectReason=missing-metrics")
+            }
+
+            let liveTabClickedBeforeHotkeyComparison = selectPopoverTabViaSegmentedControlForUISmoke(.live)
+            debugLines.append("tabClickDispatch[live-before-hotkey-comparison]=\(liveTabClickedBeforeHotkeyComparison)")
+            if !liveTabClickedBeforeHotkeyComparison {
+                tabClickDispatchStatus = "fail"
+                shell.selectedPopoverTab = .live
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+
+            let historyHotkeyDispatched = triggerTabHotkeyForUISmoke(.history)
+            debugLines.append("hotkeyDispatch[history]=\(historyHotkeyDispatched)")
+            if !historyHotkeyDispatched {
+                hotkeyDispatchStatus = "fail"
+                shell.showHistoryTabFromHotkey()
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let historyHotkeyView = popover.contentViewController?.view.window?.contentView
+                ?? popover.contentViewController?.view
+            let hotkeyHistoryMetrics = currentPopoverLayoutMetrics()
+            if let historyHotkeyView {
+                let b = historyHotkeyView.bounds
+                debugLines.append("popoverHotkeyHistoryBounds=\(Int(b.width))x\(Int(b.height))")
+            } else {
+                debugLines.append("popoverHotkeyHistoryBounds=missing")
+            }
+            if let hotkeyHistoryMetrics {
+                debugLines.append("popoverHotkeyHistoryMetrics=\(hotkeyHistoryMetrics.debugString)")
+            } else {
+                debugLines.append("popoverHotkeyHistoryMetrics=missing")
+            }
+            if captureViewSnapshot(historyHotkeyView, to: hotkeyHistoryImageURL) {
+                debugLines.append("popoverHotkeyHistoryCapture=pass")
+            } else {
+                hotkeyCaptureFailures += 1
+                debugLines.append("popoverHotkeyHistoryCapture=fail")
+            }
+            if captureWindowSnapshot(popover.contentViewController?.view.window, to: hotkeyHistoryWindowImageURL) {
+                debugLines.append("popoverHotkeyHistoryWindowCapture=pass")
+            } else {
+                debugLines.append("popoverHotkeyHistoryWindowCapture=fail")
+            }
+
+            if let clickHistoryMetrics, let hotkeyHistoryMetrics {
+                let parity = evaluateHistoryLayoutParity(
+                    clickMetrics: clickHistoryMetrics,
+                    hotkeyMetrics: hotkeyHistoryMetrics
+                )
+                historyLayoutParityStatus = parity.isMatch ? "pass" : "fail"
+                historyLayoutParityReason = parity.reason
+                debugLines.append("historyLayoutParity=\(historyLayoutParityStatus)")
+                debugLines.append("historyLayoutParityReason=\(historyLayoutParityReason)")
+            } else {
+                historyLayoutParityStatus = "fail"
+                historyLayoutParityReason = "missing-metrics"
+                debugLines.append("historyLayoutParity=fail")
+                debugLines.append("historyLayoutParityReason=missing-metrics")
+            }
+
+            let liveHotkeyDispatched = triggerTabHotkeyForUISmoke(.live)
+            debugLines.append("hotkeyDispatch[live]=\(liveHotkeyDispatched)")
+            if !liveHotkeyDispatched {
+                hotkeyDispatchStatus = "fail"
+                shell.showLiveTabFromHotkey()
+            }
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let liveHotkeyView = popover.contentViewController?.view.window?.contentView
+                ?? popover.contentViewController?.view
+            if let liveHotkeyView {
+                let b = liveHotkeyView.bounds
+                debugLines.append("popoverHotkeyLiveBounds=\(Int(b.width))x\(Int(b.height))")
+            } else {
+                debugLines.append("popoverHotkeyLiveBounds=missing")
+            }
+            if captureViewSnapshot(liveHotkeyView, to: hotkeyLiveImageURL) {
+                debugLines.append("popoverHotkeyLiveCapture=pass")
+            } else {
+                hotkeyCaptureFailures += 1
+                debugLines.append("popoverHotkeyLiveCapture=fail")
+            }
         } else {
+            hotkeyCaptureFailures = 3
+            historyLayoutParityStatus = "fail"
+            historyLayoutParityReason = "popover-not-shown"
             debugLines.append("popoverShown=false")
         }
+        hotkeyTabsStatus = hotkeyCaptureFailures == 0 ? "pass" : "missing:\(hotkeyCaptureFailures)"
 
         openSettings()
         try? await Task.sleep(nanoseconds: 700_000_000)
@@ -210,6 +449,14 @@ final class StatusBarController: NSObject {
 
         let summary = """
         popover=\(popoverStatus)
+        hotkeyPopoverTabs=\(hotkeyTabsStatus)
+        hotkeyPopoverTabsFailed=\(hotkeyCaptureFailures)
+        hotkeyDispatch=\(hotkeyDispatchStatus)
+        tabClickDispatch=\(tabClickDispatchStatus)
+        historyLayoutParityDirect=\(historyDirectLayoutParityStatus)
+        historyLayoutParityDirectReason=\(historyDirectLayoutParityReason)
+        historyLayoutParity=\(historyLayoutParityStatus)
+        historyLayoutParityReason=\(historyLayoutParityReason)
         settings=\(settingsStatus)
         settingsTabsFailed=\(tabCaptureFailures)
         menubarIcons=\(iconStatus)
@@ -314,7 +561,7 @@ final class StatusBarController: NSObject {
         }
 
         if !popover.isShown {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            togglePopover(button)
         }
         popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
         return popover.isShown
@@ -350,6 +597,183 @@ final class StatusBarController: NSObject {
         }
     }
 
+    private func captureWindowSnapshot(_ window: NSWindow?, to outputURL: URL) -> Bool {
+        guard let window,
+              let frameView = window.contentView?.superview else {
+            return false
+        }
+
+        frameView.layoutSubtreeIfNeeded()
+        frameView.displayIfNeeded()
+        let bounds = frameView.bounds.integral
+        guard bounds.width > 0, bounds.height > 0 else {
+            return false
+        }
+
+        guard let bitmap = frameView.bitmapImageRepForCachingDisplay(in: bounds) else {
+            return false
+        }
+        bitmap.size = bounds.size
+        frameView.cacheDisplay(in: bounds, to: bitmap)
+
+        guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            return false
+        }
+
+        do {
+            try pngData.write(to: outputURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func currentPopoverLayoutMetrics() -> PopoverLayoutMetrics? {
+        guard let window = popover.contentViewController?.view.window,
+              let windowContentView = window.contentView,
+              let hostView = popover.contentViewController?.view else {
+            return nil
+        }
+
+        windowContentView.layoutSubtreeIfNeeded()
+        hostView.layoutSubtreeIfNeeded()
+
+        let windowBounds = windowContentView.bounds.integral
+        let hostBounds = hostView.bounds.integral
+        let hostFrame = hostView.frame.integral
+        let fitting = hostView.fittingSize
+
+        guard windowBounds.width > 0,
+              windowBounds.height > 0,
+              hostBounds.width > 0,
+              hostBounds.height > 0 else {
+            return nil
+        }
+
+        return PopoverLayoutMetrics(
+            frameWidth: window.frame.width,
+            frameHeight: window.frame.height,
+            windowWidth: windowBounds.width,
+            windowHeight: windowBounds.height,
+            hostWidth: hostBounds.width,
+            hostHeight: hostBounds.height,
+            hostOriginY: hostFrame.origin.y,
+            hostFittingHeight: fitting.height
+        )
+    }
+
+    private func evaluateHistoryLayoutParity(
+        clickMetrics: PopoverLayoutMetrics,
+        hotkeyMetrics: PopoverLayoutMetrics
+    ) -> (isMatch: Bool, reason: String) {
+        let tolerance: CGFloat = 1
+        let frameHeightDelta = abs(clickMetrics.frameHeight - hotkeyMetrics.frameHeight)
+        let windowHeightDelta = abs(clickMetrics.windowHeight - hotkeyMetrics.windowHeight)
+        let hostHeightDelta = abs(clickMetrics.hostHeight - hotkeyMetrics.hostHeight)
+        let slackDelta = abs(clickMetrics.hostVerticalSlack - hotkeyMetrics.hostVerticalSlack)
+        let topInsetDelta = abs(clickMetrics.topInset - hotkeyMetrics.topInset)
+        let bottomInsetDelta = abs(clickMetrics.bottomInset - hotkeyMetrics.bottomInset)
+
+        guard frameHeightDelta <= tolerance else {
+            return (
+                false,
+                "frame-height mismatch click=\(Int(clickMetrics.frameHeight)) hotkey=\(Int(hotkeyMetrics.frameHeight))"
+            )
+        }
+        guard windowHeightDelta <= tolerance else {
+            return (
+                false,
+                "window-height mismatch click=\(Int(clickMetrics.windowHeight)) hotkey=\(Int(hotkeyMetrics.windowHeight))"
+            )
+        }
+        guard hostHeightDelta <= tolerance else {
+            return (
+                false,
+                "host-height mismatch click=\(Int(clickMetrics.hostHeight)) hotkey=\(Int(hotkeyMetrics.hostHeight))"
+            )
+        }
+        guard slackDelta <= tolerance else {
+            return (
+                false,
+                "host-slack mismatch click=\(Int(clickMetrics.hostVerticalSlack)) hotkey=\(Int(hotkeyMetrics.hostVerticalSlack))"
+            )
+        }
+        guard topInsetDelta <= tolerance else {
+            return (
+                false,
+                "top-inset mismatch click=\(Int(clickMetrics.topInset)) hotkey=\(Int(hotkeyMetrics.topInset))"
+            )
+        }
+        guard bottomInsetDelta <= tolerance else {
+            return (
+                false,
+                "bottom-inset mismatch click=\(Int(clickMetrics.bottomInset)) hotkey=\(Int(hotkeyMetrics.bottomInset))"
+            )
+        }
+        return (true, "ok")
+    }
+
+    private func selectPopoverTabViaSegmentedControlForUISmoke(_ tab: PopoverTabSelection) -> Bool {
+        let rootView = popover.contentViewController?.view.window?.contentView
+            ?? popover.contentViewController?.view
+        guard let rootView,
+              let control = findPopoverTabSegmentedControl(in: rootView) else {
+            return false
+        }
+
+        let targetLabel = tab == .live ? "live" : "history"
+        let targetIndex = (0..<control.segmentCount).first { index in
+            (control.label(forSegment: index) ?? "").lowercased() == targetLabel
+        }
+        guard let targetIndex else {
+            return false
+        }
+
+        control.selectedSegment = targetIndex
+        control.sendAction(control.action, to: control.target)
+        return true
+    }
+
+    private func findPopoverTabSegmentedControl(in view: NSView) -> NSSegmentedControl? {
+        if let control = view as? NSSegmentedControl, control.segmentCount >= 2 {
+            let labels = (0..<control.segmentCount)
+                .map { (control.label(forSegment: $0) ?? "").lowercased() }
+            if labels.contains("live"), labels.contains("history") {
+                return control
+            }
+        }
+
+        for child in view.subviews {
+            if let found = findPopoverTabSegmentedControl(in: child) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    private func triggerTabHotkeyForUISmoke(_ tab: PopoverTabSelection) -> Bool {
+        let keyCode: CGKeyCode
+        switch tab {
+        case .live:
+            keyCode = 37 // ANSI L
+        case .history:
+            keyCode = 4 // ANSI H
+        }
+
+        guard let source = CGEventSource(stateID: .combinedSessionState),
+              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else {
+            return false
+        }
+
+        let flags: CGEventFlags = [.maskControl, .maskAlternate]
+        keyDown.flags = flags
+        keyUp.flags = flags
+        keyDown.post(tap: .cghidEventTap)
+        keyUp.post(tap: .cghidEventTap)
+        return true
+    }
+
     private func configureStatusItem() {
         guard let button = statusItem.button else {
             return
@@ -375,29 +799,41 @@ final class StatusBarController: NSObject {
         } else {
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
-            fitPopoverToContent(minSize: popover.contentSize)
+            fitPopoverToContent(
+                minSize: preferredMinSizeForCurrentTab(),
+                allowContentExpansion: shell.selectedPopoverTab == .live
+            )
         }
     }
 
-    private func updatePopoverSize(_ size: CGSize) {
-        let minSize = NSSize(width: size.width, height: size.height)
-        popover.contentSize = minSize
-        fitPopoverToContent(minSize: minSize)
+    private func updatePopoverSize(_ size: CGSize, allowContentExpansion: Bool) {
+        let target = NSSize(width: size.width, height: size.height)
+        popover.contentSize = target
+        fitPopoverToContent(minSize: target, allowContentExpansion: allowContentExpansion)
     }
 
-    private func fitPopoverToContent(minSize: NSSize) {
+    private func preferredMinSizeForCurrentTab() -> NSSize {
+        if shell.selectedPopoverTab == .history {
+            return NSSize(width: 620, height: 700)
+        }
+        return popover.contentSize
+    }
+
+    private func fitPopoverToContent(minSize: NSSize, allowContentExpansion: Bool) {
         guard let contentView = popover.contentViewController?.view else {
             return
         }
 
         contentView.frame.size.width = minSize.width
+        if !allowContentExpansion {
+            contentView.frame.size.height = minSize.height
+        }
         contentView.layoutSubtreeIfNeeded()
         let fitting = contentView.fittingSize
         let target = NSSize(
             width: minSize.width,
-            height: max(minSize.height, fitting.height)
+            height: allowContentExpansion ? max(minSize.height, fitting.height) : minSize.height
         )
-
         popover.contentSize = target
         if popover.isShown {
             popover.contentViewController?.view.window?.setContentSize(target)

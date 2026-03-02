@@ -3,6 +3,11 @@ import Foundation
 final class SessionManager {
     private let layout: DirectoryLayout
     private let fileManager: FileManager
+    private static let metadataDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
 
     init(layout: DirectoryLayout, fileManager: FileManager = .default) {
         self.layout = layout
@@ -154,6 +159,93 @@ final class SessionManager {
         return nil
     }
 
+    func loadSessionHistory(limit: Int) -> [SessionHistoryEntry] {
+        loadSessionHistoryPage(limit: limit).entries
+    }
+
+    func loadSessionContext(folderURL: URL) -> SessionContext? {
+        let metadataURL = folderURL.appendingPathComponent("session.json")
+        guard fileManager.fileExists(atPath: metadataURL.path),
+              let metadataData = try? Data(contentsOf: metadataURL),
+              let metadata = try? Self.metadataDecoder.decode(SessionMetadata.self, from: metadataData) else {
+            return nil
+        }
+
+        let paths = SessionPaths(
+            folderURL: folderURL,
+            audioTempURL: folderURL.appendingPathComponent("audio.capture.wav.part"),
+            audioURL: folderURL.appendingPathComponent("audio.m4a"),
+            metadataURL: metadataURL,
+            rawURL: folderURL.appendingPathComponent("raw.txt"),
+            polishedURL: folderURL.appendingPathComponent("polished.md")
+        )
+
+        return SessionContext(id: metadata.sessionId, paths: paths, metadata: metadata)
+    }
+
+    func loadSessionHistoryPage(limit: Int) -> SessionHistoryPage {
+        let normalizedLimit = max(0, limit)
+        guard normalizedLimit > 0 else {
+            return SessionHistoryPage(entries: [], hasMore: false)
+        }
+
+        let scanLimit: Int
+        if normalizedLimit == Int.max {
+            scanLimit = Int.max
+        } else {
+            scanLimit = normalizedLimit + 1
+        }
+
+        let scanned = loadSessionHistoryEntries(limit: scanLimit)
+        if normalizedLimit == Int.max {
+            return SessionHistoryPage(entries: scanned, hasMore: false)
+        }
+        if scanned.count > normalizedLimit {
+            return SessionHistoryPage(
+                entries: Array(scanned.prefix(normalizedLimit)),
+                hasMore: true
+            )
+        }
+        return SessionHistoryPage(entries: scanned, hasMore: false)
+    }
+
+    private func loadSessionHistoryEntries(limit: Int) -> [SessionHistoryEntry] {
+        let dayFolders = (try? fileManager.contentsOfDirectory(
+            at: layout.recordings,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        var entries: [SessionHistoryEntry] = []
+
+        for dayFolder in dayFolders.sorted(by: { $0.lastPathComponent > $1.lastPathComponent }) {
+            guard (try? dayFolder.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                continue
+            }
+
+            let sessions = (try? fileManager.contentsOfDirectory(
+                at: dayFolder,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+
+            for sessionFolder in sessions.sorted(by: { $0.lastPathComponent > $1.lastPathComponent }) {
+                guard entries.count < limit else {
+                    return entries
+                }
+                guard (try? sessionFolder.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                    continue
+                }
+                guard let entry = loadSessionHistoryEntry(from: sessionFolder) else {
+                    continue
+                }
+                entries.append(entry)
+            }
+        }
+
+        return entries
+    }
+
     private func persistMetadata(_ session: SessionContext) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -176,5 +268,64 @@ final class SessionManager {
         }
 
         try fileManager.moveItem(at: temp, to: url)
+    }
+
+    private func loadSessionHistoryEntry(from sessionFolder: URL) -> SessionHistoryEntry? {
+        let metadataURL = sessionFolder.appendingPathComponent("session.json")
+        guard fileManager.fileExists(atPath: metadataURL.path),
+              let metadataData = try? Data(contentsOf: metadataURL),
+              let metadata = try? Self.metadataDecoder.decode(SessionMetadata.self, from: metadataData) else {
+            return nil
+        }
+
+        let previewText = sessionPreviewText(from: sessionFolder)
+
+        return SessionHistoryEntry(
+            id: metadata.sessionId,
+            folderURL: sessionFolder,
+            createdAt: metadata.createdAt,
+            state: metadata.state,
+            sttProvider: metadata.sttProvider,
+            sttModel: metadata.sttModel,
+            polishProvider: metadata.polishProvider,
+            polishModel: metadata.polishModel,
+            previewText: previewText
+        )
+    }
+
+    private func sessionPreviewText(from sessionFolder: URL) -> String {
+        let polishedURL = sessionFolder.appendingPathComponent("polished.md")
+        let rawURL = sessionFolder.appendingPathComponent("raw.txt")
+
+        if let polished = fileText(at: polishedURL), !polished.isEmpty {
+            return polished
+        }
+        if let raw = fileText(at: rawURL), !raw.isEmpty {
+            return raw
+        }
+        return ""
+    }
+
+    private func fileText(at url: URL) -> String? {
+        guard fileManager.fileExists(atPath: url.path),
+              let value = try? String(contentsOf: url, encoding: .utf8) else {
+            return nil
+        }
+
+        let normalized = value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else {
+            return nil
+        }
+
+        let maxPreviewLength = 220
+        if normalized.count <= maxPreviewLength {
+            return normalized
+        }
+
+        let end = normalized.index(normalized.startIndex, offsetBy: maxPreviewLength)
+        return String(normalized[..<end]).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 }

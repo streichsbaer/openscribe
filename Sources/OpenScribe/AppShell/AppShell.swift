@@ -1,9 +1,15 @@
 import AppKit
+import Carbon
 import Foundation
 
 enum ProviderModelUsage {
     case transcription
     case polish
+}
+
+enum PopoverTabSelection: String {
+    case live
+    case history
 }
 
 enum ProviderBackend: String {
@@ -48,6 +54,51 @@ struct ProviderConnectivityStatus: Equatable {
 @MainActor
 final class AppShell: ObservableObject {
     private static let autoPasteOnCompleteDefaultsKey = "behavior.autoPasteOnComplete"
+    private static let historyDefaultInitialLoad = 10
+    private static let transcriptPanelsExpandedDefaultsKey = "ui.transcriptPanelsExpanded"
+    private static let showLiveTabHotkey = HotkeySetting(
+        keyCode: 37, // ANSI L
+        modifiers: UInt32(controlKey | optionKey)
+    )
+    private static let showHistoryTabHotkey = HotkeySetting(
+        keyCode: 4, // ANSI H
+        modifiers: UInt32(controlKey | optionKey)
+    )
+
+    enum HistoryLoadMoreMode: String, CaseIterable, Identifiable {
+        case next10
+        case next25
+        case next50
+        case whole
+
+        var id: String { rawValue }
+
+        var actionLabel: String {
+            switch self {
+            case .next10:
+                return "Load next 10"
+            case .next25:
+                return "Load next 25"
+            case .next50:
+                return "Load next 50"
+            case .whole:
+                return "Load whole"
+            }
+        }
+
+        var increment: Int? {
+            switch self {
+            case .next10:
+                return 10
+            case .next25:
+                return 25
+            case .next50:
+                return 50
+            case .whole:
+                return nil
+            }
+        }
+    }
 
     @Published var meterLevel: Float = 0
     @Published var permissionState: MicrophonePermissionState = .undetermined
@@ -66,6 +117,7 @@ final class AppShell: ObservableObject {
     @Published var hotkeyError: String?
 
     @Published var rulesDraft: String
+    @Published var selectedPopoverTab: PopoverTabSelection = .live
 
     @Published var openAIKeyInput: String = ""
     @Published var groqKeyInput: String = ""
@@ -75,6 +127,9 @@ final class AppShell: ObservableObject {
     @Published var menubarIconDebug: String = "icon=idle"
     @Published var transcribeElapsedSeconds: Int = 0
     @Published var polishElapsedSeconds: Int = 0
+    @Published private(set) var historySessions: [SessionHistoryEntry] = []
+    @Published private(set) var historyHasMoreSessions: Bool = false
+    @Published private(set) var historyIsLoading: Bool = false
     @Published private(set) var providerModelsByBackend: [String: [String]] = [:]
     @Published private(set) var providerConnectivityByBackend: [String: ProviderConnectivityStatus] = [:]
     @Published var autoPasteOnComplete: Bool {
@@ -85,7 +140,9 @@ final class AppShell: ObservableObject {
 
     var openSettingsWindowHandler: (() -> Void)?
     var togglePopoverHandler: (() -> Void)?
-    var updatePopoverSizeHandler: ((CGSize) -> Void)?
+    var showPopoverHandler: (() -> Void)?
+    var isPopoverShownHandler: (() -> Bool)?
+    var updatePopoverSizeHandler: ((CGSize, Bool) -> Void)?
 
     let layout: DirectoryLayout
     let settingsStore: SettingsStore
@@ -107,19 +164,12 @@ final class AppShell: ObservableObject {
     private var polishStartedAt: Date?
 
     init() {
-        let resolvedLayout = (try? DirectoryLayout.resolve()) ?? {
-            let fallback = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("OpenScribe", isDirectory: true)
-            return DirectoryLayout(
-                appSupport: fallback,
-                recordings: fallback.appendingPathComponent("Recordings", isDirectory: true),
-                rules: fallback.appendingPathComponent("Rules", isDirectory: true),
-                models: fallback.appendingPathComponent("Models/whisper", isDirectory: true),
-                config: fallback.appendingPathComponent("Config", isDirectory: true),
-                rulesFile: fallback.appendingPathComponent("Rules/rules.md"),
-                rulesHistory: fallback.appendingPathComponent("Rules/rules.history.jsonl"),
-                settingsFile: fallback.appendingPathComponent("Config/settings.json")
-            )
-        }()
+        let resolvedLayout: DirectoryLayout
+        do {
+            resolvedLayout = try DirectoryLayout.resolve()
+        } catch {
+            preconditionFailure("Failed to resolve OpenScribe directories: \(error.localizedDescription)")
+        }
 
         self.layout = resolvedLayout
         self.settingsStore = SettingsStore(layout: resolvedLayout)
@@ -158,6 +208,7 @@ final class AppShell: ObservableObject {
         }
 
         latestPolishedTranscript = sessionManager.loadLatestPolishedTranscript() ?? ""
+        refreshHistorySessions()
 
         registerHotkeys()
         applyAppearanceMode()
@@ -312,6 +363,10 @@ final class AppShell: ObservableObject {
         togglePopoverHandler?()
     }
 
+    func showPopoverWindow() {
+        showPopoverHandler?()
+    }
+
     func openAccessibilityPrivacySettings() {
         openPrivacySettings(anchor: "Privacy_Accessibility")
     }
@@ -325,11 +380,20 @@ final class AppShell: ObservableObject {
         registerHotkeys()
     }
 
-    func updatePopoverSize(expandedTextPanels: Bool) {
-        let size = expandedTextPanels
-            ? CGSize(width: 620, height: 980)
-            : CGSize(width: 540, height: 700)
-        updatePopoverSizeHandler?(size)
+    func updatePopoverSize(selectedTab: PopoverTabSelection, expandedTextPanels: Bool) {
+        let size: CGSize
+        let allowContentExpansion: Bool
+        switch selectedTab {
+        case .live:
+            size = expandedTextPanels
+                ? CGSize(width: 620, height: 980)
+                : CGSize(width: 540, height: 700)
+            allowContentExpansion = true
+        case .history:
+            size = CGSize(width: 620, height: 700)
+            allowContentExpansion = false
+        }
+        updatePopoverSizeHandler?(size, allowContentExpansion)
     }
 
     func updateRawTranscriptFromEditor(_ text: String) {
@@ -710,11 +774,206 @@ final class AppShell: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([session.paths.folderURL])
     }
 
+    var canRunHistoryProcessingActions: Bool {
+        !isSessionPipelineBusy
+    }
+
+    @discardableResult
+    func openHistorySession(_ entry: SessionHistoryEntry) -> Bool {
+        guard canRunHistoryProcessingActions else {
+            statusMessage = "\(sessionState.displayLabel) in progress"
+            return false
+        }
+
+        guard let loaded = sessionManager.loadSessionContext(folderURL: entry.folderURL) else {
+            statusMessage = "Unable to open selected history session."
+            return false
+        }
+
+        currentSession = loaded
+        sessionState = loaded.metadata.state
+
+        rawTranscript = readTextFile(at: loaded.paths.rawURL) ?? ""
+        polishedTranscript = readTextFile(at: loaded.paths.polishedURL) ?? ""
+
+        rawTranscriptProviderID = rawTranscript.isEmpty ? "" : loaded.metadata.sttProvider
+        rawTranscriptModel = rawTranscript.isEmpty ? "" : loaded.metadata.sttModel
+        polishedTranscriptProviderID = polishedTranscript.isEmpty ? "" : loaded.metadata.polishProvider
+        polishedTranscriptModel = polishedTranscript.isEmpty ? "" : loaded.metadata.polishModel
+
+        if !polishedTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            latestPolishedTranscript = polishedTranscript
+        }
+
+        lastError = nil
+        statusMessage = "Loaded history session"
+        return true
+    }
+
+    func revealHistorySessionInFinder(_ entry: SessionHistoryEntry) {
+        NSWorkspace.shared.activateFileViewerSelecting([entry.folderURL])
+    }
+
+    func deleteHistorySessions(_ entries: [SessionHistoryEntry]) {
+        guard !entries.isEmpty else {
+            return
+        }
+
+        let fileManager = FileManager.default
+        let unique = Dictionary(uniqueKeysWithValues: entries.map { ($0.folderURL.standardizedFileURL.path, $0.folderURL.standardizedFileURL) })
+        var deletedCount = 0
+        var failedCount = 0
+        var firstFailure: String?
+
+        for folderURL in unique.values {
+            if isCurrentSession(folderURL: folderURL), isSessionPipelineBusy {
+                failedCount += 1
+                firstFailure = firstFailure ?? "Cannot delete an active processing session."
+                continue
+            }
+
+            do {
+                _ = try fileManager.trashItem(at: folderURL, resultingItemURL: nil)
+                deletedCount += 1
+                if isCurrentSession(folderURL: folderURL) {
+                    clearLoadedSessionAfterDelete()
+                }
+            } catch {
+                failedCount += 1
+                if firstFailure == nil {
+                    firstFailure = error.localizedDescription
+                }
+            }
+        }
+
+        refreshHistorySessions(preserveLoadedCount: true)
+        latestPolishedTranscript = sessionManager.loadLatestPolishedTranscript() ?? ""
+
+        if deletedCount > 0, failedCount == 0 {
+            statusMessage = deletedCount == 1 ? "Deleted 1 session" : "Deleted \(deletedCount) sessions"
+            return
+        }
+
+        if deletedCount > 0, failedCount > 0 {
+            statusMessage = "Deleted \(deletedCount) sessions. Failed to delete \(failedCount)."
+            lastError = firstFailure
+            return
+        }
+
+        statusMessage = "Failed to delete selected sessions."
+        lastError = firstFailure
+    }
+
+    var visibleHistorySessions: [SessionHistoryEntry] {
+        historySessions
+    }
+
+    var historyCanLoadMore: Bool {
+        historyHasMoreSessions
+    }
+
+    var historyLoadMoreModes: [HistoryLoadMoreMode] {
+        HistoryLoadMoreMode.allCases
+    }
+
+    func refreshHistorySessions(preserveLoadedCount: Bool = false) {
+        historyIsLoading = true
+        let targetLimit: Int
+        if preserveLoadedCount {
+            targetLimit = max(Self.historyDefaultInitialLoad, historySessions.count)
+        } else {
+            targetLimit = Self.historyDefaultInitialLoad
+        }
+        let result = sessionManager.loadSessionHistoryPage(limit: targetLimit)
+        historySessions = result.entries
+        historyHasMoreSessions = result.hasMore
+        historyIsLoading = false
+    }
+
+    func showLiveTabFromHotkey() {
+        selectedPopoverTab = .live
+        if !isPopoverShown {
+            updatePopoverSize(selectedTab: .live, expandedTextPanels: isTranscriptPanelsExpanded)
+        }
+        showPopoverWindow()
+    }
+
+    func showHistoryTabFromHotkey() {
+        selectedPopoverTab = .history
+        refreshHistorySessions(preserveLoadedCount: true)
+        if !isPopoverShown {
+            updatePopoverSize(selectedTab: .history, expandedTextPanels: isTranscriptPanelsExpanded)
+        }
+        showPopoverWindow()
+    }
+
+    func loadMoreHistorySessions(mode: HistoryLoadMoreMode) {
+        guard historyCanLoadMore, !historyIsLoading else {
+            return
+        }
+
+        historyIsLoading = true
+        let nextLimit: Int
+        if let increment = mode.increment {
+            nextLimit = historySessions.count + increment
+        } else {
+            nextLimit = Int.max
+        }
+
+        let result = sessionManager.loadSessionHistoryPage(limit: nextLimit)
+        historySessions = result.entries
+        historyHasMoreSessions = result.hasMore
+        historyIsLoading = false
+    }
+
+    private var isSessionPipelineBusy: Bool {
+        switch sessionState {
+        case .recording, .finalizingAudio, .transcribing, .polishing:
+            return true
+        case .idle, .completed, .failed:
+            return false
+        }
+    }
+
+    private func isCurrentSession(folderURL: URL) -> Bool {
+        guard let current = currentSession?.paths.folderURL else {
+            return false
+        }
+        return current.standardizedFileURL == folderURL.standardizedFileURL
+    }
+
+    private func clearLoadedSessionAfterDelete() {
+        currentSession = nil
+        rawTranscript = ""
+        polishedTranscript = ""
+        rawTranscriptProviderID = ""
+        rawTranscriptModel = ""
+        polishedTranscriptProviderID = ""
+        polishedTranscriptModel = ""
+        sessionState = .idle
+    }
+
+    private func readTextFile(at url: URL) -> String? {
+        guard FileManager.default.fileExists(atPath: url.path),
+              let value = try? String(contentsOf: url, encoding: .utf8) else {
+            return nil
+        }
+        return value
+    }
+
+    private var isTranscriptPanelsExpanded: Bool {
+        userDefaults.bool(forKey: Self.transcriptPanelsExpandedDefaultsKey)
+    }
+
+    private var isPopoverShown: Bool {
+        isPopoverShownHandler?() ?? false
+    }
+
     func availableModels(
         for providerID: String,
-        usage: ProviderModelUsage,
-        fallback: [String]
+        usage: ProviderModelUsage
     ) -> [String] {
+        let fallback = fallbackModels(for: providerID, usage: usage)
         let backend = backend(for: providerID)
         guard let backend else { return fallback }
 
@@ -729,6 +988,33 @@ final class AppShell: ObservableObject {
         }
 
         return filtered
+    }
+
+    private func fallbackModels(for providerID: String, usage: ProviderModelUsage) -> [String] {
+        switch (providerID, usage) {
+        case ("whispercpp", .transcription):
+            return ["tiny", "base", "small", "medium"]
+        case ("openai_whisper", .transcription):
+            return ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
+        case ("groq_whisper", .transcription):
+            return ["whisper-large-v3", "whisper-large-v3-turbo"]
+        case ("openrouter_transcribe", .transcription):
+            return ["google/gemini-2.5-flash", "openai/gpt-4o-mini"]
+        case ("gemini_transcribe", .transcription):
+            return ["gemini-3-flash-preview", "gemini-2.5-flash"]
+        case ("openai_polish", .polish):
+            return ["gpt-5-nano", "gpt-5-mini"]
+        case ("groq_polish", .polish):
+            return ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
+        case ("openrouter_polish", .polish):
+            return ["openai/gpt-5-nano", "openai/gpt-5-mini", "google/gemini-2.5-flash"]
+        case ("gemini_polish", .polish):
+            return ["gemini-2.5-flash"]
+        case (_, .transcription):
+            return ["base"]
+        case (_, .polish):
+            return ["gpt-5-nano"]
+        }
     }
 
     func providerConnectivityStatus(for providerID: String) -> ProviderConnectivityStatus {
@@ -828,6 +1114,18 @@ final class AppShell: ObservableObject {
                 }
             }
 
+            try hotkeyManager.register(action: .showLiveTab, setting: Self.showLiveTabHotkey) { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.showLiveTabFromHotkey()
+                }
+            }
+
+            try hotkeyManager.register(action: .showHistoryTab, setting: Self.showHistoryTabHotkey) { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.showHistoryTabFromHotkey()
+                }
+            }
+
             hotkeyError = nil
         } catch {
             hotkeyError = error.localizedDescription
@@ -842,7 +1140,9 @@ final class AppShell: ObservableObject {
             ("Copy raw", settings.copyRawHotkey),
             ("Paste latest", settings.pasteHotkey),
             ("Toggle popover", settings.togglePopoverHotkey),
-            ("Open settings", settings.openSettingsHotkey)
+            ("Open settings", settings.openSettingsHotkey),
+            ("Show Live tab", Self.showLiveTabHotkey),
+            ("Show History tab", Self.showHistoryTabHotkey)
         ]
 
         var seen: [HotkeySetting: String] = [:]

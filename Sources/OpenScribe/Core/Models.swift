@@ -1,4 +1,3 @@
-import AppKit
 import Carbon
 import Foundation
 
@@ -99,7 +98,6 @@ struct HotkeySetting: Codable, Equatable, Hashable {
     private static let vKeyCode: UInt32 = 9
     private static let oKeyCode: UInt32 = 31
     private static let commaKeyCode: UInt32 = 43
-    static let legacyNSEventFunctionMask: UInt32 = UInt32(NSEvent.ModifierFlags.function.rawValue)
     static let carbonFunctionMask: UInt32 = UInt32(kEventKeyModifierFnMask)
 
     static let startStopDefault = HotkeySetting(
@@ -133,12 +131,7 @@ struct HotkeySetting: Codable, Equatable, Hashable {
     )
 
     func normalizedForCarbonHotkey() -> HotkeySetting {
-        var normalized = self
-        if (normalized.modifiers & Self.legacyNSEventFunctionMask) != 0 {
-            normalized.modifiers &= ~Self.legacyNSEventFunctionMask
-            normalized.modifiers |= Self.carbonFunctionMask
-        }
-        return normalized
+        self
     }
 }
 
