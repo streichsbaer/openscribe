@@ -4,6 +4,10 @@ import SwiftUI
 
 @MainActor
 final class StatusBarController: NSObject {
+    private static let popoverVerticalMargin: CGFloat = 64
+    private static let popoverMaxHeightFraction: CGFloat = 0.88
+    private static let popoverMinHeight: CGFloat = 420
+    private static let transcriptPanelsExpandedDefaultsKey = "ui.transcriptPanelsExpanded"
     private enum MicIconState {
         case idle
         case working
@@ -93,8 +97,8 @@ final class StatusBarController: NSObject {
         shell.showPopoverHandler = { [weak self] in
             self?.showPopoverFromHotkey()
         }
-        shell.updatePopoverSizeHandler = { [weak self] size, allowContentExpansion in
-            self?.updatePopoverSize(size, allowContentExpansion: allowContentExpansion)
+        shell.updatePopoverSizeHandler = { [weak self] size in
+            self?.updatePopoverSize(size)
         }
         currentAppearanceMode = AppearanceMode(rawValue: shell.settings.appearanceMode) ?? .system
         configureStatusItem()
@@ -166,10 +170,7 @@ final class StatusBarController: NSObject {
         if !popover.isShown {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
-            fitPopoverToContent(
-                minSize: preferredMinSizeForCurrentTab(),
-                allowContentExpansion: shell.selectedPopoverTab == .live
-            )
+            updatePopoverSize(shell.preferredPopoverSizeForCurrentState())
             return
         }
         popover.contentViewController?.view.window?.makeKey()
@@ -205,6 +206,7 @@ final class StatusBarController: NSObject {
         let hotkeyHistoryImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-history.png")
         let hotkeyHistoryWindowImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-history-full.png")
         let hotkeyLiveImageURL = outputDirectory.appendingPathComponent("openscribe-window-hotkey-live.png")
+        let liveExpandedContentImageURL = outputDirectory.appendingPathComponent("openscribe-window-live-expanded-content.png")
         let settingsImageURL = outputDirectory.appendingPathComponent("settings-window.png")
         let debugURL = outputDirectory.appendingPathComponent("ui-smoke-debug.txt")
 
@@ -218,6 +220,7 @@ final class StatusBarController: NSObject {
         var historyLayoutParityReason = "not-evaluated"
         var historyVerticalFillStatus = "fail"
         var historyVerticalFillReason = "not-evaluated"
+        var liveExpandedContentCaptureStatus = "fail"
         var settingsStatus = "fail"
         var iconStatus = "fail"
         var debugLines: [String] = []
@@ -418,10 +421,37 @@ final class StatusBarController: NSObject {
                 hotkeyCaptureFailures += 1
                 debugLines.append("popoverHotkeyLiveCapture=fail")
             }
+
+            let sampleText = "Expanded mode smoke sample: transcript content should remain scrollable and never overlap controls."
+            shell.rawTranscript = sampleText + " Raw."
+            shell.polishedTranscript = sampleText + " Polished."
+            shell.rawTranscriptProviderID = "groq_whisper"
+            shell.rawTranscriptModel = "whisper-large-v3-turbo"
+            shell.polishedTranscriptProviderID = "gemini_polish"
+            shell.polishedTranscriptModel = "gemini-2.5-flash-lite"
+            UserDefaults.standard.set(true, forKey: Self.transcriptPanelsExpandedDefaultsKey)
+            shell.selectPopoverTab(.live)
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let liveExpandedView = popover.contentViewController?.view.window?.contentView
+                ?? popover.contentViewController?.view
+            let liveExpandedMetrics = currentPopoverLayoutMetrics()
+            if let liveExpandedMetrics {
+                debugLines.append("popoverLiveExpandedMetrics=\(liveExpandedMetrics.debugString)")
+            } else {
+                debugLines.append("popoverLiveExpandedMetrics=missing")
+            }
+            if captureViewSnapshot(liveExpandedView, to: liveExpandedContentImageURL) {
+                liveExpandedContentCaptureStatus = "pass"
+                debugLines.append("popoverLiveExpandedContentCapture=pass")
+            } else {
+                liveExpandedContentCaptureStatus = "fail"
+                debugLines.append("popoverLiveExpandedContentCapture=fail")
+            }
         } else {
             hotkeyCaptureFailures = 3
             historyLayoutParityStatus = "fail"
             historyLayoutParityReason = "popover-not-shown"
+            liveExpandedContentCaptureStatus = "fail"
             debugLines.append("popoverShown=false")
         }
         hotkeyTabsStatus = hotkeyCaptureFailures == 0 ? "pass" : "missing:\(hotkeyCaptureFailures)"
@@ -474,6 +504,7 @@ final class StatusBarController: NSObject {
         historyLayoutParityReason=\(historyLayoutParityReason)
         historyVerticalFill=\(historyVerticalFillStatus)
         historyVerticalFillReason=\(historyVerticalFillReason)
+        liveExpandedContentCapture=\(liveExpandedContentCaptureStatus)
         settings=\(settingsStatus)
         settingsTabsFailed=\(tabCaptureFailures)
         menubarIcons=\(iconStatus)
@@ -824,45 +855,43 @@ final class StatusBarController: NSObject {
         } else {
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
-            fitPopoverToContent(
-                minSize: preferredMinSizeForCurrentTab(),
-                allowContentExpansion: shell.selectedPopoverTab == .live
-            )
+            updatePopoverSize(shell.preferredPopoverSizeForCurrentState())
         }
     }
 
-    private func updatePopoverSize(_ size: CGSize, allowContentExpansion: Bool) {
-        let target = NSSize(width: size.width, height: size.height)
-        popover.contentSize = target
-        fitPopoverToContent(minSize: target, allowContentExpansion: allowContentExpansion)
-    }
-
-    private func preferredMinSizeForCurrentTab() -> NSSize {
-        if shell.selectedPopoverTab == .history {
-            return NSSize(width: 620, height: 700)
-        }
-        return popover.contentSize
-    }
-
-    private func fitPopoverToContent(minSize: NSSize, allowContentExpansion: Bool) {
-        guard let contentView = popover.contentViewController?.view else {
-            return
-        }
-
-        contentView.frame.size.width = minSize.width
-        if !allowContentExpansion {
-            contentView.frame.size.height = minSize.height
-        }
-        contentView.layoutSubtreeIfNeeded()
-        let fitting = contentView.fittingSize
+    private func updatePopoverSize(_ size: CGSize) {
+        let requested = NSSize(width: size.width, height: size.height)
         let target = NSSize(
-            width: minSize.width,
-            height: allowContentExpansion ? max(minSize.height, fitting.height) : minSize.height
+            width: requested.width,
+            height: min(requested.height, maxPopoverHeight())
         )
         popover.contentSize = target
+        popover.contentViewController?.view.frame.size = target
+        popover.contentViewController?.view.layoutSubtreeIfNeeded()
         if popover.isShown {
             popover.contentViewController?.view.window?.setContentSize(target)
         }
+    }
+
+    private func maxPopoverHeight() -> CGFloat {
+        if let window = popover.contentViewController?.view.window,
+           let screen = window.screen {
+            return cappedPopoverHeight(for: screen)
+        }
+        if let buttonScreen = statusItem.button?.window?.screen {
+            return cappedPopoverHeight(for: buttonScreen)
+        }
+        if let mainScreen = NSScreen.main {
+            return cappedPopoverHeight(for: mainScreen)
+        }
+        return 900
+    }
+
+    private func cappedPopoverHeight(for screen: NSScreen) -> CGFloat {
+        let visibleHeight = screen.visibleFrame.height
+        let marginCap = visibleHeight - Self.popoverVerticalMargin
+        let fractionCap = visibleHeight * Self.popoverMaxHeightFraction
+        return max(Self.popoverMinHeight, min(marginCap, fractionCap))
     }
 
     private func bindShellState() {

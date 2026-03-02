@@ -63,6 +63,7 @@ rm -f "$OUT_DIR"/build.log \
       "$OUT_DIR"/openscribe-window-hotkey-history.png \
       "$OUT_DIR"/openscribe-window-hotkey-history-full.png \
       "$OUT_DIR"/openscribe-window-hotkey-live.png \
+      "$OUT_DIR"/openscribe-window-live-expanded-content.png \
       "$OUT_DIR"/settings-window.png \
       "$OUT_DIR"/settings-general.png \
       "$OUT_DIR"/settings-providers.png \
@@ -106,6 +107,7 @@ history_layout_parity_direct_status="missing"
 history_layout_parity_direct_reason="missing"
 history_vertical_fill_status="missing"
 history_vertical_fill_reason="missing"
+live_expanded_content_capture_status="missing"
 hotkey_dispatch_status="missing"
 tab_click_dispatch_status="missing"
 
@@ -122,6 +124,7 @@ if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" swift run OpenScribe
     "$OUT_DIR/openscribe-window-hotkey-history.png"
     "$OUT_DIR/openscribe-window-hotkey-history-full.png"
     "$OUT_DIR/openscribe-window-hotkey-live.png"
+    "$OUT_DIR/openscribe-window-live-expanded-content.png"
     "$OUT_DIR/settings-window.png"
     "$OUT_DIR/settings-general.png"
     "$OUT_DIR/settings-providers.png"
@@ -207,6 +210,7 @@ if [[ -s "$OUT_DIR/ui-smoke-status.txt" ]]; then
   parsed_parity_reason="$(awk -F= '/^historyLayoutParityReason=/{print $2}' "$OUT_DIR/ui-smoke-status.txt" | tail -n1 | sed 's/^[[:space:]]*//')"
   parsed_vertical_fill_status="$(awk -F= '/^historyVerticalFill=/{print $2}' "$OUT_DIR/ui-smoke-status.txt" | tail -n1 | tr -d '[:space:]')"
   parsed_vertical_fill_reason="$(awk -F= '/^historyVerticalFillReason=/{print $2}' "$OUT_DIR/ui-smoke-status.txt" | tail -n1 | sed 's/^[[:space:]]*//')"
+  parsed_live_expanded_content_capture_status="$(awk -F= '/^liveExpandedContentCapture=/{print $2}' "$OUT_DIR/ui-smoke-status.txt" | tail -n1 | tr -d '[:space:]')"
   if [[ -n "$parsed_tab_click_dispatch_status" ]]; then
     tab_click_dispatch_status="$parsed_tab_click_dispatch_status"
   fi
@@ -230,6 +234,9 @@ if [[ -s "$OUT_DIR/ui-smoke-status.txt" ]]; then
   fi
   if [[ -n "$parsed_vertical_fill_reason" ]]; then
     history_vertical_fill_reason="$parsed_vertical_fill_reason"
+  fi
+  if [[ -n "$parsed_live_expanded_content_capture_status" ]]; then
+    live_expanded_content_capture_status="$parsed_live_expanded_content_capture_status"
   fi
 fi
 
@@ -302,6 +309,9 @@ fi
 if [[ "$history_vertical_fill_status" != "pass" ]]; then
   overall_status=1
 fi
+if [[ "$live_expanded_content_capture_status" != "pass" ]]; then
+  overall_status=1
+fi
 if [[ "$settings_capture_status" != "pass" ]]; then
   overall_status=1
 fi
@@ -330,6 +340,7 @@ cat > "$OUT_DIR/report.md" <<REPORT
 - History layout parity reason: $history_layout_parity_reason
 - History vertical fill (compact): $history_vertical_fill_status
 - History vertical fill reason: $history_vertical_fill_reason
+- Live expanded content screenshot: $live_expanded_content_capture_status
 - Settings window screenshot: $settings_capture_status
 - Settings tab screenshots: $settings_tab_capture_status
 - Menubar icon screenshots: $menubar_icon_capture_status
@@ -348,6 +359,7 @@ cat > "$OUT_DIR/report.md" <<REPORT
 - openscribe-window-hotkey-history.png
 - openscribe-window-hotkey-history-full.png
 - openscribe-window-hotkey-live.png
+- openscribe-window-live-expanded-content.png
 - settings-window.png
 - settings-general.png
 - settings-providers.png

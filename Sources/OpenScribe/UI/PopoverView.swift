@@ -22,9 +22,7 @@ struct PopoverView: View {
             mainTabBar
 
             if shell.selectedPopoverTab == .live {
-                inputSection
-                sessionSection
-                textSection
+                liveSection
             } else {
                 historySection
                     .frame(maxHeight: .infinity, alignment: .top)
@@ -34,8 +32,7 @@ struct PopoverView: View {
         }
         .padding(12)
         .frame(width: popoverWidth)
-        .fixedSize(horizontal: false, vertical: shell.selectedPopoverTab == .live)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(maxHeight: .infinity, alignment: shell.selectedPopoverTab == .history ? .top : .center)
         .onAppear {
             shell.selectPopoverTab(shell.selectedPopoverTab)
             syncRetryPolishSelection()
@@ -161,6 +158,19 @@ struct PopoverView: View {
                     .foregroundColor(shell.permissionState == .authorized ? .secondary : .orange)
             }
         }
+    }
+
+    private var liveSection: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                inputSection
+                sessionSection
+                textSection
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, 2)
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var sessionSection: some View {
@@ -746,18 +756,18 @@ struct PopoverView: View {
     }
 
     private var rawPanelHeight: CGFloat {
-        panelHeight(hasContent: !rawPanelIsPlaceholder)
+        panelHeight
     }
 
     private var polishedPanelHeight: CGFloat {
-        panelHeight(hasContent: !shell.polishedTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        panelHeight
     }
 
-    private func panelHeight(hasContent: Bool) -> CGFloat {
+    private var panelHeight: CGFloat {
         if expandedTextPanels {
-            return hasContent ? 220 : 150
+            return 220
         }
-        return hasContent ? 110 : 78
+        return 110
     }
 
     private var compactControls: Bool {
