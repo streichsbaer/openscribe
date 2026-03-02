@@ -643,26 +643,31 @@ final class StatusBarController: NSObject {
 
     private func adjustedAccentColor(_ baseColor: NSColor, blinkPhase: Bool) -> NSColor {
         let alpha: CGFloat = blinkPhase ? 1.0 : 0.65
-        switch currentAppearanceMode {
-        case .system, .light:
-            return baseColor.withAlphaComponent(alpha)
-        case .dark:
+        if shouldUseDarkPalette() {
             let lightened = blend(baseColor: baseColor, target: .white, amount: 0.18)
             return lightened.withAlphaComponent(alpha)
         }
+        return baseColor.withAlphaComponent(alpha)
     }
 
     private func monochromeColor() -> NSColor {
-        switch currentAppearanceMode {
-        case .system:
-            if isDarkAppearance(statusItem.button?.effectiveAppearance ?? NSApp.effectiveAppearance) {
-                return NSColor(calibratedWhite: 0.92, alpha: 1.0)
-            }
-            return NSColor(calibratedWhite: 0.10, alpha: 1.0)
-        case .light:
-            return NSColor(calibratedWhite: 0.10, alpha: 1.0)
-        case .dark:
+        if shouldUseDarkPalette() {
             return NSColor(calibratedWhite: 0.92, alpha: 1.0)
+        }
+        return NSColor(calibratedWhite: 0.10, alpha: 1.0)
+    }
+
+    private func shouldUseDarkPalette() -> Bool {
+        switch currentAppearanceMode {
+        case .light:
+            return false
+        case .dark:
+            return true
+        case .system:
+            let effective = statusItem.button?.effectiveAppearance
+                ?? popover.contentViewController?.view.effectiveAppearance
+                ?? NSApp.effectiveAppearance
+            return isDarkAppearance(effective)
         }
     }
 
