@@ -40,13 +40,24 @@
 - Do not use temporary commit message files for multiline commit bodies.
 - Do not use shell-escaped multiline patterns like `-m $'...'` for commit bodies.
 - When running commit commands via `zsh -lic`, do not wrap the entire command payload in single quotes.
-- Use a quote-safe pattern that tolerates apostrophes in commit body text.
+- Use a quote-safe pattern and avoid apostrophes in commit body text.
 - After each commit, verify formatting with `git log -1 --pretty=medium`.
 - Do not amend or rewrite prior commits unless explicitly requested.
 - If unrelated files are already staged, commit only intended paths.
 - Run `git add` and `git commit` sequentially to avoid `.git/index.lock` races.
+- Keep commit body bullets short and direct.
 
 ### Shell Quote Safety
+
+- Known failure cause:
+- Heredoc commit payloads can still fail parsing when the command string contains apostrophes in body text.
+- Contractions like `don't`, `it's`, or `You've` are common triggers in this workflow.
+
+- Required prevention rules:
+- Write commit bodies in plain ASCII.
+- Do not use apostrophes in commit body text.
+- Rewrite contractions: use `do not`, `it is`, `You have`.
+- Keep each bullet to one concise sentence.
 
 - Default pattern for multiline commit messages:
 
@@ -61,12 +72,12 @@ What
 - Change summary.
 
 Instruction
-- User request summary, including apostrophes like don't or it's.
+- User request summary without apostrophes.
 EOF"
 ```
 
-- This pattern is required because a single-quoted `zsh -lic '...'` payload can break when the commit body contains apostrophes.
-- If a command still fails to parse, retry with the same pattern and avoid changing semantics of the commit body.
+- This pattern is required because a single-quoted `zsh -lic '...'` payload can break.
+- If a commit command fails to parse, stop and rewrite the message with zero apostrophes before retry.
 
 ### Commit Message Examples
 
