@@ -7,7 +7,8 @@ Define one clear contract for popover behavior, sizing, tab switching, and smoke
 ## Scope
 
 - Menubar popover layout and sizing.
-- Live and History tab interaction.
+- Live, History, and Stats tab interaction.
+- Rules hotkey behavior from popover context.
 - Click and hotkey parity requirements.
 - Popover-related smoke expectations.
 
@@ -23,19 +24,29 @@ No other component should define conflicting sizing rules.
 
 ### Selection Path
 
-All tab switches use one path:
+All popover tab switches use one path:
 
 - `AppShell.selectPopoverTab(_:, revealPopover:)`
 
 This applies to:
 
 - Segmented control clicks.
-- Global hotkeys (`Ctrl+Option+L`, `Ctrl+Option+H`).
+- Global hotkeys (`Ctrl+Option+L`, `Ctrl+Option+H`, `Ctrl+Option+S`).
 - Programmatic transitions (for example opening a history row into Live).
+
+### Rules Hotkey Behavior
+
+- `Ctrl+Option+R` opens Settings on the Rules tab.
+- This command does not switch the popover tab. It opens the settings window.
 
 ### History Refresh
 
 - Selecting History refreshes history sessions while preserving currently loaded count.
+
+### History Pagination
+
+- Initial load is fixed to 10 sessions.
+- Load more options are fixed: `next 10`, `next 25`, `next 50`, `whole`.
 
 ## Sizing Policy
 
@@ -46,6 +57,7 @@ Popover size is deterministic by state.
 - Live compact: `540 x 700`
 - Live expanded: `620 x 980`
 - History: `620 x 700`
+- Stats: `620 x 700`
 
 ### Screen-Aware Height Cap
 
@@ -91,8 +103,10 @@ The UI smoke run must include and validate:
 
 - `openscribe-window-click-history.png`
 - `openscribe-window-click-history-full.png`
+- `openscribe-window-click-stats.png`
 - `openscribe-window-hotkey-history.png`
 - `openscribe-window-hotkey-history-full.png`
+- `openscribe-window-hotkey-stats.png`
 - `openscribe-window-hotkey-live.png`
 - `openscribe-window-live-expanded-content.png`
 
