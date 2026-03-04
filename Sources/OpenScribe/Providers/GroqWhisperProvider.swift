@@ -11,18 +11,22 @@ final class GroqWhisperProvider: TranscriptionProvider {
         self.apiKey = apiKey
     }
 
-    func transcribe(audioFileURL: URL, language: String?, model: String) async throws -> TranscriptResult {
+    func transcribe(audioFileURL: URL, language: String?, model: String, instruction: String?) async throws -> TranscriptResult {
         let start = Date()
+        var extraFields: [String: String] = [
+            "temperature": "0",
+            "response_format": "verbose_json"
+        ]
+        if let instruction = normalizedInstruction(instruction) {
+            extraFields["prompt"] = instruction
+        }
         let response = try await performWhisperRequest(
             endpoint: endpoint,
             apiKey: apiKey,
             model: model,
             audioFileURL: audioFileURL,
             language: language,
-            extraFields: [
-                "temperature": "0",
-                "response_format": "verbose_json"
-            ]
+            extraFields: extraFields
         )
 
         return TranscriptResult(
@@ -34,4 +38,5 @@ final class GroqWhisperProvider: TranscriptionProvider {
             outputTokens: response.outputTokens
         )
     }
+
 }

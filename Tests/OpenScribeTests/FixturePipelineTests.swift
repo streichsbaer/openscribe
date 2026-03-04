@@ -77,7 +77,8 @@ final class FixturePipelineTests: XCTestCase {
             let result = try await provider.transcribe(
                 audioFileURL: audioURL,
                 language: fixtureCase.language,
-                model: fixtureCase.model
+                model: fixtureCase.model,
+                instruction: nil
             )
 
             let normalized = normalizeForAssertions(result.text)
@@ -125,7 +126,12 @@ final class FixturePipelineTests: XCTestCase {
         try AudioTranscoder.transcodeToM4A(sourceWAVURL: sourceWAV, destinationURL: tempM4A)
 
         let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager)
-        let result = try await provider.transcribe(audioFileURL: tempM4A, language: "auto", model: "base")
+        let result = try await provider.transcribe(
+            audioFileURL: tempM4A,
+            language: "auto",
+            model: "base",
+            instruction: nil
+        )
         let normalized = normalizeForAssertions(result.text)
         XCTAssertFalse(normalized.isEmpty, "m4a transcription should not be empty")
         XCTAssertTrue(normalized.contains("open scribe"), "Expected m4a transcript to include 'open scribe'. Transcript: \(result.text)")

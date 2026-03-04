@@ -11,14 +11,15 @@ final class GeminiTranscriptionProvider: TranscriptionProvider {
         self.apiKey = apiKey
     }
 
-    func transcribe(audioFileURL: URL, language: String?, model: String) async throws -> TranscriptResult {
+    func transcribe(audioFileURL: URL, language: String?, model: String, instruction: String?) async throws -> TranscriptResult {
         let start = Date()
         let response = try await performAudioTranscriptionViaChatRequest(
             endpoint: endpoint,
             apiKey: apiKey,
             model: model,
             audioFileURL: audioFileURL,
-            language: language
+            language: language,
+            instruction: instruction
         )
 
         return TranscriptResult(

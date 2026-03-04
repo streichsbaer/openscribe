@@ -17,7 +17,8 @@ struct TranscriptionPipeline {
         return try await provider.transcribe(
             audioFileURL: audioFileURL,
             language: language,
-            model: settings.transcriptionModel
+            model: settings.transcriptionModel,
+            instruction: normalizedInstruction(settings.transcriptionInstruction)
         )
     }
 }

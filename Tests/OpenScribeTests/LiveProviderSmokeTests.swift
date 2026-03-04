@@ -20,7 +20,8 @@ final class LiveProviderSmokeTests: XCTestCase {
         let transcript = try await sttProvider.transcribe(
             audioFileURL: audioURL,
             language: language,
-            model: sttModel
+            model: sttModel,
+            instruction: nil
         )
 
         let rawText = transcript.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,7 +41,8 @@ final class LiveProviderSmokeTests: XCTestCase {
         let polished = try await polishProvider.polish(
             rawText: rawText,
             rulesMarkdown: RulesStore.defaultTemplate,
-            model: polishModel
+            model: polishModel,
+            instruction: nil
         )
 
         let polishedText = polished.markdown.trimmingCharacters(in: .whitespacesAndNewlines)

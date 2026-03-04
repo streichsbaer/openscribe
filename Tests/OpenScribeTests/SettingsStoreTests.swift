@@ -37,6 +37,18 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.settings.pinnedMicrophone, pinned)
     }
 
+    func testPersistsPolishCustomInstructionToggle() throws {
+        let layout = try makeTempLayout()
+        let store = SettingsStore(layout: layout)
+
+        store.update {
+            $0.polishCustomInstructionEnabled = true
+        }
+
+        let reloaded = SettingsStore(layout: layout)
+        XCTAssertEqual(reloaded.settings.polishCustomInstructionEnabled, true)
+    }
+
     private func makeTempLayout() throws -> DirectoryLayout {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("OpenScribeSettingsTests-\(UUID().uuidString)", isDirectory: true)

@@ -11,13 +11,13 @@ final class GeminiPolishProvider: PolishProvider {
         self.apiKey = apiKey
     }
 
-    func polish(rawText: String, rulesMarkdown: String, model: String) async throws -> PolishResult {
+    func polish(rawText: String, rulesMarkdown: String, model: String, instruction: String?) async throws -> PolishResult {
         let start = Date()
         let response = try await performChatRequest(
             endpoint: endpoint,
             apiKey: apiKey,
             model: model,
-            systemPrompt: "You convert speech transcripts into clean Markdown. Return Markdown only.",
+            systemPrompt: instruction,
             userPrompt: makePolishUserPrompt(rawText: rawText, rulesMarkdown: rulesMarkdown)
         )
         let polished = sanitizePolishedOutput(unwrapCodeBlockIfNeeded(response.text), rawText: rawText)

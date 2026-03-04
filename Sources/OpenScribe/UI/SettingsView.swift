@@ -73,10 +73,17 @@ struct SettingsView: View {
     @State private var showDeleteAppSupportConfirmation = false
     @State private var sttModelFilter = ""
     @State private var polishModelFilter = ""
+    @State private var transcriptionInstructionDraft = ""
+    @State private var polishInstructionDraft = ""
+    @State private var showTranscriptionInstructionEditor = false
+    @State private var showPolishInstructionEditor = false
+    @FocusState private var focusedInstructionEditor: InstructionEditorTarget?
     @AppStorage("ui.transcriptPanelsExpanded") private var transcriptPanelsExpanded = false
     private let onPreferredSizeChange: ((CGSize, Bool) -> Void)?
     private let providerPickerWidth: CGFloat = 240
     private let modelSelectorWidth: CGFloat = 360
+    private let transcriptionDefaultInstruction = "No instruction set."
+    private let polishDefaultInstruction = "No instruction set."
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
@@ -417,6 +424,43 @@ struct SettingsView: View {
                     .frame(width: providerPickerWidth, alignment: .trailing)
                 }
 
+                settingRow("Instruction") {
+                    let providerID = shell.settings.transcriptionProviderID
+                    VStack(alignment: .leading, spacing: 8) {
+                        instructionPreviewRow(
+                            text: resolvedInstructionText(
+                                draftText: transcriptionInstructionDraft,
+                                fallback: transcriptionDefaultInstruction
+                            ),
+                            isDefault: isUsingDefaultInstruction(
+                                draftText: transcriptionInstructionDraft
+                            ),
+                            width: modelSelectorWidth
+                        )
+
+                        Button(showTranscriptionInstructionEditor ? "Done" : "Edit") {
+                            toggleTranscriptionInstructionEditor()
+                        }
+                        .buttonStyle(.bordered)
+
+                        if showTranscriptionInstructionEditor {
+                            instructionEditor(
+                                text: $transcriptionInstructionDraft,
+                                placeholder: transcriptionDefaultInstruction,
+                                width: modelSelectorWidth
+                            )
+                            .focused($focusedInstructionEditor, equals: .transcription)
+                        }
+
+                        if !supportsTranscriptionInstruction(providerID) {
+                            Text("Current provider does not use this instruction. It applies when a provider-backed transcription model is selected.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: modelSelectorWidth, alignment: .leading)
+                }
+
                 settingRow("Language") {
                     Picker("", selection: Binding(
                         get: { shell.settings.languageMode },
@@ -510,6 +554,54 @@ struct SettingsView: View {
                             )
                     }
                     .frame(width: providerPickerWidth, alignment: .trailing)
+                }
+
+                settingRow("Instruction") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Use custom instruction", isOn: Binding(
+                            get: { shell.settings.polishCustomInstructionEnabled == true },
+                            set: { newValue in
+                                if !newValue {
+                                    focusedInstructionEditor = nil
+                                    showPolishInstructionEditor = false
+                                }
+                                shell.updateSettings { settings in
+                                    settings.polishCustomInstructionEnabled = newValue
+                                }
+                            }
+                        ))
+                        .disabled(!shell.settings.polishEnabled)
+
+                        instructionPreviewRow(
+                            text: resolvedInstructionText(
+                                draftText: polishInstructionDraft,
+                                fallback: polishDefaultInstruction
+                            ),
+                            isDefault: isUsingDefaultInstruction(
+                                draftText: polishInstructionDraft
+                            ),
+                            width: modelSelectorWidth
+                        )
+
+                        HStack(spacing: 8) {
+                            Button(showPolishInstructionEditor ? "Done" : "Edit") {
+                                togglePolishInstructionEditor()
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(!shell.settings.polishEnabled || shell.settings.polishCustomInstructionEnabled != true)
+                        }
+
+                        if showPolishInstructionEditor, shell.settings.polishCustomInstructionEnabled == true {
+                            instructionEditor(
+                                text: $polishInstructionDraft,
+                                placeholder: polishDefaultInstruction,
+                                width: modelSelectorWidth
+                            )
+                            .disabled(!shell.settings.polishEnabled)
+                            .focused($focusedInstructionEditor, equals: .polish)
+                        }
+                    }
+                    .frame(width: modelSelectorWidth, alignment: .leading)
                 }
 
                 if !shell.settings.polishEnabled {
@@ -609,9 +701,24 @@ struct SettingsView: View {
             }
         }
         .onAppear {
+            transcriptionInstructionDraft = shell.settings.transcriptionInstruction ?? ""
+            polishInstructionDraft = shell.settings.polishInstruction ?? ""
             shell.refreshModels(for: shell.settings.transcriptionProviderID)
             if shell.settings.polishEnabled {
                 shell.refreshModels(for: shell.settings.polishProviderID)
+            }
+        }
+        .onChange(of: focusedInstructionEditor) { oldValue, newValue in
+            let changes = InstructionEditorPersistence.changesOnFocusChange(
+                from: oldValue,
+                to: newValue,
+                transcriptionDraft: transcriptionInstructionDraft,
+                storedTranscription: shell.settings.transcriptionInstruction,
+                polishDraft: polishInstructionDraft,
+                storedPolish: shell.settings.polishInstruction
+            )
+            for change in changes {
+                applyInstructionPersistenceChange(change)
             }
         }
     }
@@ -965,6 +1072,168 @@ struct SettingsView: View {
 
     private func polishModels(for provider: String) -> [String] {
         shell.availableModels(for: provider, usage: .polish)
+    }
+
+    private func supportsTranscriptionInstruction(_ providerID: String) -> Bool {
+        switch providerID {
+        case "openai_whisper", "groq_whisper", "openrouter_transcribe", "gemini_transcribe":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func resolvedInstructionText(draftText: String?, fallback: String) -> String {
+        resolvedInstruction(draftText, fallback: fallback)
+    }
+
+    private func isUsingDefaultInstruction(draftText: String?) -> Bool {
+        (draftText ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func applyInstructionPersistenceChange(_ change: InstructionPersistenceChange) {
+        switch change {
+        case .none:
+            return
+        case .setTranscription(let value):
+            shell.updateSettings { settings in
+                settings.transcriptionInstruction = value
+            }
+        case .setPolish(let value):
+            shell.updateSettings { settings in
+                settings.polishInstruction = value
+            }
+        }
+    }
+
+    private func toggleTranscriptionInstructionEditor() {
+        if showTranscriptionInstructionEditor {
+            let change = InstructionEditorPersistence.changeOnDone(
+                target: .transcription,
+                transcriptionDraft: transcriptionInstructionDraft,
+                storedTranscription: shell.settings.transcriptionInstruction,
+                polishDraft: polishInstructionDraft,
+                storedPolish: shell.settings.polishInstruction
+            )
+            applyInstructionPersistenceChange(change)
+            focusedInstructionEditor = nil
+            showTranscriptionInstructionEditor = false
+            return
+        }
+
+        showTranscriptionInstructionEditor = true
+        DispatchQueue.main.async {
+            focusedInstructionEditor = .transcription
+        }
+    }
+
+    private func togglePolishInstructionEditor() {
+        guard shell.settings.polishCustomInstructionEnabled == true else {
+            return
+        }
+        if showPolishInstructionEditor {
+            let change = InstructionEditorPersistence.changeOnDone(
+                target: .polish,
+                transcriptionDraft: transcriptionInstructionDraft,
+                storedTranscription: shell.settings.transcriptionInstruction,
+                polishDraft: polishInstructionDraft,
+                storedPolish: shell.settings.polishInstruction
+            )
+            applyInstructionPersistenceChange(change)
+            focusedInstructionEditor = nil
+            showPolishInstructionEditor = false
+            return
+        }
+
+        showPolishInstructionEditor = true
+        DispatchQueue.main.async {
+            focusedInstructionEditor = .polish
+        }
+    }
+
+    @ViewBuilder
+    private func instructionPreviewRow(text: String, isDefault: Bool, width: CGFloat) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(.subheadline)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer(minLength: 8)
+
+            if isDefault {
+                Text("Default")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.12))
+                    )
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(width: width, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(NSColor.textBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func instructionEditor(
+        text: Binding<String>,
+        placeholder: String,
+        width: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            TextEditor(text: text)
+                .font(.system(size: 12))
+                .frame(height: 120)
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.textBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                )
+
+            Text("Used as the system instruction for this stage. Clear text to use default behavior.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Button("Reset to default") {
+                    text.wrappedValue = ""
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Text("\(text.wrappedValue.count) chars")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: width, alignment: .leading)
+        .overlay(alignment: .topLeading) {
+            if text.wrappedValue.isEmpty {
+                Text(placeholder)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 14)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var pinnedMicrophoneSelection: Binding<String> {
