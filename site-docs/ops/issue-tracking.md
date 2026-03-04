@@ -32,6 +32,37 @@ Scribe can read, create, and update issues through GitHub CLI automation.
 - Issue closures trigger doc updates where behavior changed.
 - Roadmap docs stay short and link to issue filters for current state.
 
+## GitHub CLI comment formatting
+
+- Use real multiline comment bodies for GitHub Issues.
+- Do not pass literal `\n` escape sequences in comment text.
+- Preferred close flow: post the completion comment first, then close the issue.
+
+```bash
+gh issue comment 123 --body-file - <<'EOF'
+Closing as completed.
+
+Implemented in commit abc1234.
+
+Verified with targeted tests:
+- swift test --filter ExampleTests
+EOF
+
+gh issue edit 123 --remove-label status/in-progress --add-label status/done
+gh issue close 123 --reason completed
+```
+
+- If a single close command is required, use command substitution with a heredoc so newlines are preserved.
+
+```bash
+gh issue close 123 --reason completed --comment "$(cat <<'EOF'
+Closing as completed.
+
+Implemented in commit abc1234.
+EOF
+)"
+```
+
 ## Continue
 
 - Label taxonomy: [Label Conventions](label-conventions.md)

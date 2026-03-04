@@ -44,11 +44,14 @@
 ## Issue and Feature Tracking
 
 - Use GitHub Issues as the live tracker for features, bugs, and docs work.
+- Before creating, editing, labeling, commenting on, or closing any issue, load `site-docs/ops/issue-tracking.md` and `site-docs/ops/label-conventions.md`.
 - Follow `site-docs/ops/issue-tracking.md` for tracking workflow and saved query links.
 - Follow `site-docs/ops/label-conventions.md` for label taxonomy.
 - New issues should include one `type/*`, one `status/*`, and one `area/*` label.
 - Keep product docs aligned with issue status when behavior changes.
 - When work is completed, set `status/done` and close the related issue.
+- For GitHub CLI issue comments and close comments, use multiline input via heredoc with `--body-file -` or `$(cat <<'EOF' ... EOF)`.
+- Do not include literal `\n` escape sequences in issue comments.
 - Use issue-first external collaboration. Redirect unsolicited external pull requests to issues.
 
 ## Change Approval
@@ -68,6 +71,7 @@
 - For app behavior changes or test requests, load `site-docs/ops/testing.md` before running checks.
 - For docs content, docs styling, docs workflow, or GitHub Pages verification, load `site-docs/ops/docs-verification.md` and `.agents/skills/docs-visual-review/SKILL.md`.
 - For Cloudflare DNS, edge security headers, HTTPS settings, or domain routing tasks, load `site-docs/ops/cloudflare.md` before making changes.
+- For GitHub issue triage or issue updates, load `site-docs/ops/issue-tracking.md` and `site-docs/ops/label-conventions.md` before running issue commands.
 - For post-push docs verification, run `$docs-visual-review --remote-url https://openscribe.dev/ --out artifacts/docs-visual/remote-latest` and report `report.md` plus screenshot paths.
 - For docs visual checks, inspect generated screenshots directly with the image tool. Do not run auxiliary image processing commands unless Stefan explicitly requests deeper analysis.
 - For release tasks, load `site-docs/ops/release.md` and `site-docs/ops/testing.md`.
