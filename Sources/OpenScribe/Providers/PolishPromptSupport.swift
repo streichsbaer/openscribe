@@ -24,21 +24,22 @@ func unwrapCodeBlockIfNeeded(_ text: String) -> String {
 
 func makePolishUserPrompt(rawText: String, rulesMarkdown: String) -> String {
     """
-    Apply these markdown formatting and glossary rules to the transcript.
+    Apply these polishing and glossary rules to the transcript.
 
     Hard constraints:
-    - Output ONLY the polished transcript content.
-    - Do NOT add meta sections, notes, or headings such as "Glossary", "Rules", "Summary", or "Notes" unless those words were explicitly spoken in the transcript.
-    - Do NOT append explanations, labels, or any extra commentary.
-    - Keep intent and meaning unchanged.
+    - Return ONLY the polished transcript text.
+    - Preserve meaning and intent.
+    - Fix grammar, punctuation, capitalization, and phrasing.
+    - Remove stutters, filler words, and irrelevant asides when meaning is unchanged.
+    - Do NOT add explanations, labels, or any extra commentary.
 
-    Rules markdown:
+    Rules:
     \(rulesMarkdown)
 
     Raw transcript:
     \(rawText)
 
-    Return only final Markdown text.
+    Return only final polished text.
     """
 }
 
@@ -49,7 +50,7 @@ func sanitizePolishedOutput(_ markdown: String, rawText: String) -> String {
         return cleaned
     }
 
-    let pattern = #"(?im)^#{1,6}\s+glossary\b.*(?:\n|$)"#
+    let pattern = #"(?im)^(?:#{1,6}\s+)?glossary\b.*(?:\n|$)"#
     guard let regex = try? NSRegularExpression(pattern: pattern) else {
         return cleaned
     }

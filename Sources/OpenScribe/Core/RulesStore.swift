@@ -84,7 +84,7 @@ final class RulesStore: ObservableObject {
     # OpenScribe Rules
 
     ## Goal
-    Convert raw dictation into clean Markdown while preserving intent and wording.
+    Convert raw dictation into clean, send-ready text while preserving intent and wording.
 
     ## Spoken Formatting Commands
     - If speaker says "new line", insert a single newline.
@@ -94,7 +94,7 @@ final class RulesStore: ObservableObject {
 
     ## Style
     - Keep punctuation clean and spacing normalized.
-    - Keep headings and lists in valid Markdown.
+    - Use plain text with natural sentence and paragraph breaks.
     - Do not use em dashes.
     - Do not use contrastive negation phrasing like "it is not X, it is Y."
     - Remove filler words by default while preserving meaning.

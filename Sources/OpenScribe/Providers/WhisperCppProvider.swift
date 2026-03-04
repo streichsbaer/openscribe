@@ -12,8 +12,10 @@ final class WhisperCppProvider: TranscriptionProvider {
         self.modelManager = modelManager
     }
 
-    func transcribe(audioFileURL: URL, language: String?, model: String) async throws -> TranscriptResult {
+    func transcribe(audioFileURL: URL, language: String?, model: String, instruction: String?) async throws -> TranscriptResult {
         let start = Date()
+        // whisper.cpp CLI path has no instruction parameter; text shaping occurs in polish stage.
+        _ = instruction
 
         if !modelManager.isInstalled(modelID: model) {
             throw ProviderError.missingModel(model)

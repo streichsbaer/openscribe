@@ -6,6 +6,8 @@ struct ProviderTextResponse {
     let outputTokens: Int?
 }
 
+private let defaultChatTranscriptionInstruction = "Transcribe the provided audio exactly. Return plain text only."
+
 struct OpenAITranscriptionResponse: Codable {
     let text: String?
 }
@@ -235,18 +237,21 @@ func performChatRequest(
     endpoint: URL,
     apiKey: String,
     model: String,
-    systemPrompt: String,
+    systemPrompt: String?,
     userPrompt: String
 ) async throws -> ProviderTextResponse {
     let normalizedModel = model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     let temperature: Double? = normalizedModel.hasPrefix("gpt-5") ? nil : 0.1
 
+    var messages: [OpenAIChatRequest.Message] = []
+    if let systemPrompt = normalizedInstruction(systemPrompt) {
+        messages.append(.init(role: "system", content: systemPrompt))
+    }
+    messages.append(.init(role: "user", content: userPrompt))
+
     let requestBody = OpenAIChatRequest(
         model: model,
-        messages: [
-            .init(role: "system", content: systemPrompt),
-            .init(role: "user", content: userPrompt)
-        ],
+        messages: messages,
         temperature: temperature
     )
 
@@ -287,7 +292,8 @@ func performAudioTranscriptionViaChatRequest(
     apiKey: String,
     model: String,
     audioFileURL: URL,
-    language: String?
+    language: String?,
+    instruction: String?
 ) async throws -> ProviderTextResponse {
     let preparedAudio = try prepareAudioForInputAudioPayload(audioFileURL)
     defer {
@@ -298,10 +304,29 @@ func performAudioTranscriptionViaChatRequest(
     let audioData = try Data(contentsOf: preparedAudio.fileURL)
     let audioBase64 = audioData.base64EncodedString()
 
-    var instructions = "Transcribe the provided audio exactly. Return plain text only."
+    let normalizedInstruction = normalizedInstruction(instruction)
+    let languageInstruction: String?
     if let language, !language.isEmpty, language.lowercased() != "auto" {
-        instructions += " The target language is \(language)."
+        languageInstruction = "The target language is \(language)."
+    } else {
+        languageInstruction = nil
     }
+
+    var contentParts: [OpenAIChatRequest.ContentPart] = []
+    var directive = defaultChatTranscriptionInstruction
+    if let normalizedInstruction {
+        directive += "\n\(normalizedInstruction)"
+    }
+    contentParts.append(.init(type: "text", text: directive))
+    if let languageInstruction {
+        contentParts.append(.init(type: "text", text: languageInstruction))
+    }
+    contentParts.append(
+        .init(
+            type: "input_audio",
+            inputAudio: .init(format: preparedAudio.format, data: audioBase64)
+        )
+    )
 
     let requestBody = OpenAIChatRequest(
         model: model,
@@ -309,13 +334,7 @@ func performAudioTranscriptionViaChatRequest(
             .init(role: "system", content: "You are a transcription engine. Return transcript text only."),
             .init(
                 role: "user",
-                parts: [
-                    .init(type: "text", text: instructions),
-                    .init(
-                        type: "input_audio",
-                        inputAudio: .init(format: preparedAudio.format, data: audioBase64)
-                    )
-                ]
+                parts: contentParts
             )
         ],
         temperature: nil

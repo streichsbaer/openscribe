@@ -27,4 +27,17 @@ final class PolishPromptSupportTests: XCTestCase {
         let sanitized = sanitizePolishedOutput(polished, rawText: raw)
         XCTAssertEqual(sanitized, polished)
     }
+
+    func testSanitizePolishedOutputRemovesBareGlossarySection() {
+        let raw = "This is a regular dictation with no extra sections."
+        let polished = """
+        This is the cleaned transcript.
+
+        Glossary
+        - token -> value
+        """
+
+        let sanitized = sanitizePolishedOutput(polished, rawText: raw)
+        XCTAssertEqual(sanitized, "This is the cleaned transcript.")
+    }
 }
