@@ -1,4 +1,6 @@
 @preconcurrency import AVFoundation
+import AudioToolbox
+import CoreAudio
 import Foundation
 
 enum MicrophonePermissionState {
@@ -8,16 +10,12 @@ enum MicrophonePermissionState {
 }
 
 final class AudioCaptureManager {
-    private let engine = AVAudioEngine()
+    private var engine: AVAudioEngine?
     private var wavWriter: WavFileWriter?
     private var converter: AVAudioConverter?
     private var activityAnalyzer: AudioActivityAnalyzer?
 
     var onLevelUpdate: ((Float) -> Void)?
-
-    var currentInputDeviceName: String? {
-        AVCaptureDevice.default(for: .audio)?.localizedName
-    }
 
     func permissionState() -> MicrophonePermissionState {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -37,12 +35,17 @@ final class AudioCaptureManager {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
 
-    func startRecording(to tempURL: URL) throws {
+    func startRecording(to tempURL: URL, inputDeviceID: String?) throws {
+        teardownEngine()
+
         if FileManager.default.fileExists(atPath: tempURL.path) {
             try FileManager.default.removeItem(at: tempURL)
         }
 
-        let inputNode = engine.inputNode
+        let freshEngine = AVAudioEngine()
+        try configureInputDeviceIfNeeded(inputDeviceID, on: freshEngine)
+
+        let inputNode = freshEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
 
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000, channels: 1, interleaved: true) else {
@@ -62,13 +65,13 @@ final class AudioCaptureManager {
             self?.handle(buffer: buffer, inputFormat: inputFormat, outputFormat: targetFormat)
         }
 
-        engine.prepare()
-        try engine.start()
+        freshEngine.prepare()
+        try freshEngine.start()
+        engine = freshEngine
     }
 
     func stopRecording() -> AudioActivityAssessment {
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
+        teardownEngine()
 
         try? wavWriter?.close()
         wavWriter = nil
@@ -80,8 +83,17 @@ final class AudioCaptureManager {
         return assessment
     }
 
+    private func teardownEngine() {
+        guard let engine else {
+            return
+        }
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        self.engine = nil
+    }
+
     private func handle(buffer: AVAudioPCMBuffer, inputFormat: AVAudioFormat, outputFormat: AVAudioFormat) {
-        let level = rmsLevel(from: buffer, inputFormat: inputFormat)
+        let level = AudioLevelMeter.rmsLevel(from: buffer, format: inputFormat)
         activityAnalyzer?.ingest(
             rmsLevel: level,
             frameCount: Int(buffer.frameLength),
@@ -139,40 +151,120 @@ final class AudioCaptureManager {
         }
     }
 
-    private func rmsLevel(from buffer: AVAudioPCMBuffer, inputFormat: AVAudioFormat) -> Float {
-        guard let channelData = buffer.floatChannelData else {
-            if let intData = buffer.int16ChannelData {
-                let frameLength = Int(buffer.frameLength)
-                guard frameLength > 0 else { return 0 }
-
-                var sum: Float = 0
-                let data = intData[0]
-                for idx in 0..<frameLength {
-                    let normalized = Float(data[idx]) / Float(Int16.max)
-                    sum += normalized * normalized
-                }
-
-                return sqrt(sum / Float(frameLength))
-            }
-
-            return 0
+    private func configureInputDeviceIfNeeded(_ inputDeviceID: String?, on engine: AVAudioEngine) throws {
+        guard let inputDeviceID else {
+            return
         }
 
-        let channelCount = Int(inputFormat.channelCount)
-        let frameLength = Int(buffer.frameLength)
-        guard channelCount > 0, frameLength > 0 else { return 0 }
+        guard let audioUnit = engine.inputNode.audioUnit else {
+            throw ProviderError.unsupported("Unable to access audio input unit.")
+        }
 
-        var sum: Float = 0
-        for channel in 0..<channelCount {
-            let samples = channelData[channel]
-            for idx in 0..<frameLength {
-                let sample = samples[idx]
-                sum += sample * sample
+        guard let coreAudioDeviceID = coreAudioInputDeviceID(for: inputDeviceID) else {
+            throw ProviderError.unsupported("Selected microphone is unavailable.")
+        }
+
+        var mutableDeviceID = coreAudioDeviceID
+        let status = AudioUnitSetProperty(
+            audioUnit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &mutableDeviceID,
+            UInt32(MemoryLayout<AudioDeviceID>.size)
+        )
+
+        guard status == noErr else {
+            throw ProviderError.unsupported("Unable to select the requested microphone.")
+        }
+    }
+
+    private func coreAudioInputDeviceID(for uniqueID: String) -> AudioDeviceID? {
+        let deviceIDs = allAudioDeviceIDs()
+        guard !deviceIDs.isEmpty else {
+            return nil
+        }
+
+        for deviceID in deviceIDs {
+            guard let candidateUID = coreAudioDeviceUID(for: deviceID) else {
+                continue
+            }
+
+            if candidateUID == uniqueID {
+                return deviceID
             }
         }
 
-        let mean = sum / Float(frameLength * channelCount)
-        return sqrt(mean)
+        return nil
+    }
+
+    private func allAudioDeviceIDs() -> [AudioDeviceID] {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        let sizeStatus = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize
+        )
+        guard sizeStatus == noErr, dataSize > 0 else {
+            return []
+        }
+
+        let count = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = Array(repeating: AudioDeviceID(0), count: count)
+
+        let dataStatus: OSStatus = deviceIDs.withUnsafeMutableBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else {
+                return -1
+            }
+
+            return AudioObjectGetPropertyData(
+                AudioObjectID(kAudioObjectSystemObject),
+                &propertyAddress,
+                0,
+                nil,
+                &dataSize,
+                baseAddress
+            )
+        }
+        guard dataStatus == noErr else {
+            return []
+        }
+
+        return deviceIDs
+    }
+
+    private func coreAudioDeviceUID(for deviceID: AudioDeviceID) -> String? {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize = UInt32(MemoryLayout<CFString>.size)
+        var uid: CFString = "" as CFString
+        let status: OSStatus = withUnsafeMutablePointer(to: &uid) { uidPointer in
+            AudioObjectGetPropertyData(
+                deviceID,
+                &propertyAddress,
+                0,
+                nil,
+                &dataSize,
+                uidPointer
+            )
+        }
+        guard status == noErr else {
+            return nil
+        }
+
+        return uid as String
     }
 }
 
