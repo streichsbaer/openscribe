@@ -4,9 +4,9 @@ OpenScribe is a native macOS menu bar dictation app for fast speech-to-text with
 
 ## Start Here
 
-- Docs site: <https://streichsbaer.github.io/OpenScribe/>
-- Product spec: <https://streichsbaer.github.io/OpenScribe/product/spec/>
-- Roadmap: <https://streichsbaer.github.io/OpenScribe/product/roadmap/>
+- Docs site: <https://openscribe.dev/>
+- Product spec: <https://openscribe.dev/product/spec/>
+- Roadmap: <https://openscribe.dev/product/roadmap/>
 - Open issues: <https://github.com/streichsbaer/OpenScribe/issues>
 
 ## Quick Start
@@ -58,7 +58,7 @@ uv run mkdocs serve --dev-addr 127.0.0.1:8000
 
 Local preview URL:
 
-- `http://127.0.0.1:8000/OpenScribe/`
+- `http://127.0.0.1:8000/`
 
 Post-push docs verification:
 

@@ -35,9 +35,9 @@ Pass criteria:
 ### 2. Confirm public routes
 
 ```bash
-curl -I https://streichsbaer.github.io/OpenScribe/
-curl -I https://streichsbaer.github.io/OpenScribe/guides/menu-and-settings/
-curl -I https://streichsbaer.github.io/OpenScribe/product/spec/
+curl -I https://openscribe.dev/
+curl -I https://openscribe.dev/guides/menu-and-settings/
+curl -I https://openscribe.dev/product/spec/
 ```
 
 Pass criteria:
@@ -47,7 +47,7 @@ Pass criteria:
 ### 3. Run remote visual verification
 
 ```bash
-$docs-visual-review --remote-url https://streichsbaer.github.io/OpenScribe/ --out artifacts/docs-visual/remote-latest
+$docs-visual-review --remote-url https://openscribe.dev/ --out artifacts/docs-visual/remote-latest
 ```
 
 Pass criteria:

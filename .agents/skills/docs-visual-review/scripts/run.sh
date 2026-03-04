@@ -29,7 +29,7 @@ Options:
   --out <dir>              Output directory (default: artifacts/docs-visual/<timestamp>)
   --host <host>            MkDocs serve host (default: 127.0.0.1)
   --port <port>            MkDocs serve port (default: 8000)
-  --url <url>              Docs base URL (default: http://<host>:<port>/OpenScribe/)
+  --url <url>              Docs base URL (default: http://<host>:<port>/)
   --remote-url <url>       Verify a deployed docs URL (implies --no-serve and --skip-docs-build)
   --timeout <seconds>      Server readiness timeout (default: 40)
   --keep-server            Keep MkDocs server running after capture
@@ -128,7 +128,7 @@ elif [[ "$OUT_DIR" != /* ]]; then
 fi
 
 if [[ -z "$DOCS_URL" ]]; then
-  DOCS_URL="http://$HOST:$PORT/OpenScribe/"
+  DOCS_URL="http://$HOST:$PORT/"
 fi
 DOCS_URL="${DOCS_URL%/}/"
 

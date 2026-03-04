@@ -26,7 +26,7 @@ uv run mkdocs serve --dev-addr 127.0.0.1:8000
 
 Preview URL:
 
-- `http://127.0.0.1:8000/OpenScribe/`
+- `http://127.0.0.1:8000/`
 
 ## Continue
 

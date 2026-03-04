@@ -45,7 +45,7 @@ zsh .agents/skills/docs-visual-review/scripts/run.sh --out artifacts/docs-visual
 Verify deployed docs without local serve:
 
 ```bash
-zsh .agents/skills/docs-visual-review/scripts/run.sh --remote-url https://streichsbaer.github.io/OpenScribe/ --out artifacts/docs-visual/remote-latest
+zsh .agents/skills/docs-visual-review/scripts/run.sh --remote-url https://openscribe.dev/ --out artifacts/docs-visual/remote-latest
 ```
 
 Keep server running after capture:
