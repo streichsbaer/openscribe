@@ -427,6 +427,19 @@ struct SettingsView: View {
                 settingRow("Instruction") {
                     let providerID = shell.settings.transcriptionProviderID
                     VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Use custom instruction", isOn: Binding(
+                            get: { shell.settings.transcriptionCustomInstructionEnabled == true },
+                            set: { newValue in
+                                if !newValue {
+                                    focusedInstructionEditor = nil
+                                    showTranscriptionInstructionEditor = false
+                                }
+                                shell.updateSettings { settings in
+                                    settings.transcriptionCustomInstructionEnabled = newValue
+                                }
+                            }
+                        ))
+
                         instructionPreviewRow(
                             text: resolvedInstructionText(
                                 draftText: transcriptionInstructionDraft,
@@ -442,8 +455,9 @@ struct SettingsView: View {
                             toggleTranscriptionInstructionEditor()
                         }
                         .buttonStyle(.bordered)
+                        .disabled(shell.settings.transcriptionCustomInstructionEnabled != true)
 
-                        if showTranscriptionInstructionEditor {
+                        if showTranscriptionInstructionEditor, shell.settings.transcriptionCustomInstructionEnabled == true {
                             instructionEditor(
                                 text: $transcriptionInstructionDraft,
                                 placeholder: transcriptionDefaultInstruction,
@@ -1107,6 +1121,9 @@ struct SettingsView: View {
     }
 
     private func toggleTranscriptionInstructionEditor() {
+        guard shell.settings.transcriptionCustomInstructionEnabled == true else {
+            return
+        }
         if showTranscriptionInstructionEditor {
             let change = InstructionEditorPersistence.changeOnDone(
                 target: .transcription,

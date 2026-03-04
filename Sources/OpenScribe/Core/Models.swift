@@ -149,6 +149,7 @@ struct PinnedMicrophone: Codable, Equatable {
 struct AppSettings: Codable, Equatable {
     var transcriptionProviderID: String
     var transcriptionModel: String
+    var transcriptionCustomInstructionEnabled: Bool?
     var transcriptionInstruction: String?
     var polishEnabled: Bool
     var polishProviderID: String
@@ -169,6 +170,7 @@ struct AppSettings: Codable, Equatable {
     static let `default` = AppSettings(
         transcriptionProviderID: "whispercpp",
         transcriptionModel: "base",
+        transcriptionCustomInstructionEnabled: nil,
         transcriptionInstruction: nil,
         polishEnabled: false,
         polishProviderID: "openai_polish",

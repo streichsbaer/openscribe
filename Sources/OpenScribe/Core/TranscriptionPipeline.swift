@@ -14,11 +14,18 @@ struct TranscriptionPipeline {
             language = settings.languageMode
         }
 
+        let instruction: String?
+        if settings.transcriptionCustomInstructionEnabled == true {
+            instruction = normalizedInstruction(settings.transcriptionInstruction)
+        } else {
+            instruction = nil
+        }
+
         return try await provider.transcribe(
             audioFileURL: audioFileURL,
             language: language,
             model: settings.transcriptionModel,
-            instruction: normalizedInstruction(settings.transcriptionInstruction)
+            instruction: instruction
         )
     }
 }
