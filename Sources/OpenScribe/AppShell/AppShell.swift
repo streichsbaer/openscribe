@@ -606,7 +606,7 @@ final class AppShell: ObservableObject {
             beginTranscribeProgressTracking()
             try sessionManager.transition(&session, to: .transcribing, details: "Running transcription")
 
-            let transcript = try await transcriptionPipeline.run(audioFileURL: session.paths.audioURL, settings: settings)
+            let transcript = try await runTranscriptionWithRetry(audioFileURL: session.paths.audioURL, settings: settings)
             endTranscribeProgressTracking()
             rawTranscript = transcript.text
             rawTranscriptProviderID = transcript.providerId
@@ -615,45 +615,36 @@ final class AppShell: ObservableObject {
             recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text)
 
             if settings.polishEnabled {
-                do {
-                    sessionState = .polishing
-                    beginPolishProgressTracking()
-                    try sessionManager.transition(&session, to: .polishing, details: "Running polish")
+                sessionState = .polishing
+                beginPolishProgressTracking()
+                try sessionManager.transition(&session, to: .polishing, details: "Running polish")
 
-                    let rules = try rulesStore.load()
-                    let polished = try await polishPipeline.run(
-                        rawText: transcript.text,
-                        rulesMarkdown: rules,
-                        settings: settings
-                    )
+                let rules = try rulesStore.load()
+                let polished = try await runPolishWithRetry(
+                    rawText: transcript.text,
+                    rulesMarkdown: rules,
+                    settings: settings
+                )
 
-                    polishedTranscript = polished.markdown
-                    latestPolishedTranscript = polished.markdown
-                    polishedTranscriptProviderID = polished.providerId
-                    polishedTranscriptModel = polished.model
-                    try sessionManager.writePolished(polished.markdown, for: &session)
-                    recordPolishStats(
-                        session: session,
-                        polish: polished,
-                        rawText: transcript.text,
-                        polishedText: polished.markdown
-                    )
+                polishedTranscript = polished.markdown
+                latestPolishedTranscript = polished.markdown
+                polishedTranscriptProviderID = polished.providerId
+                polishedTranscriptModel = polished.model
+                try sessionManager.writePolished(polished.markdown, for: &session)
+                recordPolishStats(
+                    session: session,
+                    polish: polished,
+                    rawText: transcript.text,
+                    polishedText: polished.markdown
+                )
 
-                    deliverOutput(
-                        polished.markdown,
-                        completionMessage: "Transcription complete",
-                        copiedMessage: "Polished transcript copied",
-                        pastedMessage: "Polished transcript pasted"
-                    )
-                    endPolishProgressTracking()
-                } catch {
-                    polishedTranscript = ""
-                    polishedTranscriptProviderID = ""
-                    polishedTranscriptModel = ""
-                    statusMessage = "Raw transcript ready. Polish failed or needs API key."
-                    lastError = error.localizedDescription
-                    endPolishProgressTracking()
-                }
+                deliverOutput(
+                    polished.markdown,
+                    completionMessage: "Transcription complete",
+                    copiedMessage: "Polished transcript copied",
+                    pastedMessage: "Polished transcript pasted"
+                )
+                endPolishProgressTracking()
             } else {
                 try completeWithoutPolish(
                     rawText: transcript.text,
@@ -672,7 +663,11 @@ final class AppShell: ObservableObject {
             currentSession = session
             lastError = error.localizedDescription
             sessionState = .failed
-            statusMessage = "Session failed"
+            if ProviderRetryPolicy.isProviderRelatedError(error) {
+                statusMessage = "Session failed. Check API key or switch provider/model, then retry."
+            } else {
+                statusMessage = "Session failed"
+            }
             endPolishProgressTracking()
             endTranscribeProgressTracking()
         }
@@ -704,7 +699,7 @@ final class AppShell: ObservableObject {
                 self.beginPolishProgressTracking()
                 try self.sessionManager.transition(&session, to: .polishing, details: "Retry polish")
                 let rules = try self.rulesStore.load()
-                let polished = try await self.polishPipeline.run(
+                let polished = try await self.runPolishWithRetry(
                     rawText: self.rawTranscript,
                     rulesMarkdown: rules,
                     settings: retrySettings
@@ -734,7 +729,11 @@ final class AppShell: ObservableObject {
                 self.endPolishProgressTracking()
             } catch {
                 self.lastError = error.localizedDescription
-                self.statusMessage = "Polish retry failed"
+                if ProviderRetryPolicy.isProviderRelatedError(error) {
+                    self.statusMessage = "Polish failed. Check API key or switch provider/model, then retry."
+                } else {
+                    self.statusMessage = "Polish retry failed"
+                }
                 self.currentSession = session
                 self.endPolishProgressTracking()
             }
@@ -764,6 +763,8 @@ final class AppShell: ObservableObject {
                 return
             }
 
+            var didWriteFreshRawTranscript = false
+
             do {
                 self.lastError = nil
                 let effectiveProviderID = temporaryProviderID ?? self.settings.transcriptionProviderID
@@ -782,54 +783,46 @@ final class AppShell: ObservableObject {
                 self.beginTranscribeProgressTracking()
                 try self.sessionManager.transition(&session, to: .transcribing, details: "Retry transcription")
 
-                let transcript = try await self.transcriptionPipeline.run(audioFileURL: session.paths.audioURL, settings: retrySettings)
+                let transcript = try await self.runTranscriptionWithRetry(audioFileURL: session.paths.audioURL, settings: retrySettings)
                 self.endTranscribeProgressTracking()
                 self.rawTranscript = transcript.text
                 self.rawTranscriptProviderID = transcript.providerId
                 self.rawTranscriptModel = transcript.model
                 try self.sessionManager.writeRaw(transcript.text, for: &session)
+                didWriteFreshRawTranscript = true
                 self.recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text)
 
                 if self.settings.polishEnabled {
-                    do {
-                        self.sessionState = .polishing
-                        self.beginPolishProgressTracking()
-                        try self.sessionManager.transition(&session, to: .polishing, details: "Polish after re-transcription")
+                    self.sessionState = .polishing
+                    self.beginPolishProgressTracking()
+                    try self.sessionManager.transition(&session, to: .polishing, details: "Polish after re-transcription")
 
-                        let rules = try self.rulesStore.load()
-                        let polished = try await self.polishPipeline.run(
-                            rawText: transcript.text,
-                            rulesMarkdown: rules,
-                            settings: self.settings
-                        )
+                    let rules = try self.rulesStore.load()
+                    let polished = try await self.runPolishWithRetry(
+                        rawText: transcript.text,
+                        rulesMarkdown: rules,
+                        settings: self.settings
+                    )
 
-                        self.polishedTranscript = polished.markdown
-                        self.latestPolishedTranscript = polished.markdown
-                        self.polishedTranscriptProviderID = polished.providerId
-                        self.polishedTranscriptModel = polished.model
-                        try self.sessionManager.writePolished(polished.markdown, for: &session)
-                        self.recordPolishStats(
-                            session: session,
-                            polish: polished,
-                            rawText: transcript.text,
-                            polishedText: polished.markdown
-                        )
+                    self.polishedTranscript = polished.markdown
+                    self.latestPolishedTranscript = polished.markdown
+                    self.polishedTranscriptProviderID = polished.providerId
+                    self.polishedTranscriptModel = polished.model
+                    try self.sessionManager.writePolished(polished.markdown, for: &session)
+                    self.recordPolishStats(
+                        session: session,
+                        polish: polished,
+                        rawText: transcript.text,
+                        polishedText: polished.markdown
+                    )
 
-                        self.deliverOutput(
-                            polished.markdown,
-                            completionMessage: "Re-transcription complete",
-                            copiedMessage: "Polished transcript copied",
-                            pastedMessage: "Polished transcript pasted"
-                        )
-                        self.endPolishProgressTracking()
-                    } catch {
-                        self.polishedTranscript = ""
-                        self.polishedTranscriptProviderID = ""
-                        self.polishedTranscriptModel = ""
-                        self.lastError = error.localizedDescription
-                        self.statusMessage = "Re-transcription complete. Polish failed."
-                        self.endPolishProgressTracking()
-                    }
+                    self.deliverOutput(
+                        polished.markdown,
+                        completionMessage: "Re-transcription complete",
+                        copiedMessage: "Polished transcript copied",
+                        pastedMessage: "Polished transcript pasted"
+                    )
+                    self.endPolishProgressTracking()
                 } else {
                     try self.completeWithoutPolish(
                         rawText: transcript.text,
@@ -844,11 +837,26 @@ final class AppShell: ObservableObject {
                 self.sessionState = .completed
                 self.currentSession = session
             } catch {
+                RetryTranscriptionFailureStateReset.apply(
+                    didWriteFreshRawTranscript: didWriteFreshRawTranscript,
+                    polishEnabled: self.settings.polishEnabled,
+                    session: &session,
+                    sessionManager: self.sessionManager,
+                    polishedTranscript: &self.polishedTranscript,
+                    polishedTranscriptProviderID: &self.polishedTranscriptProviderID,
+                    polishedTranscriptModel: &self.polishedTranscriptModel,
+                    latestPolishedTranscript: &self.latestPolishedTranscript
+                )
+
                 self.sessionManager.recordFailure(&session, error: error.localizedDescription)
                 self.currentSession = session
                 self.lastError = error.localizedDescription
                 self.sessionState = .failed
-                self.statusMessage = "Re-transcription failed"
+                if ProviderRetryPolicy.isProviderRelatedError(error) {
+                    self.statusMessage = "Processing failed. Check API key or switch provider/model, then retry."
+                } else {
+                    self.statusMessage = "Re-transcription failed"
+                }
                 self.endPolishProgressTracking()
                 self.endTranscribeProgressTracking()
             }
@@ -1570,6 +1578,29 @@ final class AppShell: ObservableObject {
             NSApp.appearance = NSAppearance(named: .aqua)
         case .dark:
             NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+
+    private func runTranscriptionWithRetry(
+        audioFileURL: URL,
+        settings: AppSettings
+    ) async throws -> TranscriptResult {
+        try await ProviderRetryPolicy.run {
+            try await self.transcriptionPipeline.run(audioFileURL: audioFileURL, settings: settings)
+        }
+    }
+
+    private func runPolishWithRetry(
+        rawText: String,
+        rulesMarkdown: String,
+        settings: AppSettings
+    ) async throws -> PolishResult {
+        try await ProviderRetryPolicy.run {
+            try await self.polishPipeline.run(
+                rawText: rawText,
+                rulesMarkdown: rulesMarkdown,
+                settings: settings
+            )
         }
     }
 
