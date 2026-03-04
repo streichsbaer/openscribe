@@ -1,0 +1,11 @@
+[project]
+name = "openscribe-docs"
+version = "0.1.0"
+description = "Documentation toolchain lock for OpenScribe"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+docs = [
+  "mkdocs-material==9.7.3",
+]
