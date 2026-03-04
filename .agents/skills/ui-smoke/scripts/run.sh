@@ -95,6 +95,19 @@ else
   test_status="fail"
 fi
 
+existing_pids="$(pgrep -x OpenScribe || true)"
+if [[ -n "$existing_pids" ]]; then
+  echo "[ui-smoke] stopping existing OpenScribe process(es): $existing_pids"
+  kill $existing_pids >/dev/null 2>&1 || true
+  sleep 1
+
+  remaining_pids="$(pgrep -x OpenScribe || true)"
+  if [[ -n "$remaining_pids" ]]; then
+    echo "[ui-smoke] force stopping stubborn OpenScribe process(es): $remaining_pids"
+    kill -9 $remaining_pids >/dev/null 2>&1 || true
+  fi
+fi
+
 app_pid=""
 app_launch_status="pass"
 popover_capture_status="skipped"
