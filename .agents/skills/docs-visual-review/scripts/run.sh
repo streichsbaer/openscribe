@@ -13,11 +13,13 @@ DOCS_URL=""
 KEEP_SERVER=0
 RUN_SWIFT_BUILD=0
 SKIP_DOCS_BUILD=0
+NO_SERVE=0
 SWIFT_BUILD_STATUS="skipped"
 DOCS_BUILD_STATUS="skipped"
 PLAYWRIGHT_STATUS="fail"
 SERVE_PID=""
 SERVE_STARTED=0
+LOG_SECTION=""
 
 usage() {
   cat <<USAGE
@@ -28,9 +30,11 @@ Options:
   --host <host>            MkDocs serve host (default: 127.0.0.1)
   --port <port>            MkDocs serve port (default: 8000)
   --url <url>              Docs base URL (default: http://<host>:<port>/OpenScribe/)
+  --remote-url <url>       Verify a deployed docs URL (implies --no-serve and --skip-docs-build)
   --timeout <seconds>      Server readiness timeout (default: 40)
   --keep-server            Keep MkDocs server running after capture
   --with-swift-build       Include swift build precheck
+  --no-serve               Skip local docs server startup and verify existing URL
   --skip-docs-build        Skip mkdocs build
   -h, --help               Show this help
 USAGE
@@ -70,6 +74,16 @@ while [[ $# -gt 0 ]]; do
       DOCS_URL="$2"
       shift 2
       ;;
+    --remote-url)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --remote-url" >&2
+        exit 1
+      fi
+      DOCS_URL="$2"
+      NO_SERVE=1
+      SKIP_DOCS_BUILD=1
+      shift 2
+      ;;
     --timeout)
       if [[ $# -lt 2 ]]; then
         echo "Missing value for --timeout" >&2
@@ -84,6 +98,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --with-swift-build)
       RUN_SWIFT_BUILD=1
+      shift 1
+      ;;
+    --no-serve)
+      NO_SERVE=1
       shift 1
       ;;
     --skip-docs-build)
@@ -112,6 +130,7 @@ fi
 if [[ -z "$DOCS_URL" ]]; then
   DOCS_URL="http://$HOST:$PORT/OpenScribe/"
 fi
+DOCS_URL="${DOCS_URL%/}/"
 
 mkdir -p "$OUT_DIR"
 PLAYWRIGHT_LOG="$OUT_DIR/playwright.log"
@@ -120,10 +139,10 @@ SWIFT_LOG="$OUT_DIR/swift-build.log"
 MKDOCS_LOG="$OUT_DIR/mkdocs-build.log"
 UV_CACHE_DIR_PATH="$ROOT_DIR/.build/uv-cache"
 
-mkdir -p "$UV_CACHE_DIR_PATH"
-export UV_CACHE_DIR="$UV_CACHE_DIR_PATH"
-
-required_tools=(uv playwright-cli curl)
+required_tools=(playwright-cli curl)
+if (( SKIP_DOCS_BUILD == 0 || NO_SERVE == 0 )); then
+  required_tools+=(uv)
+fi
 if (( RUN_SWIFT_BUILD == 1 )); then
   required_tools+=(swift)
 fi
@@ -135,10 +154,22 @@ for tool in "${required_tools[@]}"; do
   fi
 done
 
+if (( SKIP_DOCS_BUILD == 0 || NO_SERVE == 0 )); then
+  mkdir -p "$UV_CACHE_DIR_PATH"
+  export UV_CACHE_DIR="$UV_CACHE_DIR_PATH"
+fi
+
+if (( NO_SERVE == 1 && KEEP_SERVER == 1 )); then
+  echo "Cannot use --keep-server with --no-serve because no local server is started." >&2
+  exit 1
+fi
+
 existing_port_pids=()
-while IFS= read -r pid; do
-  [[ -n "$pid" ]] && existing_port_pids+=("$pid")
-done < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
+if (( NO_SERVE == 0 )); then
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && existing_port_pids+=("$pid")
+  done < <(lsof -ti "tcp:$PORT" 2>/dev/null || true)
+fi
 
 if (( ${#existing_port_pids[@]} > 0 )); then
   echo "[docs-visual-review] stopping existing process(es) on port $PORT: ${existing_port_pids[*]}"
@@ -203,25 +234,39 @@ if (( SKIP_DOCS_BUILD == 0 )); then
   fi
 fi
 
-echo "[docs-visual-review] starting docs server on $HOST:$PORT"
-uv run mkdocs serve --dev-addr "$HOST:$PORT" >"$SERVE_LOG" 2>&1 &
-SERVE_PID="$!"
-SERVE_STARTED=1
+if (( NO_SERVE == 0 )); then
+  echo "[docs-visual-review] starting docs server on $HOST:$PORT"
+  uv run mkdocs serve --dev-addr "$HOST:$PORT" >"$SERVE_LOG" 2>&1 &
+  SERVE_PID="$!"
+  SERVE_STARTED=1
 
-elapsed=0
-while ! curl -fsS "$DOCS_URL" >/dev/null 2>&1; do
-  if (( elapsed >= TIMEOUT_SECONDS )); then
-    echo "Timed out waiting for docs server at $DOCS_URL. See $SERVE_LOG" >&2
-    exit 1
-  fi
-  if [[ -n "$SERVE_PID" ]] && ! kill -0 "$SERVE_PID" >/dev/null 2>&1; then
-    echo "MkDocs server exited early. See $SERVE_LOG" >&2
-    exit 1
-  fi
-  sleep 1
-  elapsed=$((elapsed + 1))
-done
-echo "[docs-visual-review] docs server is ready"
+  elapsed=0
+  while ! curl -fsS "$DOCS_URL" >/dev/null 2>&1; do
+    if (( elapsed >= TIMEOUT_SECONDS )); then
+      echo "Timed out waiting for docs server at $DOCS_URL. See $SERVE_LOG" >&2
+      exit 1
+    fi
+    if [[ -n "$SERVE_PID" ]] && ! kill -0 "$SERVE_PID" >/dev/null 2>&1; then
+      echo "MkDocs server exited early. See $SERVE_LOG" >&2
+      exit 1
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  echo "[docs-visual-review] docs server is ready"
+else
+  echo "[docs-visual-review] no-serve mode, verifying URL: $DOCS_URL"
+  elapsed=0
+  while ! curl -fsS "$DOCS_URL" >/dev/null 2>&1; do
+    if (( elapsed >= TIMEOUT_SECONDS )); then
+      echo "Timed out waiting for URL: $DOCS_URL" >&2
+      exit 1
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  echo "[docs-visual-review] target URL is reachable"
+fi
 
 base_url="${DOCS_URL%/}"
 home_url="$DOCS_URL"
@@ -242,6 +287,28 @@ echo "[docs-visual-review] running Playwright capture"
 } >"$PLAYWRIGHT_LOG" 2>&1
 PLAYWRIGHT_STATUS="pass"
 
+log_lines=()
+if [[ "$SWIFT_BUILD_STATUS" == "pass" || "$SWIFT_BUILD_STATUS" == "fail" ]]; then
+  log_lines+=("- swift build: \`swift-build.log\`")
+else
+  log_lines+=("- swift build: skipped")
+fi
+
+if [[ "$DOCS_BUILD_STATUS" == "pass" || "$DOCS_BUILD_STATUS" == "fail" ]]; then
+  log_lines+=("- docs build: \`mkdocs-build.log\`")
+else
+  log_lines+=("- docs build: skipped")
+fi
+
+if (( SERVE_STARTED == 1 )); then
+  log_lines+=("- docs serve: \`mkdocs-serve.log\`")
+else
+  log_lines+=("- docs serve: skipped")
+fi
+
+log_lines+=("- playwright: \`playwright.log\`")
+LOG_SECTION="$(printf '%s\n' "${log_lines[@]}")"
+
 cat >"$OUT_DIR/report.md" <<EOF
 # Docs Visual Review
 
@@ -251,6 +318,7 @@ cat >"$OUT_DIR/report.md" <<EOF
 - docs_build: $DOCS_BUILD_STATUS
 - playwright: $PLAYWRIGHT_STATUS
 - server_started: $SERVE_STARTED
+- no_serve: $NO_SERVE
 
 ## Screenshots
 
@@ -260,10 +328,7 @@ cat >"$OUT_DIR/report.md" <<EOF
 
 ## Logs
 
-- swift build: \`swift-build.log\`
-- docs build: \`mkdocs-build.log\`
-- docs serve: \`mkdocs-serve.log\`
-- playwright: \`playwright.log\`
+$LOG_SECTION
 EOF
 
 echo "[docs-visual-review] done"

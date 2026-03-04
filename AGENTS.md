@@ -63,6 +63,15 @@
 - Follow `site-docs/ops/testing.md` and `site-docs/ops/release.md` for release validation steps.
 - Keep release checklists in `site-docs/ops/` and avoid duplicating them in `SOUL.md`.
 
+## Verification Playbooks
+
+- For app behavior changes or test requests, load `site-docs/ops/testing.md` before running checks.
+- For docs content, docs styling, docs workflow, or GitHub Pages verification, load `site-docs/ops/docs-verification.md` and `.agents/skills/docs-visual-review/SKILL.md`.
+- For post-push docs verification, run `$docs-visual-review --remote-url https://streichsbaer.github.io/OpenScribe/ --out artifacts/docs-visual/remote-latest` and report `report.md` plus screenshot paths.
+- For docs visual checks, inspect generated screenshots directly with the image tool. Do not run auxiliary image processing commands unless Stefan explicitly requests deeper analysis.
+- For release tasks, load `site-docs/ops/release.md` and `site-docs/ops/testing.md`.
+- If a required playbook is missing or stale, update the playbook first, then execute.
+
 ## Local Skills
 
 - Repo-local skills live under `.agents/skills/<skill>/SKILL.md`.

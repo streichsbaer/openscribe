@@ -60,6 +60,10 @@ Local preview URL:
 
 - `http://127.0.0.1:8000/OpenScribe/`
 
+Post-push docs verification:
+
+- [site-docs/ops/docs-verification.md](site-docs/ops/docs-verification.md)
+
 ## Contributing and Tracking
 
 - Use GitHub Issues for features, bugs, and docs work.

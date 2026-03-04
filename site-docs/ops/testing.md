@@ -11,6 +11,10 @@ RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 ```
 
+For docs specific verification before or after push, use:
+
+- [Docs Verification](./docs-verification.md)
+
 ## Smoke artifacts
 
 Required artifacts live under `artifacts/ui-smoke/latest/`.

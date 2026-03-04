@@ -55,6 +55,7 @@ nav:
     - Issue Tracking: ops/issue-tracking.md
     - Label Conventions: ops/label-conventions.md
     - Testing: ops/testing.md
+    - Docs Verification: ops/docs-verification.md
     - Release: ops/release.md
   - Reference:
     - Storage Contract: reference/storage-contract.md
