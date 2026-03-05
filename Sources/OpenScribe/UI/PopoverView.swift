@@ -12,6 +12,7 @@ struct PopoverView: View {
     @State private var hoverHint: String?
     @State private var showingRawTranscriptPopup = false
     @State private var showingPolishedTranscriptPopup = false
+    @State private var showStatsDetails = false
     private static let streakUnlockDays = 3
 
     var body: some View {
@@ -556,9 +557,29 @@ struct PopoverView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         statsHeroHeader
                         statsHeroGrid
-                        statsOverviewSection
-                        statsLatestRunSection
-                        statsCurrentSessionSection
+                        statsActivityHeatmap
+
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showStatsDetails.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(showStatsDetails ? "Hide details" : "More details")
+                                    .font(.caption)
+                                Image(systemName: showStatsDetails ? "chevron.up" : "chevron.down")
+                                    .font(.caption2)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+
+                        if showStatsDetails {
+                            statsTrendSection
+                            statsOverviewSection
+                            statsLatestRunSection
+                            statsCurrentSessionSection
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -620,6 +641,22 @@ struct PopoverView: View {
                 accent: .purple,
                 icon: "🗂️"
             )
+
+            statsHeroCard(
+                title: "Daily average",
+                value: "\(formattedStatRate(shell.statsSummary.averageWordsPerDay)) WPD",
+                subtitle: "Across \(shell.statsSummary.activeDayCount) active \(shell.statsSummary.activeDayCount == 1 ? "day" : "days").",
+                accent: .indigo,
+                icon: "📊"
+            )
+
+            statsHeroCard(
+                title: "Time recorded",
+                value: formattedTotalRecordingTime,
+                subtitle: "Avg \(formattedAverageRecordingTime) per session.",
+                accent: .cyan,
+                icon: "⏱️"
+            )
         }
     }
 
@@ -671,6 +708,39 @@ struct PopoverView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(accent.opacity(0.35), lineWidth: 1)
         )
+    }
+
+    private var statsTrendSection: some View {
+        transcriptSubsection {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Trends")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                statsMetricRow("Weekly trend", formattedWeeklyTrend)
+                statsMetricRow("Avg recording", formattedAverageRecordingTime)
+                statsMetricRow("Avg transcription", formattedProcessingDuration(shell.statsSummary.averageTranscriptionProcessingMs))
+                statsMetricRow("Avg polish", formattedProcessingDuration(shell.statsSummary.averagePolishProcessingMs))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var statsActivityHeatmap: some View {
+        transcriptSubsection {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Activity")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                ActivityHeatmapView(
+                    dailyWordCounts: shell.statsSummary.dailyWordCounts,
+                    dailySessionCounts: shell.statsSummary.dailySessionCounts,
+                    hoverHint: $hoverHint
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var statsOverviewSection: some View {
@@ -1556,6 +1626,53 @@ struct PopoverView: View {
             return "-"
         }
         return "\(usage.stage.displayLabel): \(providerDisplayName(for: usage.providerId)) / \(usage.model) (\(usage.runCount)x)"
+    }
+
+    private var formattedTotalRecordingTime: String {
+        let seconds = shell.statsSummary.totalRecordingDurationSeconds
+        if seconds >= 3600 {
+            let hours = Int(seconds) / 3600
+            let minutes = (Int(seconds) % 3600) / 60
+            return "\(hours)h \(minutes)m"
+        }
+        let minutes = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return "\(minutes)m \(secs)s"
+    }
+
+    private var formattedAverageRecordingTime: String {
+        guard let avg = shell.statsSummary.averageRecordingDurationSeconds else {
+            return "-"
+        }
+        if avg >= 3600 {
+            let hours = Int(avg) / 3600
+            let minutes = (Int(avg) % 3600) / 60
+            return "\(hours)h \(minutes)m"
+        }
+        let minutes = Int(avg) / 60
+        let secs = Int(avg) % 60
+        return "\(minutes)m \(secs)s"
+    }
+
+    private func formattedProcessingDuration(_ ms: Double?) -> String {
+        guard let ms else {
+            return "No data yet"
+        }
+        return String(format: "%.1fs", ms / 1000.0)
+    }
+
+    private var formattedWeeklyTrend: String {
+        guard let trend = shell.statsSummary.weeklyTrend else {
+            return "No data yet"
+        }
+        let rounded = Int(trend.rounded())
+        if abs(trend) < 1.0 {
+            return "— flat"
+        } else if trend > 0 {
+            return "↑ \(rounded)%"
+        } else {
+            return "↓ \(abs(rounded))%"
+        }
     }
 
     private var currentRawWordCount: Int {

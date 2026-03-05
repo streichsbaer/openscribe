@@ -599,12 +599,13 @@ final class AppShell: ObservableObject {
             try sessionManager.transition(&session, to: .transcribing, details: "Running transcription")
 
             let transcript = try await runTranscriptionWithRetry(audioFileURL: session.paths.audioURL, settings: settings)
+            let transcribeProcessingMs = transcribeElapsedMs()
             endTranscribeProgressTracking()
             rawTranscript = transcript.text
             rawTranscriptProviderID = transcript.providerId
             rawTranscriptModel = transcript.model
             try sessionManager.writeRaw(transcript.text, for: &session)
-            recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text)
+            recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text, processingDurationMs: transcribeProcessingMs)
 
             if settings.polishEnabled {
                 sessionState = .polishing
@@ -627,7 +628,8 @@ final class AppShell: ObservableObject {
                     session: session,
                     polish: polished,
                     rawText: transcript.text,
-                    polishedText: polished.markdown
+                    polishedText: polished.markdown,
+                    processingDurationMs: polishElapsedMs()
                 )
 
                 deliverOutput(
@@ -706,7 +708,8 @@ final class AppShell: ObservableObject {
                     session: session,
                     polish: polished,
                     rawText: self.rawTranscript,
-                    polishedText: polished.markdown
+                    polishedText: polished.markdown,
+                    processingDurationMs: self.polishElapsedMs()
                 )
                 try self.sessionManager.transition(&session, to: .completed, details: "Polish retry complete")
                 self.sessionState = .completed
@@ -776,13 +779,14 @@ final class AppShell: ObservableObject {
                 try self.sessionManager.transition(&session, to: .transcribing, details: "Retry transcription")
 
                 let transcript = try await self.runTranscriptionWithRetry(audioFileURL: session.paths.audioURL, settings: retrySettings)
+                let transcribeProcessingMs = self.transcribeElapsedMs()
                 self.endTranscribeProgressTracking()
                 self.rawTranscript = transcript.text
                 self.rawTranscriptProviderID = transcript.providerId
                 self.rawTranscriptModel = transcript.model
                 try self.sessionManager.writeRaw(transcript.text, for: &session)
                 didWriteFreshRawTranscript = true
-                self.recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text)
+                self.recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text, processingDurationMs: transcribeProcessingMs)
 
                 if self.settings.polishEnabled {
                     self.sessionState = .polishing
@@ -805,7 +809,8 @@ final class AppShell: ObservableObject {
                         session: session,
                         polish: polished,
                         rawText: transcript.text,
-                        polishedText: polished.markdown
+                        polishedText: polished.markdown,
+                        processingDurationMs: self.polishElapsedMs()
                     )
 
                     self.deliverOutput(
@@ -1679,7 +1684,8 @@ final class AppShell: ObservableObject {
     private func recordTranscriptionStats(
         session: SessionContext,
         transcript: TranscriptResult,
-        rawText: String
+        rawText: String,
+        processingDurationMs: Int? = nil
     ) {
         let rawWordCount = wordCount(in: rawText)
         let recordingDurationMs = sessionRecordingDurationMs(session)
@@ -1708,7 +1714,8 @@ final class AppShell: ObservableObject {
             recordingDurationMs: recordingDurationMs,
             wordsPerMinute: wordsPerMinute,
             wordDelta: nil,
-            wordDeltaPercent: nil
+            wordDeltaPercent: nil,
+            processingDurationMs: processingDurationMs
         )
         appendStatsEvent(event)
     }
@@ -1717,7 +1724,8 @@ final class AppShell: ObservableObject {
         session: SessionContext,
         polish: PolishResult,
         rawText: String,
-        polishedText: String
+        polishedText: String,
+        processingDurationMs: Int? = nil
     ) {
         let rawWordCount = wordCount(in: rawText)
         let polishedWordCount = wordCount(in: polishedText)
@@ -1745,7 +1753,8 @@ final class AppShell: ObservableObject {
             recordingDurationMs: nil,
             wordsPerMinute: nil,
             wordDelta: deltaWords,
-            wordDeltaPercent: deltaPercent
+            wordDeltaPercent: deltaPercent,
+            processingDurationMs: processingDurationMs
         )
         appendStatsEvent(event)
     }
@@ -1776,6 +1785,16 @@ final class AppShell: ObservableObject {
                 character.isWhitespace || character.isNewline
             }
             .count
+    }
+
+    private func transcribeElapsedMs() -> Int? {
+        guard let started = transcribeStartedAt else { return nil }
+        return max(0, Int(Date().timeIntervalSince(started) * 1000))
+    }
+
+    private func polishElapsedMs() -> Int? {
+        guard let started = polishStartedAt else { return nil }
+        return max(0, Int(Date().timeIntervalSince(started) * 1000))
     }
 
     private func beginPolishProgressTracking() {

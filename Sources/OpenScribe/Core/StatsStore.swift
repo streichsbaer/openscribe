@@ -36,6 +36,7 @@ struct StatsEvent: Codable, Identifiable, Equatable {
     let wordsPerMinute: Double?
     let wordDelta: Int?
     let wordDeltaPercent: Double?
+    let processingDurationMs: Int?
 }
 
 struct StatsProviderUsage: Identifiable, Equatable {
@@ -74,6 +75,16 @@ struct StatsSummary: Equatable {
     let lastEventAt: Date?
     let latestTranscriptionEvent: StatsEvent?
     let latestPolishEvent: StatsEvent?
+    let activeDayCount: Int
+    let averageWordsPerDay: Double?
+    let averageWordsPerSession: Double?
+    let totalRecordingDurationSeconds: Double
+    let averageRecordingDurationSeconds: Double?
+    let averageTranscriptionProcessingMs: Double?
+    let averagePolishProcessingMs: Double?
+    let weeklyTrend: Double?
+    let dailyWordCounts: [Date: Int]
+    let dailySessionCounts: [Date: Int]
 
     static let empty = StatsSummary(
         totalEvents: 0,
@@ -92,7 +103,17 @@ struct StatsSummary: Equatable {
         providerUsage: [],
         lastEventAt: nil,
         latestTranscriptionEvent: nil,
-        latestPolishEvent: nil
+        latestPolishEvent: nil,
+        activeDayCount: 0,
+        averageWordsPerDay: nil,
+        averageWordsPerSession: nil,
+        totalRecordingDurationSeconds: 0,
+        averageRecordingDurationSeconds: nil,
+        averageTranscriptionProcessingMs: nil,
+        averagePolishProcessingMs: nil,
+        weeklyTrend: nil,
+        dailyWordCounts: [:],
+        dailySessionCounts: [:]
     )
 }
 
@@ -206,6 +227,39 @@ final class StatsStore {
             calendar: calendar
         )
 
+        let activeDayCount = activeTranscriptionDays.count
+        let averageWordsPerDay: Double? = activeDayCount > 0 ? Double(spokenWords) / Double(activeDayCount) : nil
+        let averageWordsPerSession: Double? = sessionCount > 0 ? Double(spokenWords) / Double(sessionCount) : nil
+        let totalRecordingDurationSeconds = Double(totalRecordingMs) / 1000.0
+        let averageRecordingDurationSeconds: Double? = transcriptionEvents.count > 0
+            ? totalRecordingDurationSeconds / Double(transcriptionEvents.count) : nil
+
+        let transcriptionProcessingValues = transcriptionEvents.compactMap(\.processingDurationMs)
+        let averageTranscriptionProcessingMs: Double? = transcriptionProcessingValues.isEmpty
+            ? nil : Double(transcriptionProcessingValues.reduce(0, +)) / Double(transcriptionProcessingValues.count)
+
+        let polishProcessingValues = polishEvents.compactMap(\.processingDurationMs)
+        let averagePolishProcessingMs: Double? = polishProcessingValues.isEmpty
+            ? nil : Double(polishProcessingValues.reduce(0, +)) / Double(polishProcessingValues.count)
+
+        var dailyWordCounts: [Date: Int] = [:]
+        var dailySessionSets: [Date: Set<UUID>] = [:]
+        for event in transcriptionWordEvents {
+            let day = calendar.startOfDay(for: event.timestamp)
+            dailyWordCounts[day, default: 0] += Int(event.outputUnits.rounded())
+            dailySessionSets[day, default: []].insert(event.sessionId)
+        }
+        let dailySessionCounts = dailySessionSets.mapValues(\.count)
+
+        let weeklyTrend: Double?
+        if wordsLast30Days > 0 {
+            let weeklyRate = Double(wordsLast7Days) / 1.0
+            let monthlyWeeklyRate = Double(wordsLast30Days) / (30.0 / 7.0)
+            weeklyTrend = ((weeklyRate - monthlyWeeklyRate) / monthlyWeeklyRate) * 100.0
+        } else {
+            weeklyTrend = nil
+        }
+
         return StatsSummary(
             totalEvents: events.count,
             sessionCount: sessionCount,
@@ -223,7 +277,17 @@ final class StatsStore {
             providerUsage: providerUsage,
             lastEventAt: lastEventAt,
             latestTranscriptionEvent: latestTranscriptionEvent,
-            latestPolishEvent: latestPolishEvent
+            latestPolishEvent: latestPolishEvent,
+            activeDayCount: activeDayCount,
+            averageWordsPerDay: averageWordsPerDay,
+            averageWordsPerSession: averageWordsPerSession,
+            totalRecordingDurationSeconds: totalRecordingDurationSeconds,
+            averageRecordingDurationSeconds: averageRecordingDurationSeconds,
+            averageTranscriptionProcessingMs: averageTranscriptionProcessingMs,
+            averagePolishProcessingMs: averagePolishProcessingMs,
+            weeklyTrend: weeklyTrend,
+            dailyWordCounts: dailyWordCounts,
+            dailySessionCounts: dailySessionCounts
         )
     }
 
