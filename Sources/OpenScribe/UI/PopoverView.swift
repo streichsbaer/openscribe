@@ -32,6 +32,7 @@ struct PopoverView: View {
             footerSection
         }
         .padding(12)
+        .background(Color(NSColor.windowBackgroundColor))
         .frame(width: popoverWidth)
         .frame(maxHeight: .infinity, alignment: shell.selectedPopoverTab == .live ? .center : .top)
         .onAppear {

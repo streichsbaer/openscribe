@@ -74,6 +74,7 @@
 - For GitHub issue triage or issue updates, load `site-docs/ops/issue-tracking.md` and `site-docs/ops/label-conventions.md` before running issue commands.
 - For post-push docs verification, run `$docs-visual-review --remote-url https://openscribe.dev/ --out artifacts/docs-visual/remote-latest` and report `report.md` plus screenshot paths.
 - For docs visual checks, inspect generated screenshots directly with the image tool. Do not run auxiliary image processing commands unless Stefan explicitly requests deeper analysis.
+- For marketing or release screenshot capture from the live app state, load `site-docs/ops/marketing-screenshots.md` before taking screenshots.
 - For release tasks, load `site-docs/ops/release.md` and `site-docs/ops/testing.md`.
 - If a required playbook is missing or stale, update the playbook first, then execute.
 

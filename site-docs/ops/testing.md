@@ -15,6 +15,10 @@ For docs specific verification before or after push, use:
 
 - [Docs Verification](./docs-verification.md)
 
+For marketing or release screenshots from the current popover/session state, use:
+
+- [Marketing Screenshots](./marketing-screenshots.md)
+
 ## Smoke artifacts
 
 Required artifacts live under `artifacts/ui-smoke/latest/`.
