@@ -46,9 +46,8 @@ Root path:
 
 - `~/Library/Application Support/OpenScribe`
 
-Artifacts and contracts:
-
-- [Storage Contract](../reference/storage-contract.md)
+- User guide: [Your Data](../guides/your-data.md)
+- Technical contract: [Storage Contract](../reference/storage-contract.md)
 
 ## Providers
 
@@ -63,6 +62,8 @@ Artifacts and contracts:
   - Groq chat API
   - OpenRouter chat API
   - Gemini chat API
+
+User guide: [Providers and Models](../guides/providers.md)
 
 ## Transcript UI
 
@@ -100,8 +101,7 @@ Expected icon behavior is defined in the popover and smoke docs.
 
 ## Build and run
 
-- `swift build`
-- `swift run OpenScribe`
+See [Development Setup](../reference/development-setup.md).
 
 ## Release status
 

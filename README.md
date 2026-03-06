@@ -62,7 +62,7 @@ Local preview URL:
 
 Post-push docs verification:
 
-- [site-docs/ops/docs-verification.md](site-docs/ops/docs-verification.md)
+- [docs/ops/docs-verification.md](docs/ops/docs-verification.md)
 
 ## Contributing and Tracking
 

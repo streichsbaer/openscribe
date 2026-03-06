@@ -11,13 +11,7 @@ RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 ```
 
-For docs specific verification before or after push, use:
-
-- [Docs Verification](./docs-verification.md)
-
-For marketing or release screenshots from the current popover/session state, use:
-
-- [Marketing Screenshots](./marketing-screenshots.md)
+Maintainer-only runbooks for docs verification and marketing screenshots live in `docs/ops/` and are not part of the published docs site.
 
 ## Smoke artifacts
 

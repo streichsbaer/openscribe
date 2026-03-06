@@ -53,24 +53,26 @@ extra_css:
 
 nav:
   - Home: index.md
-  - Product:
+  - Guides:
+    - Getting Started: guides/getting-started.md
+    - How It Works: guides/how-it-works.md
+    - Menu and Settings: guides/menu-and-settings.md
+    - Providers and Models: guides/providers.md
+    - Custom Rules: guides/custom-rules.md
+    - Your Data: guides/your-data.md
+  - Project:
     - Overview: product/index.md
     - Product Spec: product/spec.md
     - Roadmap: product/roadmap.md
-  - Guides:
-    - Getting Started: guides/getting-started.md
-    - Using OpenScribe: guides/using-openscribe.md
-    - Menu and Settings: guides/menu-and-settings.md
-    - Contributing Docs: guides/contributing-docs.md
-  - Operations:
-    - Issue Tracking: ops/issue-tracking.md
-    - Label Conventions: ops/label-conventions.md
-    - Testing: ops/testing.md
-    - Marketing Screenshots: ops/marketing-screenshots.md
-    - Docs Verification: ops/docs-verification.md
-    - Cloudflare: ops/cloudflare.md
-    - Release: ops/release.md
-  - Reference:
-    - Storage Contract: reference/storage-contract.md
-    - Popover Contract: reference/popover-contract.md
+    - Contributing: product/contributing.md
     - Governance: reference/governance.md
+  - Reference:
+    - Technical:
+      - Storage Contract: reference/storage-contract.md
+      - Popover Contract: reference/popover-contract.md
+      - Development Setup: reference/development-setup.md
+    - Operations:
+      - Testing: ops/testing.md
+      - Release: ops/release.md
+      - Issue Tracking: ops/issue-tracking.md
+      - Label Conventions: ops/label-conventions.md

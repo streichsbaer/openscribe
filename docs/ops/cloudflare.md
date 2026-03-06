@@ -137,4 +137,4 @@ Also run a full-route Playwright sweep from `sitemap.xml` when CSP or edge rules
 ## Related
 
 - [Docs Verification](./docs-verification.md)
-- [Release](./release.md)
+- [Release](../../site-docs/ops/release.md)

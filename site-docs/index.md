@@ -79,8 +79,10 @@ Every session saves audio, raw transcript, and polished output. Replay or re-pro
 
 ### Use it
 
-- [Using OpenScribe](guides/using-openscribe.md)
+- [Getting Started](guides/getting-started.md)
+- [How It Works](guides/how-it-works.md)
 - [Menu and Settings](guides/menu-and-settings.md)
+- [Providers and Models](guides/providers.md)
 
 </div>
 
@@ -88,9 +90,10 @@ Every session saves audio, raw transcript, and polished output. Replay or re-pro
 
 ### Build it
 
-- [Getting Started](guides/getting-started.md)
 - [Product Spec](product/spec.md)
 - [Roadmap](product/roadmap.md)
+- [Contributing](product/contributing.md)
+- [Development Setup](reference/development-setup.md)
 
 </div>
 
