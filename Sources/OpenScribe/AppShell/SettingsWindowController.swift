@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import SwiftUI
 
 @MainActor
@@ -8,7 +9,7 @@ final class SettingsTabState: ObservableObject {
 
 @MainActor
 final class SettingsWindowController: NSWindowController {
-    private static let minimumContentSize = NSSize(width: 700, height: 540)
+    private static let minimumContentSize = NSSize(width: 760, height: 540)
     private static let defaultContentSize = NSSize(width: 760, height: 580)
     private let tabState = SettingsTabState()
 
@@ -46,6 +47,19 @@ final class SettingsWindowController: NSWindowController {
         tabState.selectedTab = tab
     }
 
+    func moveToPreferredCaptureScreen() {
+        guard let window,
+              let screen = Self.preferredCaptureScreen() else {
+            return
+        }
+
+        let visibleFrame = screen.visibleFrame.insetBy(dx: 24, dy: 24)
+        var frame = window.frame
+        frame.origin.x = visibleFrame.midX - (frame.width / 2)
+        frame.origin.y = visibleFrame.midY - (frame.height / 2)
+        window.setFrame(frame, display: true)
+    }
+
     private func resize(to contentSize: NSSize, animated: Bool) {
         guard let window else {
             return
@@ -66,5 +80,25 @@ final class SettingsWindowController: NSWindowController {
         } else {
             window.setFrame(newFrame, display: true)
         }
+    }
+
+    private static func preferredCaptureScreen() -> NSScreen? {
+        let screens = NSScreen.screens
+        return screens.first(where: \.isBuiltInRetinaDisplay)
+            ?? screens
+                .filter { $0.backingScaleFactor > 1 }
+                .max(by: { $0.backingScaleFactor < $1.backingScaleFactor })
+            ?? NSScreen.main
+            ?? screens.first
+    }
+}
+
+private extension NSScreen {
+    var isBuiltInRetinaDisplay: Bool {
+        guard backingScaleFactor > 1,
+              let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
+            return false
+        }
+        return CGDisplayIsBuiltin(screenNumber) != 0
     }
 }

@@ -52,20 +52,20 @@ Transcript polishing is running.
 - Shows the current run state and latest raw/polished text.
 - Supports rerun actions for transcription and polish.
 
-![Live tab](../images/ui/openscribe-window-hotkey-live.png)
+![Live tab](../images/ui/openscribe-live.png)
 
 ### History tab
 
 - Lists previous sessions.
 - Supports replay and opening the session folder in Finder.
 
-![History tab](../images/ui/openscribe-window-click-history.png)
+![History tab](../images/ui/openscribe-history.png)
 
 ### Stats tab
 
 - Shows aggregate usage and recent-run metrics.
 
-![Stats tab](../images/ui/openscribe-window-click-stats.png)
+![Stats tab](../images/ui/openscribe-stats.png)
 
 ## Settings window
 
@@ -80,28 +80,43 @@ You can open Settings from the right-click menu, from `Cmd + ,` when OpenScribe 
 - Appearance mode.
 - Copy polished on completion.
 - Auto-paste on completion.
-- Expanded transcript panels by default.
-- Current status and microphone permission controls.
+- Accessibility permission status and controls.
+- Microphone selection and permission controls.
 
 ![General settings tab](../images/ui/settings-general.png)
 
 ### Providers tab
 
-- Transcription provider and model.
-- Polish enablement, provider, and model.
-- Provider verification and model refresh controls.
-- Language mode.
 - API key management for OpenAI, Groq, OpenRouter, and Gemini.
+- Verify the current token for each provider.
+- Refresh shared provider model lists used by Transcribe and Polish.
 
 ![Providers settings tab](../images/ui/settings-providers.png)
 
+### Transcribe tab
+
+- Transcription provider selection.
+- Full-width transcription model browser.
+- Language mode.
+- Optional custom transcription instruction.
+
+![Transcribe settings tab](../images/ui/settings-transcribe.png)
+
+### Polish tab
+
+- Enable or disable polish.
+- Polish provider.
+- Full-width polish model browser.
+- Optional custom polish instruction.
+
+![Polish settings tab](../images/ui/settings-polish.png)
+
 ### Hotkeys tab
 
-- Global recording toggle hotkey.
-- Popover toggle hotkey.
-- Open Settings hotkey.
-- Copy latest polished and copy latest raw hotkeys.
-- Paste latest hotkey plus Accessibility permission controls.
+- Core shortcuts for recording, the popover, and settings.
+- Clipboard shortcuts for copy latest, copy raw, and paste latest.
+- Paste latest Accessibility dependency note.
+- Popover tab shortcuts.
 
 ![Hotkeys settings tab](../images/ui/settings-hotkeys.png)
 

@@ -5,6 +5,8 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     case general
     case providers
+    case transcribe
+    case polish
     case hotkeys
     case rules
     case data
@@ -16,6 +18,10 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .general:
             return "General"
+        case .transcribe:
+            return "Transcribe"
+        case .polish:
+            return "Polish"
         case .providers:
             return "Providers"
         case .hotkeys:
@@ -33,8 +39,12 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .general:
             return "gearshape"
+        case .transcribe:
+            return "waveform"
+        case .polish:
+            return "wand.and.stars"
         case .providers:
-            return "square.grid.2x2"
+            return "key.horizontal"
         case .hotkeys:
             return "keyboard"
         case .rules:
@@ -46,20 +56,66 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         }
     }
 
-    var preferredSize: CGSize {
+    var preferredWidth: CGFloat {
         switch self {
         case .general:
-            return CGSize(width: 760, height: 580)
+            return 860
+        case .transcribe:
+            return 900
+        case .polish:
+            return 900
         case .providers:
-            return CGSize(width: 860, height: 700)
+            return 900
         case .hotkeys:
-            return CGSize(width: 860, height: 700)
+            return 900
         case .rules:
-            return CGSize(width: 920, height: 760)
+            return 920
         case .data:
-            return CGSize(width: 920, height: 760)
+            return 860
         case .about:
-            return CGSize(width: 760, height: 580)
+            return 760
+        }
+    }
+
+    var minHeight: CGFloat {
+        switch self {
+        case .general:
+            return 580
+        case .transcribe:
+            return 600
+        case .polish:
+            return 600
+        case .providers:
+            return 640
+        case .hotkeys:
+            return 620
+        case .rules:
+            return 760
+        case .data:
+            return 540
+        case .about:
+            return 580
+        }
+    }
+
+    var maxHeight: CGFloat {
+        switch self {
+        case .general:
+            return 700
+        case .transcribe:
+            return 760
+        case .polish:
+            return 740
+        case .providers:
+            return 820
+        case .hotkeys:
+            return 800
+        case .rules:
+            return 860
+        case .data:
+            return 700
+        case .about:
+            return 620
         }
     }
 }
@@ -67,8 +123,9 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
 struct SettingsView: View {
     @EnvironmentObject private var shell: AppShell
     @EnvironmentObject private var tabState: SettingsTabState
-    @State private var contentWidth = SettingsTab.general.preferredSize.width
-    @State private var contentHeight = SettingsTab.general.preferredSize.height
+    @State private var contentWidth = SettingsTab.general.preferredWidth
+    @State private var contentHeight = SettingsTab.general.minHeight
+    @State private var measuredPageHeights: [SettingsTab: CGFloat] = [:]
     @State private var pendingLocalModelAction: LocalModelAction?
     @State private var showDeleteAppSupportConfirmation = false
     @State private var sttModelFilter = ""
@@ -79,8 +136,9 @@ struct SettingsView: View {
     @State private var showPolishInstructionEditor = false
     @FocusState private var focusedInstructionEditor: InstructionEditorTarget?
     private let onPreferredSizeChange: ((CGSize, Bool) -> Void)?
-    private let providerPickerWidth: CGFloat = 240
-    private let modelSelectorWidth: CGFloat = 360
+    private let compactControlMaxWidth: CGFloat = 320
+    private let wideControlMaxWidth: CGFloat = 460
+    private let settingsWindowChromeHeight: CGFloat = 104
     private let transcriptionDefaultInstruction = "No instruction set."
     private let polishDefaultInstruction = "No instruction set."
 
@@ -122,10 +180,26 @@ struct SettingsView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .frame(width: contentWidth, height: contentHeight)
         .onAppear {
+            transcriptionInstructionDraft = shell.settings.transcriptionInstruction ?? ""
+            polishInstructionDraft = shell.settings.polishInstruction ?? ""
             updateLayout(for: tabState.selectedTab, animate: false)
         }
-        .onChange(of: tabState.selectedTab) { _, newValue in
+        .onChange(of: tabState.selectedTab) { oldValue, newValue in
+            persistInstructionEditorState(leaving: oldValue)
             updateLayout(for: newValue, animate: true)
+        }
+        .onChange(of: focusedInstructionEditor) { oldValue, newValue in
+            let changes = InstructionEditorPersistence.changesOnFocusChange(
+                from: oldValue,
+                to: newValue,
+                transcriptionDraft: transcriptionInstructionDraft,
+                storedTranscription: shell.settings.transcriptionInstruction,
+                polishDraft: polishInstructionDraft,
+                storedPolish: shell.settings.polishInstruction
+            )
+            for change in changes {
+                applyInstructionPersistenceChange(change)
+            }
         }
         .confirmationDialog(
             pendingLocalModelAction?.dialogTitle ?? "Confirm",
@@ -174,8 +248,6 @@ struct SettingsView: View {
 
     private var tabHeader: some View {
         HStack(spacing: 8) {
-            Spacer(minLength: 0)
-
             ForEach(SettingsTab.allCases) { tab in
                 Button {
                     tabState.selectedTab = tab
@@ -188,17 +260,18 @@ struct SettingsView: View {
                             Image(systemName: tab.symbol)
                                 .font(.system(size: 14, weight: .medium))
                             Text(tab.title)
-                                .font(.caption)
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.82)
                         }
                         .foregroundStyle(tabState.selectedTab == tab ? Color.accentColor : Color.secondary)
                     }
-                    .frame(width: 98, height: 48)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
-
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -210,6 +283,10 @@ struct SettingsView: View {
             generalTab
         case .providers:
             providersTab
+        case .transcribe:
+            transcribeTab
+        case .polish:
+            polishTab
         case .hotkeys:
             hotkeysTab
         case .rules:
@@ -222,7 +299,7 @@ struct SettingsView: View {
     }
 
     private func updateLayout(for tab: SettingsTab, animate: Bool) {
-        let preferred = tab.preferredSize
+        let preferred = preferredSize(for: tab)
         let apply = {
             contentWidth = preferred.width
             contentHeight = preferred.height
@@ -237,8 +314,30 @@ struct SettingsView: View {
         }
     }
 
+    private func preferredSize(for tab: SettingsTab) -> CGSize {
+        let measuredHeight = measuredPageHeights[tab] ?? (tab.minHeight - settingsWindowChromeHeight)
+        let clampedHeight = min(
+            max(measuredHeight + settingsWindowChromeHeight, tab.minHeight),
+            tab.maxHeight
+        )
+        return CGSize(width: tab.preferredWidth, height: clampedHeight)
+    }
+
+    private func recordMeasuredPageHeight(_ height: CGFloat, for tab: SettingsTab) {
+        let roundedHeight = ceil(height)
+        let currentHeight = measuredPageHeights[tab] ?? 0
+        guard abs(currentHeight - roundedHeight) > 1 else {
+            return
+        }
+
+        measuredPageHeights[tab] = roundedHeight
+        if tabState.selectedTab == tab {
+            updateLayout(for: tab, animate: true)
+        }
+    }
+
     private var generalTab: some View {
-        settingsPage {
+        settingsPage(for: .general) {
             settingsCard("USAGE") {
                 settingRow("Appearance") {
                     Picker("", selection: Binding(
@@ -255,7 +354,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: providerPickerWidth, alignment: .trailing)
+                    .frame(maxWidth: compactControlMaxWidth, alignment: .leading)
                 }
 
                 settingRow("Copy polished on completion") {
@@ -278,7 +377,7 @@ struct SettingsView: View {
                 if shell.autoPasteOnComplete {
                     Text(shell.accessibilityPermissionGranted
                          ? "Auto-paste enabled. Completed output will paste into the currently focused app."
-                         : "Auto-paste enabled but Accessibility permission is missing. Open Accessibility Settings in Hotkeys.")
+                         : "Auto-paste enabled but Accessibility permission is missing. Open Accessibility Settings in General.")
                         .font(.caption)
                         .foregroundColor(shell.accessibilityPermissionGranted ? .secondary : .orange)
                 }
@@ -288,21 +387,25 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            settingsCard("STATUS") {
-                settingRow("Session state") {
-                    Text(shell.sessionState.displayLabel)
-                        .foregroundStyle(.secondary)
-                }
+            settingsCard("ACCESSIBILITY") {
+                Text(shell.accessibilityPermissionGranted ? "Accessibility permission: granted" : "Accessibility permission: missing")
+                    .font(.caption)
+                    .foregroundColor(shell.accessibilityPermissionGranted ? .secondary : .orange)
 
-                settingRow("Last message") {
-                    Text(shell.statusMessage)
-                        .foregroundStyle(.secondary)
-                }
+                Text("Paste latest and auto-paste require Accessibility permission.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                if let hotkeyError = shell.hotkeyError {
-                    Text(hotkeyError)
-                        .font(.caption)
-                        .foregroundColor(.orange)
+                HStack(spacing: 8) {
+                    Button("Open Accessibility Settings") {
+                        shell.openAccessibilityPrivacySettings()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Refresh") {
+                        shell.refreshPermissionState()
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
 
@@ -312,7 +415,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(width: providerPickerWidth, alignment: .trailing)
+                        .frame(maxWidth: compactControlMaxWidth, alignment: .leading)
                 }
 
                 settingRow("Pinned default") {
@@ -328,7 +431,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: providerPickerWidth, alignment: .trailing)
+                    .frame(maxWidth: compactControlMaxWidth, alignment: .leading)
                 }
 
                 if let pinned = shell.settings.pinnedMicrophone,
@@ -358,8 +461,77 @@ struct SettingsView: View {
     }
 
     private var providersTab: some View {
-        settingsPage {
-            settingsCard("TRANSCRIPTION") {
+        settingsPage(for: .providers) {
+            settingsCard("API KEYS") {
+                Text("Verify confirms the current token. Refresh models updates the shared model list used by Transcribe and Polish.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                providerKeySection(
+                    title: "OpenAI",
+                    placeholder: "OpenAI API key",
+                    keyText: $shell.openAIKeyInput,
+                    statusDescription: shell.openAIKeyStatusDescription,
+                    providerID: "openai_polish"
+                ) {
+                    shell.clearAPIKey(.openAI)
+                }
+
+                sectionDivider()
+
+                providerKeySection(
+                    title: "Groq",
+                    placeholder: "Groq API key",
+                    keyText: $shell.groqKeyInput,
+                    statusDescription: shell.groqKeyStatusDescription,
+                    providerID: "groq_polish"
+                ) {
+                    shell.clearAPIKey(.groq)
+                }
+
+                sectionDivider()
+
+                providerKeySection(
+                    title: "OpenRouter",
+                    placeholder: "OpenRouter API key",
+                    keyText: $shell.openRouterKeyInput,
+                    statusDescription: shell.openRouterKeyStatusDescription,
+                    providerID: "openrouter_polish"
+                ) {
+                    shell.clearAPIKey(.openRouter)
+                }
+
+                sectionDivider()
+
+                providerKeySection(
+                    title: "Gemini",
+                    placeholder: "Gemini API key",
+                    keyText: $shell.geminiKeyInput,
+                    statusDescription: shell.geminiKeyStatusDescription,
+                    providerID: "gemini_polish"
+                ) {
+                    shell.clearAPIKey(.gemini)
+                }
+
+                HStack(spacing: 8) {
+                    Button("Save keys") {
+                        shell.saveAPIKeys()
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Clear all keys") {
+                        shell.clearAllAPIKeys()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private var transcribeTab: some View {
+        settingsPage(for: .transcribe) {
+            settingsCard("TRANSCRIBE") {
                 settingRow("Provider") {
                     Picker("", selection: Binding(
                         get: { shell.settings.transcriptionProviderID },
@@ -371,7 +543,6 @@ struct SettingsView: View {
                                     $0.transcriptionModel = available.first ?? $0.transcriptionModel
                                 }
                             }
-                            shell.refreshModels(for: newValue)
                         }
                     )) {
                         ForEach(sttProviders, id: \.id) { provider in
@@ -380,93 +551,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: providerPickerWidth, alignment: .trailing)
-                }
-
-                settingRow("Models") {
-                    FilterableModelSelector(
-                        models: transcriptionModels(for: shell.settings.transcriptionProviderID),
-                        selectedModel: shell.settings.transcriptionModel,
-                        filterText: $sttModelFilter,
-                        width: modelSelectorWidth,
-                        isDisabled: false
-                    ) { selected in
-                        shell.updateSettings { settings in
-                            settings.transcriptionModel = selected
-                        }
-                    }
-                }
-
-                settingRow("Provider status") {
-                    HStack(spacing: 8) {
-                        Button("Verify") {
-                            shell.verifyProvider(for: shell.settings.transcriptionProviderID)
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button("Refresh models") {
-                            shell.refreshModels(for: shell.settings.transcriptionProviderID)
-                        }
-                        .buttonStyle(.bordered)
-
-                        Text(shell.providerConnectivityStatus(for: shell.settings.transcriptionProviderID).detail)
-                            .font(.caption)
-                            .foregroundColor(
-                                connectivityColor(shell.providerConnectivityStatus(for: shell.settings.transcriptionProviderID))
-                            )
-                    }
-                    .frame(width: providerPickerWidth, alignment: .trailing)
-                }
-
-                settingRow("Instruction") {
-                    let providerID = shell.settings.transcriptionProviderID
-                    VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Use custom instruction", isOn: Binding(
-                            get: { shell.settings.transcriptionCustomInstructionEnabled == true },
-                            set: { newValue in
-                                if !newValue {
-                                    focusedInstructionEditor = nil
-                                    showTranscriptionInstructionEditor = false
-                                }
-                                shell.updateSettings { settings in
-                                    settings.transcriptionCustomInstructionEnabled = newValue
-                                }
-                            }
-                        ))
-
-                        instructionPreviewRow(
-                            text: resolvedInstructionText(
-                                draftText: transcriptionInstructionDraft,
-                                fallback: transcriptionDefaultInstruction
-                            ),
-                            isDefault: isUsingDefaultInstruction(
-                                draftText: transcriptionInstructionDraft
-                            ),
-                            width: modelSelectorWidth
-                        )
-
-                        Button(showTranscriptionInstructionEditor ? "Done" : "Edit") {
-                            toggleTranscriptionInstructionEditor()
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(shell.settings.transcriptionCustomInstructionEnabled != true)
-
-                        if showTranscriptionInstructionEditor, shell.settings.transcriptionCustomInstructionEnabled == true {
-                            instructionEditor(
-                                text: $transcriptionInstructionDraft,
-                                placeholder: transcriptionDefaultInstruction,
-                                width: modelSelectorWidth
-                            )
-                            .focused($focusedInstructionEditor, equals: .transcription)
-                        }
-
-                        if !supportsTranscriptionInstruction(providerID) {
-                            Text("Current provider does not use this instruction. It applies when a provider-backed transcription model is selected.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(width: modelSelectorWidth, alignment: .leading)
+                    .frame(maxWidth: compactControlMaxWidth, alignment: .leading)
                 }
 
                 settingRow("Language") {
@@ -486,10 +571,74 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: providerPickerWidth, alignment: .trailing)
+                    .frame(maxWidth: compactControlMaxWidth, alignment: .leading)
                 }
             }
 
+            settingsCard("MODEL") {
+                FilterableModelSelector(
+                    models: transcriptionModels(for: shell.settings.transcriptionProviderID),
+                    selectedModel: shell.settings.transcriptionModel,
+                    filterText: $sttModelFilter,
+                    isDisabled: false
+                ) { selected in
+                    shell.updateSettings { settings in
+                        settings.transcriptionModel = selected
+                    }
+                }
+            }
+
+            settingsCard("INSTRUCTION") {
+                let providerID = shell.settings.transcriptionProviderID
+
+                Toggle("Use custom instruction", isOn: Binding(
+                    get: { shell.settings.transcriptionCustomInstructionEnabled == true },
+                    set: { newValue in
+                        if !newValue {
+                            focusedInstructionEditor = nil
+                            showTranscriptionInstructionEditor = false
+                        }
+                        shell.updateSettings { settings in
+                            settings.transcriptionCustomInstructionEnabled = newValue
+                        }
+                    }
+                ))
+
+                instructionPreviewRow(
+                    text: resolvedInstructionText(
+                        draftText: transcriptionInstructionDraft,
+                        fallback: transcriptionDefaultInstruction
+                    ),
+                    isDefault: isUsingDefaultInstruction(
+                        draftText: transcriptionInstructionDraft
+                    )
+                )
+
+                Button(showTranscriptionInstructionEditor ? "Done" : "Edit") {
+                    toggleTranscriptionInstructionEditor()
+                }
+                .buttonStyle(.bordered)
+                .disabled(shell.settings.transcriptionCustomInstructionEnabled != true)
+
+                if showTranscriptionInstructionEditor, shell.settings.transcriptionCustomInstructionEnabled == true {
+                    instructionEditor(
+                        text: $transcriptionInstructionDraft,
+                        placeholder: transcriptionDefaultInstruction
+                    )
+                    .focused($focusedInstructionEditor, equals: .transcription)
+                }
+
+                if !supportsTranscriptionInstruction(providerID) {
+                    Text("Current provider does not use this instruction. It applies when a provider-backed transcription model is selected.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var polishTab: some View {
+        settingsPage(for: .polish) {
             settingsCard("POLISH") {
                 settingRow("Enable polish") {
                     Toggle("", isOn: Binding(
@@ -514,7 +663,6 @@ struct SettingsView: View {
                                     $0.polishModel = available.first ?? $0.polishModel
                                 }
                             }
-                            shell.refreshModels(for: newValue)
                         }
                     )) {
                         ForEach(polishProviders, id: \.id) { provider in
@@ -523,93 +671,8 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: providerPickerWidth, alignment: .trailing)
+                    .frame(maxWidth: compactControlMaxWidth, alignment: .leading)
                     .disabled(!shell.settings.polishEnabled)
-                }
-
-                settingRow("Models") {
-                    FilterableModelSelector(
-                        models: polishModels(for: shell.settings.polishProviderID),
-                        selectedModel: shell.settings.polishModel,
-                        filterText: $polishModelFilter,
-                        width: modelSelectorWidth,
-                        isDisabled: !shell.settings.polishEnabled
-                    ) { selected in
-                        shell.updateSettings { settings in
-                            settings.polishModel = selected
-                        }
-                    }
-                }
-
-                settingRow("Provider status") {
-                    HStack(spacing: 8) {
-                        Button("Verify") {
-                            shell.verifyProvider(for: shell.settings.polishProviderID)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(!shell.settings.polishEnabled)
-
-                        Button("Refresh models") {
-                            shell.refreshModels(for: shell.settings.polishProviderID)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(!shell.settings.polishEnabled)
-
-                        Text(shell.providerConnectivityStatus(for: shell.settings.polishProviderID).detail)
-                            .font(.caption)
-                            .foregroundColor(
-                                connectivityColor(shell.providerConnectivityStatus(for: shell.settings.polishProviderID))
-                            )
-                    }
-                    .frame(width: providerPickerWidth, alignment: .trailing)
-                }
-
-                settingRow("Instruction") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Toggle("Use custom instruction", isOn: Binding(
-                            get: { shell.settings.polishCustomInstructionEnabled == true },
-                            set: { newValue in
-                                if !newValue {
-                                    focusedInstructionEditor = nil
-                                    showPolishInstructionEditor = false
-                                }
-                                shell.updateSettings { settings in
-                                    settings.polishCustomInstructionEnabled = newValue
-                                }
-                            }
-                        ))
-                        .disabled(!shell.settings.polishEnabled)
-
-                        instructionPreviewRow(
-                            text: resolvedInstructionText(
-                                draftText: polishInstructionDraft,
-                                fallback: polishDefaultInstruction
-                            ),
-                            isDefault: isUsingDefaultInstruction(
-                                draftText: polishInstructionDraft
-                            ),
-                            width: modelSelectorWidth
-                        )
-
-                        HStack(spacing: 8) {
-                            Button(showPolishInstructionEditor ? "Done" : "Edit") {
-                                togglePolishInstructionEditor()
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(!shell.settings.polishEnabled || shell.settings.polishCustomInstructionEnabled != true)
-                        }
-
-                        if showPolishInstructionEditor, shell.settings.polishCustomInstructionEnabled == true {
-                            instructionEditor(
-                                text: $polishInstructionDraft,
-                                placeholder: polishDefaultInstruction,
-                                width: modelSelectorWidth
-                            )
-                            .disabled(!shell.settings.polishEnabled)
-                            .focused($focusedInstructionEditor, equals: .polish)
-                        }
-                    }
-                    .frame(width: modelSelectorWidth, alignment: .leading)
                 }
 
                 if !shell.settings.polishEnabled {
@@ -619,152 +682,87 @@ struct SettingsView: View {
                 }
             }
 
-            settingsCard("API KEYS") {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("OpenAI API Key")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        SecureField("OpenAI API key", text: $shell.openAIKeyInput)
-                        Button {
-                            shell.clearAPIKey(.openAI)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Clear OpenAI key")
+            settingsCard("MODEL") {
+                FilterableModelSelector(
+                    models: polishModels(for: shell.settings.polishProviderID),
+                    selectedModel: shell.settings.polishModel,
+                    filterText: $polishModelFilter,
+                    isDisabled: !shell.settings.polishEnabled
+                ) { selected in
+                    shell.updateSettings { settings in
+                        settings.polishModel = selected
                     }
-                    Text(shell.openAIKeyStatusDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    keyVerificationRow(for: "openai_polish")
-
-                    Text("Groq API Key")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        SecureField("Groq API key", text: $shell.groqKeyInput)
-                        Button {
-                            shell.clearAPIKey(.groq)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Clear Groq key")
-                    }
-                    Text(shell.groqKeyStatusDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    keyVerificationRow(for: "groq_polish")
-
-                    Text("OpenRouter API Key")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        SecureField("OpenRouter API key", text: $shell.openRouterKeyInput)
-                        Button {
-                            shell.clearAPIKey(.openRouter)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Clear OpenRouter key")
-                    }
-                    Text(shell.openRouterKeyStatusDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    keyVerificationRow(for: "openrouter_polish")
-
-                    Text("Gemini API Key")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        SecureField("Gemini API key", text: $shell.geminiKeyInput)
-                        Button {
-                            shell.clearAPIKey(.gemini)
-                        } label: {
-                            Image(systemName: "trash")
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Clear Gemini key")
-                    }
-                    Text(shell.geminiKeyStatusDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    keyVerificationRow(for: "gemini_polish")
-
-                    HStack(spacing: 8) {
-                        Button("Save keys") {
-                            shell.saveAPIKeys()
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button("Clear keys") {
-                            shell.clearAllAPIKeys()
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .padding(.top, 4)
                 }
             }
-        }
-        .onAppear {
-            transcriptionInstructionDraft = shell.settings.transcriptionInstruction ?? ""
-            polishInstructionDraft = shell.settings.polishInstruction ?? ""
-            shell.refreshModels(for: shell.settings.transcriptionProviderID)
-            if shell.settings.polishEnabled {
-                shell.refreshModels(for: shell.settings.polishProviderID)
-            }
-        }
-        .onChange(of: focusedInstructionEditor) { oldValue, newValue in
-            let changes = InstructionEditorPersistence.changesOnFocusChange(
-                from: oldValue,
-                to: newValue,
-                transcriptionDraft: transcriptionInstructionDraft,
-                storedTranscription: shell.settings.transcriptionInstruction,
-                polishDraft: polishInstructionDraft,
-                storedPolish: shell.settings.polishInstruction
-            )
-            for change in changes {
-                applyInstructionPersistenceChange(change)
+
+            settingsCard("INSTRUCTION") {
+                Toggle("Use custom instruction", isOn: Binding(
+                    get: { shell.settings.polishCustomInstructionEnabled == true },
+                    set: { newValue in
+                        if !newValue {
+                            focusedInstructionEditor = nil
+                            showPolishInstructionEditor = false
+                        }
+                        shell.updateSettings { settings in
+                            settings.polishCustomInstructionEnabled = newValue
+                        }
+                    }
+                ))
+                .disabled(!shell.settings.polishEnabled)
+
+                instructionPreviewRow(
+                    text: resolvedInstructionText(
+                        draftText: polishInstructionDraft,
+                        fallback: polishDefaultInstruction
+                    ),
+                    isDefault: isUsingDefaultInstruction(
+                        draftText: polishInstructionDraft
+                    )
+                )
+
+                Button(showPolishInstructionEditor ? "Done" : "Edit") {
+                    togglePolishInstructionEditor()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!shell.settings.polishEnabled || shell.settings.polishCustomInstructionEnabled != true)
+
+                if showPolishInstructionEditor, shell.settings.polishCustomInstructionEnabled == true {
+                    instructionEditor(
+                        text: $polishInstructionDraft,
+                        placeholder: polishDefaultInstruction
+                    )
+                    .disabled(!shell.settings.polishEnabled)
+                    .focused($focusedInstructionEditor, equals: .polish)
+                }
             }
         }
     }
 
     private var hotkeysTab: some View {
-        settingsPage {
-            settingsCard("START / STOP") {
+        settingsPage(for: .hotkeys) {
+            settingsCard("CORE") {
                 HotkeyEditor(
-                    title: "Global toggle hotkey",
+                    title: "Start or stop recording",
                     hotkey: Binding(
                         get: { shell.settings.startStopHotkey },
                         set: { value in shell.updateSettings { $0.startStopHotkey = value } }
                     )
                 )
-            }
 
-            settingsCard("POPOVER") {
+                sectionDivider()
+
                 HotkeyEditor(
-                    title: "Toggle OpenScribe popover",
+                    title: "Open or close the popover",
                     hotkey: Binding(
                         get: { shell.settings.togglePopoverHotkey },
                         set: { value in shell.updateSettings { $0.togglePopoverHotkey = value } }
                     )
                 )
-            }
 
-            settingsCard("TAB NAVIGATION") {
-                Text("Live tab: Ctrl + Option + L")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("History tab: Ctrl + Option + H")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                sectionDivider()
 
-            settingsCard("SETTINGS") {
                 HotkeyEditor(
-                    title: "Open settings window",
+                    title: "Open the settings window",
                     hotkey: Binding(
                         get: { shell.settings.openSettingsHotkey },
                         set: { value in shell.updateSettings { $0.openSettingsHotkey = value } }
@@ -776,56 +774,51 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            settingsCard("COPY LATEST") {
+            settingsCard("CLIPBOARD") {
                 HotkeyEditor(
-                    title: "Copy latest polished transcript",
+                    title: "Copy the latest polished transcript",
                     hotkey: Binding(
                         get: { shell.settings.copyHotkey },
                         set: { value in shell.updateSettings { $0.copyHotkey = value } }
                     )
                 )
-            }
 
-            settingsCard("COPY RAW") {
+                sectionDivider()
+
                 HotkeyEditor(
-                    title: "Copy latest raw transcript",
+                    title: "Copy the latest raw transcript",
                     hotkey: Binding(
                         get: { shell.settings.copyRawHotkey },
                         set: { value in shell.updateSettings { $0.copyRawHotkey = value } }
                     )
                 )
-            }
 
-            settingsCard("PASTE LATEST") {
+                sectionDivider()
+
                 HotkeyEditor(
-                    title: "Paste latest polished transcript",
+                    title: "Paste the latest polished transcript",
                     hotkey: Binding(
                         get: { shell.settings.pasteHotkey },
                         set: { value in shell.updateSettings { $0.pasteHotkey = value } }
                     )
                 )
 
-                Text("Paste hotkey works only when Accessibility permission is granted for OpenScribe.")
+                Text(
+                    shell.accessibilityPermissionGranted
+                    ? "Accessibility permission is granted. Adjust the permission from General."
+                    : "Accessibility permission is missing. Adjust it from General."
+                )
+                    .font(.caption)
+                    .foregroundColor(shell.accessibilityPermissionGranted ? .secondary : .orange)
+            }
+
+            settingsCard("POPOVER TABS") {
+                Text("Live tab: Ctrl + Option + L")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
-                HStack(spacing: 8) {
-                    Text(shell.accessibilityPermissionGranted ? "Accessibility permission: granted" : "Accessibility permission: missing")
-                        .font(.caption)
-                        .foregroundColor(shell.accessibilityPermissionGranted ? .secondary : .orange)
-
-                    Spacer(minLength: 0)
-
-                    Button("Open Accessibility Settings") {
-                        shell.openAccessibilityPrivacySettings()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Refresh") {
-                        shell.refreshPermissionState()
-                    }
-                    .buttonStyle(.bordered)
-                }
+                Text("History tab: Ctrl + Option + H")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if let hotkeyError = shell.hotkeyError {
@@ -839,7 +832,7 @@ struct SettingsView: View {
     }
 
     private var rulesTab: some View {
-        settingsPage {
+        settingsPage(for: .rules) {
             settingsCard("RULES") {
                 TextEditor(text: $shell.rulesDraft)
                     .font(.system(.body, design: .monospaced))
@@ -869,7 +862,7 @@ struct SettingsView: View {
     }
 
     private var dataTab: some View {
-        settingsPage {
+        settingsPage(for: .data) {
             settingsCard("LOCAL MODELS") {
                 let modelCatalog = shell.modelManager.catalog
 
@@ -925,7 +918,7 @@ struct SettingsView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
-                        .frame(width: 300, alignment: .trailing)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 HStack {
@@ -950,7 +943,7 @@ struct SettingsView: View {
     }
 
     private var aboutTab: some View {
-        settingsPage {
+        settingsPage(for: .about) {
             settingsCard("OPENSCRIBE") {
                 settingRow("Version") {
                     Text(appVersion)
@@ -1015,7 +1008,7 @@ struct SettingsView: View {
         }
     }
 
-    private func settingsPage<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    private func settingsPage<Content: View>(for tab: SettingsTab, @ViewBuilder content: () -> Content) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 content()
@@ -1023,21 +1016,30 @@ struct SettingsView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(key: SettingsPageHeightPreferenceKey.self, value: geometry.size.height)
+                }
+            )
+        }
+        .onPreferenceChange(SettingsPageHeightPreferenceKey.self) { height in
+            recordMeasuredPageHeight(height, for: tab)
         }
     }
 
     private func settingsCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .tracking(0.7)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 content()
             }
-            .padding(13)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 11)
@@ -1051,15 +1053,30 @@ struct SettingsView: View {
     }
 
     private func settingRow<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(title)
-                .font(.subheadline)
-                .frame(minWidth: 180, alignment: .leading)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 16) {
+                Text(title)
+                    .font(.subheadline)
+                    .frame(width: 170, alignment: .leading)
+                    .padding(.top, 6)
 
-            Spacer(minLength: 12)
+                control()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
-            control()
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.subheadline)
+
+                control()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+    }
+
+    private func sectionDivider() -> some View {
+        Divider()
+            .overlay(Color.primary.opacity(0.06))
     }
 
     private var appVersion: String {
@@ -1068,6 +1085,28 @@ struct SettingsView: View {
 
     private var appBuild: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
+    }
+
+    private func providerKeySection(
+        title: String,
+        placeholder: String,
+        keyText: Binding<String>,
+        statusDescription: String,
+        providerID: String,
+        onClear: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+
+            SecureField(placeholder, text: keyText)
+
+            Text(statusDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            keyVerificationRow(for: providerID, onClear: onClear)
+        }
     }
 
     private func formattedFileSize(_ bytes: Int64) -> String {
@@ -1111,6 +1150,44 @@ struct SettingsView: View {
             shell.updateSettings { settings in
                 settings.polishInstruction = value
             }
+        }
+    }
+
+    private func persistInstructionEditorState(leaving tab: SettingsTab) {
+        switch tab {
+        case .transcribe:
+            if showTranscriptionInstructionEditor {
+                let change = InstructionEditorPersistence.changeOnDone(
+                    target: .transcription,
+                    transcriptionDraft: transcriptionInstructionDraft,
+                    storedTranscription: shell.settings.transcriptionInstruction,
+                    polishDraft: polishInstructionDraft,
+                    storedPolish: shell.settings.polishInstruction
+                )
+                applyInstructionPersistenceChange(change)
+                showTranscriptionInstructionEditor = false
+            }
+        case .polish:
+            if showPolishInstructionEditor {
+                let change = InstructionEditorPersistence.changeOnDone(
+                    target: .polish,
+                    transcriptionDraft: transcriptionInstructionDraft,
+                    storedTranscription: shell.settings.transcriptionInstruction,
+                    polishDraft: polishInstructionDraft,
+                    storedPolish: shell.settings.polishInstruction
+                )
+                applyInstructionPersistenceChange(change)
+                showPolishInstructionEditor = false
+            }
+        default:
+            break
+        }
+
+        if tab == .transcribe, focusedInstructionEditor == .transcription {
+            focusedInstructionEditor = nil
+        }
+        if tab == .polish, focusedInstructionEditor == .polish {
+            focusedInstructionEditor = nil
         }
     }
 
@@ -1163,7 +1240,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func instructionPreviewRow(text: String, isDefault: Bool, width: CGFloat) -> some View {
+    private func instructionPreviewRow(text: String, isDefault: Bool) -> some View {
         HStack(spacing: 8) {
             Text(text)
                 .font(.subheadline)
@@ -1186,7 +1263,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(NSColor.textBackgroundColor))
@@ -1200,8 +1277,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func instructionEditor(
         text: Binding<String>,
-        placeholder: String,
-        width: CGFloat
+        placeholder: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             TextEditor(text: text)
@@ -1234,7 +1310,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .topLeading) {
             if text.wrappedValue.isEmpty {
                 Text(placeholder)
@@ -1268,18 +1344,42 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func keyVerificationRow(for providerID: String) -> some View {
-        HStack(spacing: 8) {
-            Button("Verify") {
-                shell.verifyProvider(for: providerID)
-            }
-            .buttonStyle(.bordered)
+    private func keyVerificationRow(for providerID: String, onClear: @escaping () -> Void) -> some View {
+        let status = shell.providerConnectivityStatus(for: providerID)
 
-            let status = shell.providerConnectivityStatus(for: providerID)
+        VStack(alignment: .leading, spacing: 8) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    providerActionButtons(providerID: providerID, onClear: onClear)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    providerActionButtons(providerID: providerID, onClear: onClear)
+                }
+            }
+
             Text(status.detail)
                 .font(.caption)
                 .foregroundColor(connectivityColor(status))
         }
+    }
+
+    @ViewBuilder
+    private func providerActionButtons(providerID: String, onClear: @escaping () -> Void) -> some View {
+        Button("Verify") {
+            shell.verifyProvider(for: providerID)
+        }
+        .buttonStyle(.bordered)
+
+        Button("Refresh models") {
+            shell.refreshModels(for: providerID)
+        }
+        .buttonStyle(.bordered)
+
+        Button("Clear key") {
+            onClear()
+        }
+        .buttonStyle(.bordered)
     }
 
     private func connectivityColor(_ status: ProviderConnectivityStatus) -> Color {
@@ -1316,6 +1416,14 @@ private enum LocalModelAction: Equatable {
         case .delete(let modelID, let sizeBytes):
             return "Delete model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
         }
+    }
+}
+
+private struct SettingsPageHeightPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
 
@@ -1361,7 +1469,6 @@ private struct FilterableModelSelector: View {
     let models: [String]
     let selectedModel: String
     @Binding var filterText: String
-    let width: CGFloat
     let isDisabled: Bool
     let onSelect: (String) -> Void
 
@@ -1387,7 +1494,7 @@ private struct FilterableModelSelector: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .frame(width: width, alignment: .trailing)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var modelList: some View {
@@ -1455,45 +1562,63 @@ struct HotkeyEditor: View {
     private let modifierOnlyKeyCodes: Set<UInt32> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-
-            HStack(spacing: 8) {
-                Text(HotkeyDisplay.string(for: hotkey))
-                    .font(.system(.body, design: .monospaced))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(NSColor.textBackgroundColor))
-                    )
-
-                Spacer()
-
-                Button(isRecording ? "Recording..." : "Record Shortcut") {
-                    if isRecording {
-                        stopRecording()
-                    } else {
-                        startRecording()
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    hotkeySummary
+                    Spacer(minLength: 12)
+                    actionButtons
                 }
-                .buttonStyle(.borderedProminent)
 
-                if isRecording {
-                    Button("Cancel") {
-                        stopRecording()
-                    }
-                    .buttonStyle(.bordered)
+                VStack(alignment: .leading, spacing: 8) {
+                    hotkeySummary
+                    actionButtons
                 }
             }
 
             Text(recordingHint)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .onDisappear {
             stopRecording()
+        }
+    }
+
+    private var hotkeySummary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+
+            Text(HotkeyDisplay.string(for: hotkey))
+                .font(.system(.body, design: .monospaced))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.textBackgroundColor))
+                )
+        }
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            Button(isRecording ? "Recording..." : "Record Shortcut") {
+                if isRecording {
+                    stopRecording()
+                } else {
+                    startRecording()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+
+            if isRecording {
+                Button("Cancel") {
+                    stopRecording()
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 

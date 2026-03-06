@@ -545,12 +545,18 @@ final class StatusBarController: NSObject {
         hotkeyTabsStatus = hotkeyCaptureFailures == 0 ? "pass" : "missing:\(hotkeyCaptureFailures)"
 
         openSettings()
+        settingsWindowController.moveToPreferredCaptureScreen()
         try? await Task.sleep(nanoseconds: 700_000_000)
         if let settingsView = settingsWindowController.window?.contentView {
             let b = settingsView.bounds
             debugLines.append("settingsBounds=\(Int(b.width))x\(Int(b.height))")
         } else {
             debugLines.append("settingsBounds=missing")
+        }
+        if let screen = settingsWindowController.window?.screen {
+            debugLines.append("settingsCaptureScreen=\(screen.localizedName)@\(screen.backingScaleFactor)x")
+        } else {
+            debugLines.append("settingsCaptureScreen=missing")
         }
         if captureViewSnapshot(settingsWindowController.window?.contentView, to: settingsImageURL) {
             settingsStatus = "pass"
@@ -563,6 +569,7 @@ final class StatusBarController: NSObject {
         for tab in SettingsTab.allCases {
             settingsWindowController.selectTab(tab)
             try? await Task.sleep(nanoseconds: 500_000_000)
+            settingsWindowController.moveToPreferredCaptureScreen()
             let tabURL = outputDirectory.appendingPathComponent("settings-\(tab.rawValue).png")
             if captureViewSnapshot(settingsWindowController.window?.contentView, to: tabURL) {
                 debugLines.append("settingsTab[\(tab.rawValue)]=pass")
@@ -716,7 +723,22 @@ final class StatusBarController: NSObject {
             return false
         }
 
-        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: bounds) else {
+        let scale = max(view.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 1, 1)
+        let pixelWidth = max(Int(ceil(bounds.width * scale)), 1)
+        let pixelHeight = max(Int(ceil(bounds.height * scale)), 1)
+
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
             return false
         }
         bitmap.size = bounds.size
@@ -747,7 +769,22 @@ final class StatusBarController: NSObject {
             return false
         }
 
-        guard let bitmap = frameView.bitmapImageRepForCachingDisplay(in: bounds) else {
+        let scale = max(window.backingScaleFactor, 1)
+        let pixelWidth = max(Int(ceil(bounds.width * scale)), 1)
+        let pixelHeight = max(Int(ceil(bounds.height * scale)), 1)
+
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
             return false
         }
         bitmap.size = bounds.size

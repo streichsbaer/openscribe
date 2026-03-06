@@ -30,6 +30,8 @@ zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
   - `openscribe-window-hotkey-live.png`
   - `openscribe-window-live-expanded-content.png`
 
+Settings screenshots are the docs refresh candidates and should be captured on the built-in Retina display when available. Popover smoke screenshots remain regression-only artifacts. The published docs reuse the curated assets in `site-docs/images/ui/openscribe-*.png`.
+
 The smoke script exits non-zero if required artifacts are missing.
 
 ## Fixture Audio Tests

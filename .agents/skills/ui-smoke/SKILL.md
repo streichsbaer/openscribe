@@ -46,6 +46,8 @@ zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 - `openscribe-window-live-expanded-content.png`
 - `settings-window.png`
 - `settings-general.png`
+- `settings-transcribe.png`
+- `settings-polish.png`
 - `settings-providers.png`
 - `settings-hotkeys.png`
 - `settings-rules.png`
@@ -71,7 +73,7 @@ When `--out` is set:
 1. Build app (`swift build`)
 2. Run tests (`swift test`)
 3. Launch app in smoke mode (`OPENSCRIBE_UI_SMOKE=1 swift run OpenScribe`)
-4. App captures popover + settings screenshots internally (including all settings tabs)
+4. App captures regression popover artifacts plus settings screenshots internally.
 5. App captures menubar icon state snapshots for `system`, `light`, and `dark` appearances.
 6. Script validates screenshot artifacts and writes markdown report
 7. Review screenshots manually to confirm visual correctness.
@@ -80,6 +82,8 @@ When `--out` is set:
 ## Notes
 
 - Internal capture avoids transient macOS focus/automation races for popover windows.
+- Settings screenshots are moved to the built-in Retina display when available so docs assets stay crisp.
+- Popover screenshots remain smoke-only regression artifacts. Published docs reuse curated assets from `site-docs/images/ui/openscribe-*.png`.
 - The run is strict: missing required screenshots causes a failing exit code.
 - The run is strict: tab parity checks must use real segmented-control click dispatch in smoke mode.
 - The run is strict: hotkey tab checks must use real hotkey dispatch in smoke mode.

@@ -25,7 +25,7 @@ The raw transcript appears first. If polish is enabled, the polished version fol
 ## What to explore next
 
 - **Providers**: by default, transcription runs locally with whisper.cpp. See [Providers and Models](providers.md) to set up cloud providers or change models.
-- **Polish**: enable polish in Settings > Providers to get cleaned-up transcripts. See [Custom Rules](custom-rules.md) to personalize the output.
+- **Polish**: enable polish in Settings > Polish to get cleaned-up transcripts. See [Custom Rules](custom-rules.md) to personalize the output.
 - **Hotkeys**: customize keyboard shortcuts in Settings > Hotkeys.
 - **Settings**: see [Menu and Settings](menu-and-settings.md) for the full settings reference.
 

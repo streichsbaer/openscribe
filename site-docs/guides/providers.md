@@ -1,6 +1,6 @@
 # Providers and Models
 
-OpenScribe supports local and cloud providers for both transcription and polish. You choose your providers in Settings > Providers.
+OpenScribe supports local and cloud providers for both transcription and polish. Choose transcription settings in Settings > Transcribe, polish settings in Settings > Polish, and API tokens in Settings > Providers.
 
 ## Transcription providers
 
@@ -30,26 +30,27 @@ Polish runs a language model on your raw transcript to improve grammar, formatti
 - **OpenRouter** -- access to multiple model providers through one API key.
 - **Gemini** -- Google models.
 
-Polish is disabled by default. Enable it in Settings > Providers.
+Polish is disabled by default. Enable it in Settings > Polish.
 
 ## Setting up API keys
 
 1. Open Settings > Providers.
 2. Enter your API key for each provider you want to use.
-3. Use the verification button to confirm your key works.
-4. Select your preferred provider and model from the dropdowns.
+3. Use Verify to confirm the key and Refresh models to pull the latest shared model list for that provider.
+4. Select your preferred transcription provider and model in Settings > Transcribe.
+5. Select your preferred polish provider and model in Settings > Polish.
 
 API keys are stored in the macOS Keychain.
 
 ## Choosing a model
 
-Each provider offers multiple models. Use the model picker in Settings > Providers to browse available options. The refresh button updates the model list from the provider.
+Each provider offers multiple models. Use the model picker in Settings > Transcribe or Settings > Polish to browse available options. Use Refresh models beside the relevant provider in Settings > Providers when you want to fetch the latest model list.
 
 For transcription, larger models are generally more accurate but slower. For polish, the choice depends on your preference for speed versus output quality.
 
 ## Language
 
-Language mode is set in Settings > Providers. The default is `auto`, which lets the transcription provider detect the spoken language. You can also set a specific language.
+Language mode is set in Settings > Transcribe. The default is `auto`, which lets the transcription provider detect the spoken language. You can also set a specific language.
 
 ## Continue
 

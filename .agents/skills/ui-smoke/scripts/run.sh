@@ -68,6 +68,8 @@ rm -f "$OUT_DIR"/build.log \
       "$OUT_DIR"/openscribe-window-live-expanded-content.png \
       "$OUT_DIR"/settings-window.png \
       "$OUT_DIR"/settings-general.png \
+      "$OUT_DIR"/settings-transcribe.png \
+      "$OUT_DIR"/settings-polish.png \
       "$OUT_DIR"/settings-providers.png \
       "$OUT_DIR"/settings-hotkeys.png \
       "$OUT_DIR"/settings-rules.png \
@@ -145,6 +147,8 @@ if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" swift run OpenScribe
     "$OUT_DIR/openscribe-window-live-expanded-content.png"
     "$OUT_DIR/settings-window.png"
     "$OUT_DIR/settings-general.png"
+    "$OUT_DIR/settings-transcribe.png"
+    "$OUT_DIR/settings-polish.png"
     "$OUT_DIR/settings-providers.png"
     "$OUT_DIR/settings-hotkeys.png"
     "$OUT_DIR/settings-rules.png"
@@ -271,6 +275,8 @@ fi
 
 settings_tab_files=(
   "$OUT_DIR/settings-general.png"
+  "$OUT_DIR/settings-transcribe.png"
+  "$OUT_DIR/settings-polish.png"
   "$OUT_DIR/settings-providers.png"
   "$OUT_DIR/settings-hotkeys.png"
   "$OUT_DIR/settings-rules.png"
@@ -397,6 +403,8 @@ cat > "$OUT_DIR/report.md" <<REPORT
 - openscribe-window-live-expanded-content.png
 - settings-window.png
 - settings-general.png
+- settings-transcribe.png
+- settings-polish.png
 - settings-providers.png
 - settings-hotkeys.png
 - settings-rules.png
@@ -407,6 +415,8 @@ cat > "$OUT_DIR/report.md" <<REPORT
 ## Notes
 
 - OpenScribe writes screenshots from inside the app in smoke mode for deterministic captures.
+- Settings screenshots are intended for docs refreshes and are captured on the built-in Retina display when available.
+- Popover screenshots remain regression artifacts only. Published docs reuse curated assets from site-docs/images/ui/openscribe-*.png.
 - The smoke run validates artifact presence and required file coverage.
 - Visual correctness still requires manual screenshot review.
 REPORT
