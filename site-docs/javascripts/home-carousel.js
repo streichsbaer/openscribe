@@ -18,16 +18,58 @@
     const lightboxCaption = lightbox.querySelector(".hero-lightbox-caption");
     const closeButton = lightbox.querySelector(".hero-lightbox-close");
     const closeTargets = Array.from(lightbox.querySelectorAll("[aria-label='Close enlarged screenshot']"));
+    const pageRoots = [];
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     if (!slides.length || slides.length !== captions.length || slides.length !== dots.length) {
       return;
     }
 
+    document.body.appendChild(lightbox);
+    Array.from(document.body.children).forEach((element) => {
+      if (element !== lightbox) {
+        pageRoots.push(element);
+      }
+    });
+
     let activeIndex = 0;
     let timerId = null;
+    let restoreFocusTarget = null;
 
     const isLightboxOpen = () => !lightbox.hidden;
+
+    const getFocusableElements = () =>
+      Array.from(
+        lightbox.querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+
+    const setBackgroundState = (isActive) => {
+      pageRoots.forEach((element) => {
+        if (isActive) {
+          if (!element.hasAttribute("data-home-carousel-managed")) {
+            const previousAriaHidden = element.getAttribute("aria-hidden");
+            element.dataset.homeCarouselManaged = "true";
+            if (previousAriaHidden !== null) {
+              element.dataset.homeCarouselAriaHidden = previousAriaHidden;
+            }
+          }
+
+          element.inert = true;
+          element.setAttribute("aria-hidden", "true");
+        } else if (element.dataset.homeCarouselManaged === "true") {
+          element.inert = false;
+          if ("homeCarouselAriaHidden" in element.dataset) {
+            element.setAttribute("aria-hidden", element.dataset.homeCarouselAriaHidden);
+            delete element.dataset.homeCarouselAriaHidden;
+          } else {
+            element.removeAttribute("aria-hidden");
+          }
+          delete element.dataset.homeCarouselManaged;
+        }
+      });
+    };
 
     const syncLightbox = () => {
       const slide = slides[activeIndex];
@@ -47,7 +89,10 @@
       activeIndex = (nextIndex + slides.length) % slides.length;
 
       slides.forEach((slide, index) => {
-        slide.classList.toggle("is-active", index === activeIndex);
+        const isActive = index === activeIndex;
+        slide.classList.toggle("is-active", isActive);
+        slide.tabIndex = isActive ? 0 : -1;
+        slide.setAttribute("aria-hidden", String(!isActive));
       });
 
       captions.forEach((caption, index) => {
@@ -89,7 +134,9 @@
 
     const openLightbox = () => {
       stopAutoplay();
+      restoreFocusTarget = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       syncLightbox();
+      setBackgroundState(true);
       lightbox.hidden = false;
       document.body.classList.add("hero-lightbox-open");
       closeButton?.focus();
@@ -101,9 +148,33 @@
       }
 
       lightbox.hidden = true;
+      setBackgroundState(false);
       document.body.classList.remove("hero-lightbox-open");
       startAutoplay();
-      slides[activeIndex]?.focus();
+      const focusTarget = restoreFocusTarget;
+
+      window.requestAnimationFrame(() => {
+        const fallbackSlide = slides[activeIndex];
+        const preferredTarget =
+          focusTarget &&
+          focusTarget.isConnected &&
+          focusTarget !== document.body &&
+          focusTarget !== document.documentElement
+            ? focusTarget
+            : fallbackSlide;
+
+        preferredTarget?.focus();
+
+        if (
+          document.activeElement === document.body ||
+          document.activeElement === document.documentElement ||
+          document.activeElement === closeButton
+        ) {
+          fallbackSlide?.focus();
+        }
+      });
+
+      restoreFocusTarget = null;
     };
 
     const stepSlide = (direction) => {
@@ -117,16 +188,32 @@
 
       if (event.key === "Escape") {
         event.preventDefault();
-        event.stopPropagation();
         closeLightbox();
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        event.stopPropagation();
         stepSlide(1);
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        event.stopPropagation();
         stepSlide(-1);
+      } else if (event.key === "Tab") {
+        const focusableElements = getFocusableElements();
+
+        if (!focusableElements.length) {
+          event.preventDefault();
+          closeButton?.focus();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (event.shiftKey && document.activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+        } else if (!event.shiftKey && document.activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+        }
       }
     };
 
@@ -146,8 +233,6 @@
       target.addEventListener("click", closeLightbox);
     });
 
-    closeButton?.addEventListener("keydown", handleLightboxKeydown);
-    lightbox.addEventListener("keydown", handleLightboxKeydown);
     document.addEventListener("keydown", handleLightboxKeydown);
 
     carousel.addEventListener("mouseenter", stopAutoplay);

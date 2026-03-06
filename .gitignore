@@ -5,3 +5,4 @@ artifacts/
 dist/
 site/
 .playwright-cli/
+site-docs/hooks/__pycache__/

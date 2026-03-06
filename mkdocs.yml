@@ -48,6 +48,9 @@ markdown_extensions:
 plugins:
   - search
 
+hooks:
+  - site-docs/hooks/cache_bust_assets.py
+
 extra_css:
   - stylesheets/extra.css
 

@@ -23,7 +23,7 @@ OpenScribe is a native macOS menu bar app that captures your voice and turns it 
   <a href="https://github.com/streichsbaer/openscribe" class="btn-secondary">View on GitHub</a>
 </div>
 
-<div class="hero-carousel">
+<div class="hero-carousel" role="group" aria-label="Homepage screenshot gallery">
   <div class="hero-carousel-track">
     <button class="hero-carousel-slide is-active" type="button" aria-label="Open screenshot: Speak, transcribe, polish">
       <img src="images/ui/openscribe-live.png" alt="Live transcription with raw and polished text">
@@ -35,7 +35,7 @@ OpenScribe is a native macOS menu bar app that captures your voice and turns it 
       <img src="images/ui/openscribe-stats.png" alt="Stats dashboard with activity heatmap and streaks">
     </button>
   </div>
-  <div class="hero-carousel-captions" aria-live="polite">
+  <div class="hero-carousel-captions" aria-hidden="true">
     <span class="hero-carousel-caption is-active">Speak, transcribe, polish</span>
     <span class="hero-carousel-caption">Browse your session history</span>
     <span class="hero-carousel-caption">Track your dictation momentum</span>
@@ -49,7 +49,7 @@ OpenScribe is a native macOS menu bar app that captures your voice and turns it 
 </div>
 
 <div class="hero-lightbox" hidden>
-  <button class="hero-lightbox__backdrop" type="button" aria-label="Close enlarged screenshot"></button>
+  <button class="hero-lightbox__backdrop" type="button" aria-label="Close enlarged screenshot" aria-hidden="true" tabindex="-1"></button>
   <div class="hero-lightbox__frame" role="dialog" aria-modal="true" aria-labelledby="hero-lightbox-caption">
     <button class="hero-lightbox-close" type="button" aria-label="Close enlarged screenshot">Close</button>
     <img src="" alt="">
