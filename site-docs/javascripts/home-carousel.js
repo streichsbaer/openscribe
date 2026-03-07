@@ -14,6 +14,7 @@
     const slides = Array.from(carousel.querySelectorAll(".hero-carousel-slide"));
     const captions = Array.from(carousel.querySelectorAll(".hero-carousel-caption"));
     const dots = Array.from(carousel.querySelectorAll(".hero-carousel-dot"));
+    const slideImages = slides.map((slide) => slide.querySelector("img")).filter(Boolean);
     const lightboxImage = lightbox.querySelector("img");
     const lightboxCaption = lightbox.querySelector(".hero-lightbox-caption");
     const closeButton = lightbox.querySelector(".hero-lightbox-close");
@@ -37,6 +38,23 @@
     let restoreFocusTarget = null;
 
     const isLightboxOpen = () => !lightbox.hidden;
+    const isDarkMode = () => document.body.dataset.mdColorScheme === "slate";
+
+    const syncThemeImages = () => {
+      const useDarkImages = isDarkMode();
+
+      slideImages.forEach((image) => {
+        const nextSrc = useDarkImages ? image.dataset.darkSrc : image.dataset.lightSrc;
+
+        if (nextSrc && image.getAttribute("src") !== nextSrc) {
+          image.src = nextSrc;
+        }
+      });
+
+      if (isLightboxOpen()) {
+        syncLightbox();
+      }
+    };
 
     const getFocusableElements = () =>
       Array.from(
@@ -252,6 +270,12 @@
       }
     });
 
+    new MutationObserver(syncThemeImages).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-md-color-scheme"]
+    });
+
+    syncThemeImages();
     render(activeIndex);
     startAutoplay();
   };

@@ -26,13 +26,28 @@ OpenScribe is a native macOS menu bar app that captures your voice and turns it 
 <div class="hero-carousel" role="group" aria-label="Homepage screenshot gallery">
   <div class="hero-carousel-track">
     <button class="hero-carousel-slide is-active" type="button" aria-label="Open screenshot: Speak, transcribe, polish">
-      <img src="images/ui/openscribe-live.png" alt="Live transcription with raw and polished text">
+      <img
+        src="images/ui/openscribe-live.png"
+        data-light-src="images/ui/openscribe-live.png"
+        data-dark-src="images/ui/openscribe-live-dark.png"
+        alt="Live transcription with raw and polished text"
+      >
     </button>
     <button class="hero-carousel-slide" type="button" aria-label="Open screenshot: Browse your session history">
-      <img src="images/ui/openscribe-history.png" alt="Session history with completed transcriptions">
+      <img
+        src="images/ui/openscribe-history.png"
+        data-light-src="images/ui/openscribe-history.png"
+        data-dark-src="images/ui/openscribe-history-dark.png"
+        alt="Session history with completed transcriptions"
+      >
     </button>
     <button class="hero-carousel-slide" type="button" aria-label="Open screenshot: Track your dictation momentum">
-      <img src="images/ui/openscribe-stats.png" alt="Stats dashboard with activity heatmap and streaks">
+      <img
+        src="images/ui/openscribe-stats.png"
+        data-light-src="images/ui/openscribe-stats.png"
+        data-dark-src="images/ui/openscribe-stats-dark.png"
+        alt="Stats dashboard with activity heatmap and streaks"
+      >
     </button>
   </div>
   <div class="hero-carousel-captions" aria-hidden="true">
