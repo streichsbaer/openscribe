@@ -33,73 +33,53 @@ let fileManager = FileManager.default
 try? fileManager.removeItem(at: iconsetURL)
 try fileManager.createDirectory(at: iconsetURL, withIntermediateDirectories: true)
 
-let backgroundTop = NSColor(calibratedRed: 0.16, green: 0.19, blue: 0.27, alpha: 1)
-let backgroundBottom = NSColor(calibratedRed: 0.06, green: 0.09, blue: 0.15, alpha: 1)
-let borderColor = NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.92, alpha: 0.12)
-let highlightColor = NSColor(calibratedRed: 1.0, green: 0.96, blue: 0.88, alpha: 0.12)
-let markColor = NSColor(calibratedRed: 0.96, green: 0.93, blue: 0.87, alpha: 1)
-let accentColor = NSColor(calibratedRed: 0.95, green: 0.48, blue: 0.35, alpha: 1)
+let cardColor = NSColor(calibratedRed: 0.95, green: 0.93, blue: 0.90, alpha: 1)
+let borderColor = NSColor(calibratedWhite: 0.0, alpha: 0.08)
+let markColor = NSColor(calibratedRed: 0.06, green: 0.09, blue: 0.16, alpha: 1)
 
 func drawIcon(in rect: CGRect) {
     let size = min(rect.width, rect.height)
-    let inset = size * 0.055
+    let inset = size * 0.08
     let iconRect = rect.insetBy(dx: inset, dy: inset)
-    let cornerRadius = size * 0.24
+    let cornerRadius = size * 0.23
 
     let base = NSBezierPath(roundedRect: iconRect, xRadius: cornerRadius, yRadius: cornerRadius)
-    let gradient = NSGradient(colors: [backgroundTop, backgroundBottom])!
-    gradient.draw(in: base, angle: -90)
-
+    cardColor.setFill()
+    base.fill()
     borderColor.setStroke()
     base.lineWidth = max(2, size * 0.012)
     base.stroke()
 
-    let highlight = NSBezierPath(roundedRect: iconRect.insetBy(dx: size * 0.02, dy: size * 0.02), xRadius: cornerRadius * 0.85, yRadius: cornerRadius * 0.85)
-    highlightColor.setStroke()
-    highlight.lineWidth = max(1.5, size * 0.006)
-    highlight.stroke()
-
     let markRect = CGRect(
-        x: rect.minX + size * 0.205,
-        y: rect.minY + size * 0.205,
-        width: size * 0.59,
-        height: size * 0.59
+        x: rect.minX + size * 0.18,
+        y: rect.minY + size * 0.18,
+        width: size * 0.64,
+        height: size * 0.64
     )
 
     let ring = NSBezierPath(ovalIn: markRect)
     markColor.setStroke()
-    ring.lineWidth = max(2.5, size * 0.055)
+    ring.lineWidth = size * (1.3 / 18.0)
     ring.stroke()
 
-    let barWidth = size * 0.085
-    let corner = barWidth * 0.5
-    let centerX = rect.midX
-    let baseline = rect.minY + size * 0.34
-    let heights = [size * 0.18, size * 0.32, size * 0.18]
-    let xOffsets = [-size * 0.17, 0, size * 0.17]
+    let barSpecs: [(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat)] = [
+        (5.55, 7.357, 1.6, 3.285),
+        (8.55, 6.08, 1.6, 5.84),
+        (11.55, 7.357, 1.6, 3.285)
+    ]
 
-    for (index, height) in heights.enumerated() {
+    markColor.setFill()
+    for spec in barSpecs {
         let barRect = CGRect(
-            x: centerX + xOffsets[index] - barWidth / 2,
-            y: baseline,
-            width: barWidth,
-            height: height
+            x: rect.minX + size * (spec.x / 18.0),
+            y: rect.minY + size * (spec.y / 18.0),
+            width: size * (spec.w / 18.0),
+            height: size * (spec.h / 18.0)
         )
+        let corner = size * (0.9 / 18.0)
         let bar = NSBezierPath(roundedRect: barRect, xRadius: corner, yRadius: corner)
-        markColor.setFill()
         bar.fill()
     }
-
-    let accentSize = size * 0.12
-    let accentRect = CGRect(
-        x: rect.maxX - size * 0.26,
-        y: rect.maxY - size * 0.34,
-        width: accentSize,
-        height: accentSize
-    )
-    let accent = NSBezierPath(ovalIn: accentRect)
-    accentColor.setFill()
-    accent.fill()
 }
 
 func pngData(pixelSize: Int) -> Data {
