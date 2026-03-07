@@ -5,7 +5,7 @@
 Download the latest release from [GitHub Releases](https://github.com/streichsbaer/openscribe/releases) and drag `OpenScribe.app` to your Applications folder.
 
 !!! note "Unsigned builds"
-    OpenScribe is currently distributed as an unsigned app. On first launch, right-click the app and select Open, then confirm in the security dialog. Apple Developer Program enrollment is pending.
+    OpenScribe is currently distributed as an unsigned app. On first launch, macOS may block it. If that happens, try to open the app once, then go to System Settings > Privacy & Security and use Open Anyway. Apple Developer Program enrollment is pending.
 
 ## Launch it once
 
