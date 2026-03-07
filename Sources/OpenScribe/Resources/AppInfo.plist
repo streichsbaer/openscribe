@@ -2,25 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key>
-    <string>OpenScribe</string>
-    <key>CFBundleDisplayName</key>
-    <string>OpenScribe</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.streichsbaer.openscribe</string>
-    <key>CFBundleExecutable</key>
-    <string>OpenScribe</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSUIElement</key>
-    <true/>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>OpenScribe needs microphone access to record and transcribe your dictation.</string>
+	<key>CFBundleDisplayName</key>
+	<string>OpenScribe</string>
+	<key>CFBundleExecutable</key>
+	<string>OpenScribe</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.streichsbaer.openscribe</string>
+	<key>CFBundleName</key>
+	<string>OpenScribe</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.1</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OpenScribe needs microphone access to record and transcribe your dictation.</string>
 </dict>
 </plist>
