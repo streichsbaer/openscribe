@@ -111,7 +111,6 @@ final class AppShell: ObservableObject {
         }
     }
 
-    @Published var meterLevel: Float = 0
     @Published var permissionState: MicrophonePermissionState = .undetermined
     @Published var sessionState: SessionState = .idle
 
@@ -135,7 +134,6 @@ final class AppShell: ObservableObject {
     @Published var openRouterKeyInput: String = ""
     @Published var geminiKeyInput: String = ""
     @Published var latestPolishedTranscript: String = ""
-    @Published var menubarIconDebug: String = "icon=idle"
     @Published var transcribeElapsedSeconds: Int = 0
     @Published var polishElapsedSeconds: Int = 0
     @Published private(set) var availableMicrophones: [MicrophoneDevice] = []
@@ -164,6 +162,7 @@ final class AppShell: ObservableObject {
     let settingsStore: SettingsStore
     let rulesStore: RulesStore
     let modelManager: ModelDownloadManager
+    let audioMeter = AudioMeterState()
 
     private let keychainStore: KeychainStore
     private let apiKeyResolver: APIKeyResolver
@@ -217,9 +216,9 @@ final class AppShell: ObservableObject {
         self.openRouterKeyInput = keychainStore.load(.openRouter) ?? ""
         self.geminiKeyInput = keychainStore.load(.gemini) ?? ""
 
-        audioCapture.onLevelUpdate = { [weak self] level in
-            Task { @MainActor [weak self] in
-                self?.meterLevel = level
+        audioCapture.onLevelUpdate = { [audioMeter] level in
+            Task { @MainActor in
+                audioMeter.level = level
             }
         }
         microphoneCatalog.onSnapshotChange = { [weak self] snapshot in
@@ -245,17 +244,6 @@ final class AppShell: ObservableObject {
 
     var settings: AppSettings {
         settingsStore.settings
-    }
-
-    var microphoneIndicatorColorName: String {
-        switch permissionState {
-        case .denied:
-            return "gray"
-        case .authorized:
-            return meterLevel > 0.01 ? "green" : "gray"
-        case .undetermined:
-            return "gray"
-        }
     }
 
     var openAIKeyStatusDescription: String {

@@ -74,6 +74,7 @@ final class StatusBarController: NSObject {
     private var activityThreshold: Float = 0.020
     private var instantActivityThreshold: Float = 0.012
     private var currentAppearanceMode: AppearanceMode = .system
+    private var menubarIconDebug = "icon=idle"
 
     private let smoothingAlpha: Float = 0.22
     private let noiseFloorAlpha: Float = 0.08
@@ -1061,7 +1062,11 @@ final class StatusBarController: NSObject {
         popover.behavior = .transient
         popover.animates = true
         popover.contentSize = NSSize(width: 540, height: 700)
-        popover.contentViewController = NSHostingController(rootView: PopoverView().environmentObject(shell))
+        popover.contentViewController = NSHostingController(
+            rootView: PopoverView()
+                .environmentObject(shell)
+                .environmentObject(shell.audioMeter)
+        )
     }
 
     private func togglePopover(_ sender: NSStatusBarButton) {
@@ -1110,7 +1115,7 @@ final class StatusBarController: NSObject {
     }
 
     private func bindShellState() {
-        shell.$meterLevel
+        shell.audioMeter.$level
             .receive(on: RunLoop.main)
             .sink { [weak self] level in
                 guard let self else { return }
@@ -1426,7 +1431,7 @@ final class StatusBarController: NSObject {
     }
 
     private func publishDebug(silenceDuration: TimeInterval) {
-        shell.menubarIconDebug = String(
+        menubarIconDebug = String(
             format: "icon=%@ raw=%.3f smooth=%.3f floor=%.3f instant=%.3f threshold=%.3f silence=%.1fs",
             iconStateLabel(iconState),
             currentMeterLevel,

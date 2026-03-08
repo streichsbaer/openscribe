@@ -305,17 +305,11 @@ struct PopoverView: View {
     }
 
     private var levelMeter: some View {
-        controlBarField {
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.gray.opacity(0.18))
-
-                Capsule()
-                    .fill(shell.microphoneIndicatorColorName == "green" ? Color.green : Color.gray)
-                    .frame(width: max(4, CGFloat(shell.meterLevel) * Self.controlBarMeterTrackWidth))
-            }
-            .frame(width: Self.controlBarMeterTrackWidth, height: Self.controlBarMeterHeight)
-        }
+        AudioLevelIndicatorView(
+            permissionState: shell.permissionState,
+            trackWidth: Self.controlBarMeterTrackWidth,
+            trackHeight: Self.controlBarMeterHeight
+        )
     }
 
     private var devicePicker: some View {
@@ -1947,6 +1941,45 @@ struct PopoverView: View {
         }
     }
 
+}
+
+private struct AudioLevelIndicatorView: View {
+    @EnvironmentObject private var audioMeter: AudioMeterState
+
+    let permissionState: MicrophonePermissionState
+    let trackWidth: CGFloat
+    let trackHeight: CGFloat
+    private let cornerRadius: CGFloat = 9
+    private let strokeOpacity: CGFloat = 0.08
+
+    private var fillColor: Color {
+        switch permissionState {
+        case .authorized:
+            return audioMeter.level > 0.01 ? .green : .gray
+        case .denied, .undetermined:
+            return .gray
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color(NSColor.textBackgroundColor).opacity(0.5))
+
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(Color.primary.opacity(strokeOpacity), lineWidth: 1)
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.18))
+
+                Capsule()
+                    .fill(fillColor)
+                    .frame(width: max(4, CGFloat(audioMeter.level) * trackWidth))
+            }
+            .frame(width: trackWidth, height: trackHeight)
+        }
+    }
 }
 
 private struct RetryModelOption: Identifiable {
