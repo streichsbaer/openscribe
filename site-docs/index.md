@@ -111,6 +111,7 @@ Every session saves audio, raw transcript, and polished output. Replay or re-pro
 ### Use it
 
 - [Getting Started](guides/getting-started.md)
+- [Using Free Tiers](guides/free-tiers.md)
 - [How It Works](guides/how-it-works.md)
 - [Providers and Models](guides/providers.md)
 - [UI Reference](reference/ui-reference.md)

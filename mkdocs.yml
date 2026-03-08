@@ -61,6 +61,11 @@ nav:
   - Home: index.md
   - Guides:
     - Getting Started: guides/getting-started.md
+    - Using Free Tiers: guides/free-tiers.md
+    - Free Cloud Provider Setup:
+      - Groq Free Tier Setup: guides/groq-free-tier-setup.md
+      - Gemini Free Tier Setup: guides/gemini-free-tier-setup.md
+      - OpenRouter Free Tier Setup: guides/openrouter-free-tier-setup.md
     - How It Works: guides/how-it-works.md
     - Providers and Models: guides/providers.md
     - Custom Rules: guides/custom-rules.md

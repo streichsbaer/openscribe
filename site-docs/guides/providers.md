@@ -2,6 +2,8 @@
 
 OpenScribe lets you mix local and cloud providers depending on how you want the app to behave. A simple setup can stay fully local. A more flexible setup can add cloud models for transcription, polish, or both.
 
+If you want the best no-cost setup path, start with [Using Free Tiers](free-tiers.md) and configure Groq transcription plus Gemini polish.
+
 ![Providers settings tab](/images/ui/settings-providers.png){ .guide-shot data-light-src="/images/ui/settings-providers.png" data-dark-src="/images/ui/settings-providers-dark.png" }
 
 ## Start with transcription
@@ -62,6 +64,10 @@ Language mode lives in Settings > Transcribe. The default is `auto`, which lets 
 
 ## Continue
 
+- Free-tier setup: [Using Free Tiers](free-tiers.md)
+- Groq walkthrough: [Groq Free Tier Setup](groq-free-tier-setup.md)
+- Gemini walkthrough: [Gemini Free Tier Setup](gemini-free-tier-setup.md)
+- OpenRouter walkthrough: [OpenRouter Free Tier Setup](openrouter-free-tier-setup.md)
 - How the pipeline works: [How It Works](how-it-works.md)
 - Polish rules: [Custom Rules](custom-rules.md)
 - Full field reference: [UI Reference](../reference/ui-reference.md)
