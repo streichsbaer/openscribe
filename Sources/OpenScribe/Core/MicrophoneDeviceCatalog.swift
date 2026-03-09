@@ -1,4 +1,4 @@
-@preconcurrency import AVFoundation
+import CoreAudio
 import Foundation
 
 protocol MicrophoneDeviceCatalogProtocol: AnyObject {
@@ -6,59 +6,61 @@ protocol MicrophoneDeviceCatalogProtocol: AnyObject {
     func currentSnapshot() -> MicrophoneDeviceSnapshot
 }
 
-final class MicrophoneDeviceCatalog: NSObject, MicrophoneDeviceCatalogProtocol {
+final class MicrophoneDeviceCatalog: MicrophoneDeviceCatalogProtocol {
     var onSnapshotChange: ((MicrophoneDeviceSnapshot) -> Void)?
 
-    private let notificationCenter: NotificationCenter
+    private final class ListenerRelay {
+        weak var owner: MicrophoneDeviceCatalog?
 
-    init(notificationCenter: NotificationCenter = .default) {
-        self.notificationCenter = notificationCenter
-        super.init()
+        func publishSnapshot() {
+            owner?.publishSnapshot()
+        }
+    }
+
+    private let listenerQueue: DispatchQueue
+    private let systemObjectID = AudioObjectID(kAudioObjectSystemObject)
+    private let listenerRelay: ListenerRelay
+    private let propertyListener: AudioObjectPropertyListenerBlock
+
+    init(listenerQueue: DispatchQueue = .main) {
+        let listenerRelay = ListenerRelay()
+        self.listenerQueue = listenerQueue
+        self.listenerRelay = listenerRelay
+        self.propertyListener = { [weak listenerRelay] _, _ in
+            listenerRelay?.publishSnapshot()
+        }
+        listenerRelay.owner = self
         registerForDeviceChanges()
     }
 
     deinit {
-        notificationCenter.removeObserver(self)
+        unregisterForDeviceChanges()
     }
 
     func currentSnapshot() -> MicrophoneDeviceSnapshot {
-        let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.microphone],
-            mediaType: .audio,
-            position: .unspecified
-        )
-        let devices = discoverySession.devices
-            .map { MicrophoneDevice(id: $0.uniqueID, name: $0.localizedName) }
-            .sorted { lhs, rhs in
-                lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            }
-
-        let systemDefault = AVCaptureDevice.default(for: .audio)
-        return MicrophoneDeviceSnapshot(
-            devices: devices,
-            systemDefaultDeviceID: systemDefault?.uniqueID,
-            systemDefaultDeviceName: systemDefault?.localizedName
-        )
+        CoreAudioMicrophoneCatalog.currentSnapshot()
     }
 
     private func registerForDeviceChanges() {
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(handleDeviceChange),
-            name: AVCaptureDevice.wasConnectedNotification,
-            object: nil
-        )
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(handleDeviceChange),
-            name: AVCaptureDevice.wasDisconnectedNotification,
-            object: nil
-        )
+        for var propertyAddress in CoreAudioMicrophoneCatalog.propertyAddressesToObserve() {
+            AudioObjectAddPropertyListenerBlock(
+                systemObjectID,
+                &propertyAddress,
+                listenerQueue,
+                propertyListener
+            )
+        }
     }
 
-    @objc
-    private func handleDeviceChange(_ notification: Notification) {
-        publishSnapshot()
+    private func unregisterForDeviceChanges() {
+        for var propertyAddress in CoreAudioMicrophoneCatalog.propertyAddressesToObserve() {
+            AudioObjectRemovePropertyListenerBlock(
+                systemObjectID,
+                &propertyAddress,
+                listenerQueue,
+                propertyListener
+            )
+        }
     }
 
     private func publishSnapshot() {

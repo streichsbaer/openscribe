@@ -104,6 +104,27 @@ final class MicrophoneSelectionResolverTests: XCTestCase {
         XCTAssertEqual(result.statusMessage, "Pinned mic \"Desk Mic\" unavailable and no microphone input is currently available.")
     }
 
+    func testMissingSystemDefaultFallsBackToFirstAvailable() {
+        let snapshot = MicrophoneDeviceSnapshot(
+            devices: [
+                MicrophoneDevice(id: "usb", name: "USB Mic"),
+                MicrophoneDevice(id: "builtin", name: "Built-in Mic")
+            ],
+            systemDefaultDeviceID: nil,
+            systemDefaultDeviceName: nil
+        )
+
+        let result = MicrophoneSelectionResolver.resolve(
+            snapshot: snapshot,
+            pinnedMicrophone: nil,
+            sessionOverrideID: nil
+        )
+
+        XCTAssertEqual(result.source, .firstAvailable)
+        XCTAssertEqual(result.device?.id, "usb")
+        XCTAssertNil(result.statusMessage)
+    }
+
     func testCaptureRoutingReturnsNilForAutomaticSystemDefault() {
         let resolution = MicrophoneResolutionResult(
             device: MicrophoneDevice(id: "builtin", name: "Built-in Mic"),
@@ -147,5 +168,20 @@ final class MicrophoneSelectionResolverTests: XCTestCase {
         )
 
         XCTAssertNil(inputDeviceID)
+    }
+
+    func testCaptureRoutingReturnsExplicitIDForFirstAvailableFallback() {
+        let resolution = MicrophoneResolutionResult(
+            device: MicrophoneDevice(id: "usb", name: "USB Mic"),
+            source: .firstAvailable,
+            statusMessage: nil
+        )
+
+        let inputDeviceID = MicrophoneCaptureRouting.inputDeviceIDForCapture(
+            resolution: resolution,
+            systemDefaultDeviceID: "builtin"
+        )
+
+        XCTAssertEqual(inputDeviceID, "usb")
     }
 }
