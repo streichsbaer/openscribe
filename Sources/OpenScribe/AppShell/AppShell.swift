@@ -55,6 +55,8 @@ struct ProviderConnectivityStatus: Equatable {
 @MainActor
 final class AppShell: ObservableObject {
     private static let autoPasteOnCompleteDefaultsKey = "behavior.autoPasteOnComplete"
+    private static let setupAssistantDoNotShowAgainKey = "setupAssistant.doNotShowAgain"
+    private static let setupAssistantTrackKey = "setupAssistant.track"
     private static let historyDefaultInitialLoad = 10
     private static let livePopoverSize = CGSize(width: 540, height: 620)
     private static let historyPopoverSize = CGSize(width: 620, height: 700)
@@ -146,6 +148,11 @@ final class AppShell: ObservableObject {
     @Published private(set) var statsSummary: StatsSummary = .empty
     @Published private(set) var providerModelsByBackend: [String: [String]] = [:]
     @Published private(set) var providerConnectivityByBackend: [String: ProviderConnectivityStatus] = [:]
+    @Published var setupAssistantPreferredTrack: SetupAssistantTrack {
+        didSet {
+            userDefaults.set(setupAssistantPreferredTrack.rawValue, forKey: Self.setupAssistantTrackKey)
+        }
+    }
     @Published var autoPasteOnComplete: Bool {
         didSet {
             userDefaults.set(autoPasteOnComplete, forKey: Self.autoPasteOnCompleteDefaultsKey)
@@ -157,6 +164,7 @@ final class AppShell: ObservableObject {
     var togglePopoverHandler: (() -> Void)?
     var showPopoverHandler: (() -> Void)?
     var updatePopoverSizeHandler: ((CGSize) -> Void)?
+    var openSetupAssistantHandler: (() -> Void)?
 
     let layout: DirectoryLayout
     let settingsStore: SettingsStore
@@ -175,6 +183,7 @@ final class AppShell: ObservableObject {
     private let transcriptionPipeline: TranscriptionPipeline
     private let polishPipeline: PolishPipeline
     private let userDefaults: UserDefaults
+    private var setupAssistantDoNotShowAgain: Bool
     private var transcribeTimer: Timer?
     private var transcribeStartedAt: Date?
     private var polishTimer: Timer?
@@ -205,6 +214,10 @@ final class AppShell: ObservableObject {
         self.transcriptionPipeline = TranscriptionPipeline(providerFactory: factory)
         self.polishPipeline = PolishPipeline(providerFactory: factory)
         self.userDefaults = .standard
+        self.setupAssistantDoNotShowAgain = userDefaults.bool(forKey: Self.setupAssistantDoNotShowAgainKey)
+        self.setupAssistantPreferredTrack = SetupAssistantTrack(
+            rawValue: userDefaults.string(forKey: Self.setupAssistantTrackKey) ?? ""
+        ) ?? .recommended
         self.autoPasteOnComplete = userDefaults.object(forKey: Self.autoPasteOnCompleteDefaultsKey) as? Bool ?? false
 
         self.rulesDraft = rulesStore.currentRules
@@ -264,6 +277,51 @@ final class AppShell: ObservableObject {
 
     var accessibilityPermissionGranted: Bool {
         AccessibilityInputInjector.isTrusted(promptIfNeeded: false)
+    }
+
+    var shouldAutoPresentSetupAssistantOnLaunch: Bool {
+        SetupAssistantChecklist.shouldAutoPresent(
+            hasSessionHistory: !historySessions.isEmpty,
+            doNotShowAgain: setupAssistantDoNotShowAgain
+        )
+    }
+
+    var shouldDeferDefaultModelDownloadForSetupAssistant: Bool {
+        shouldAutoPresentSetupAssistantOnLaunch
+    }
+
+    var hasPersistedGroqKey: Bool {
+        !(keychainStore.load(.groq) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+    }
+
+    var hasSuccessfulRecording: Bool {
+        if sessionState == .completed,
+           !rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+
+        return historySessions.contains { entry in
+            entry.state == .completed && !entry.previewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    func setupAssistantContext(selectedLocalModel: String) -> SetupAssistantChecklistContext {
+        SetupAssistantChecklistContext(
+            permissionAuthorized: permissionState == .authorized,
+            hasSuccessfulRecording: hasSuccessfulRecording,
+            groqKeySaved: hasPersistedGroqKey,
+            groqVerified: providerConnectivityStatus(for: "groq_polish").state == .verified,
+            transcriptionProviderID: settings.transcriptionProviderID,
+            transcriptionModel: settings.transcriptionModel,
+            polishEnabled: settings.polishEnabled,
+            polishProviderID: settings.polishProviderID,
+            polishModel: settings.polishModel,
+            languageMode: settings.languageMode,
+            selectedLocalModel: selectedLocalModel,
+            localModelInstalled: modelManager.isInstalled(modelID: selectedLocalModel)
+        )
     }
 
     func updateSettings(_ mutate: (inout AppSettings) -> Void) {
@@ -411,6 +469,10 @@ final class AppShell: ObservableObject {
         openSettingsWindowHandler?()
     }
 
+    func openSetupAssistant() {
+        openSetupAssistantHandler?()
+    }
+
     func openRulesWindow() {
         openRulesWindowHandler?()
     }
@@ -439,6 +501,40 @@ final class AppShell: ObservableObject {
         permissionState = audioCapture.permissionState()
         applyMicrophoneSnapshot(microphoneCatalog.currentSnapshot())
         registerHotkeys()
+    }
+
+    func setSetupAssistantDoNotShowAgain(_ value: Bool) {
+        setupAssistantDoNotShowAgain = value
+        userDefaults.set(value, forKey: Self.setupAssistantDoNotShowAgainKey)
+    }
+
+    func saveAPIKeysAndVerifyProvider(for providerID: String) {
+        saveAPIKeys()
+        verifyProvider(for: providerID)
+    }
+
+    func applyRecommendedHostedSetup() {
+        updateSettings { settings in
+            settings.transcriptionProviderID = SetupAssistantChecklist.recommendedTranscriptionProviderID
+            settings.transcriptionModel = SetupAssistantChecklist.recommendedTranscriptionModel
+            settings.languageMode = "auto"
+            settings.polishEnabled = true
+            settings.polishProviderID = SetupAssistantChecklist.recommendedPolishProviderID
+            settings.polishModel = SetupAssistantChecklist.recommendedPolishModel
+            settings.copyOnComplete = true
+        }
+        statusMessage = "Recommended setup applied"
+    }
+
+    func applyLocalOnlySetup(modelID: String) {
+        updateSettings { settings in
+            settings.transcriptionProviderID = "whispercpp"
+            settings.transcriptionModel = modelID
+            settings.languageMode = "auto"
+            settings.polishEnabled = false
+            settings.copyOnComplete = true
+        }
+        statusMessage = "Local setup applied"
     }
 
     func updatePopoverSize(selectedTab: PopoverTabSelection) {

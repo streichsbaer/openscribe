@@ -21,6 +21,14 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 8. If polish is disabled, polished output is passthrough from raw transcript.
 9. Session artifacts are written: `audio.m4a`, `session.json`, `raw.txt`, `polished.md`.
 
+## First-run setup assistant
+
+- On a fresh install with no session history, OpenScribe opens a setup assistant in Settings on first launch.
+- The assistant offers two paths: `Best setup` and `Local only`.
+- `Best setup` guides Groq key entry, verification, Groq Whisper on `whisper-large-v3-turbo`, and Groq polish on `openai/gpt-oss-120b`.
+- `Local only` guides local `whisper.cpp` model choice, model download, and a local test recording.
+- Users can skip the assistant, hide it from future first launches, or reopen it later from Settings or the menu bar.
+
 ## Defaults
 
 - Start or stop hotkey default: `Fn + Space`.

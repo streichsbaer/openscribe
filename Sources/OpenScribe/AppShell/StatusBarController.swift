@@ -95,6 +95,9 @@ final class StatusBarController: NSObject {
         shell.openRulesWindowHandler = { [weak self] in
             self?.openRulesSettings()
         }
+        shell.openSetupAssistantHandler = { [weak self] in
+            self?.openSetupAssistant()
+        }
         shell.togglePopoverHandler = { [weak self] in
             self?.togglePopoverFromHotkey()
         }
@@ -132,6 +135,15 @@ final class StatusBarController: NSObject {
             settingsItem.isEnabled = true
             menu.addItem(settingsItem)
 
+            let setupAssistantItem = NSMenuItem(
+                title: "Setup Assistant",
+                action: #selector(openSetupAssistant),
+                keyEquivalent: ""
+            )
+            setupAssistantItem.target = self
+            setupAssistantItem.isEnabled = true
+            menu.addItem(setupAssistantItem)
+
             menu.addItem(.separator())
 
             let quitItem = NSMenuItem(
@@ -156,6 +168,10 @@ final class StatusBarController: NSObject {
         settingsWindowController.show()
     }
 
+    @objc private func openSetupAssistant() {
+        settingsWindowController.showSetupAssistant(track: shell.setupAssistantPreferredTrack)
+    }
+
     @objc private func openRulesSettings() {
         settingsWindowController.selectTab(.rules)
         settingsWindowController.show()
@@ -163,6 +179,10 @@ final class StatusBarController: NSObject {
 
     func openSettingsFromShortcut() {
         openSettings()
+    }
+
+    func showSetupAssistantOnLaunch() {
+        settingsWindowController.showSetupAssistant(track: shell.setupAssistantPreferredTrack)
     }
 
     func togglePopoverFromHotkey() {

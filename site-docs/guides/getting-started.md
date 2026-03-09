@@ -11,6 +11,8 @@ Download the latest release from [GitHub Releases](https://github.com/streichsba
 
 Open OpenScribe from Applications and grant microphone access when macOS prompts you. After launch, the app lives in your menu bar, so the key thing to look for is the OpenScribe icon near the clock.
 
+On a fresh install, OpenScribe opens a setup assistant in Settings. You can follow the `Best setup` checklist for the recommended Groq path, switch to `Local only` for local transcription, or skip it and return later from Settings or the menu bar.
+
 ## Your first recording
 
 1. Press `Fn + Space` to start recording.

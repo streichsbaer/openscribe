@@ -11,7 +11,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         statusBarController = StatusBarController(shell: shell)
 
-        if shell.settings.transcriptionProviderID == "whispercpp" {
+        if shell.shouldAutoPresentSetupAssistantOnLaunch {
+            statusBarController?.showSetupAssistantOnLaunch()
+        }
+
+        if shell.settings.transcriptionProviderID == "whispercpp",
+           !shell.shouldDeferDefaultModelDownloadForSetupAssistant {
             shell.downloadDefaultModelIfNeeded()
         }
 

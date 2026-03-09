@@ -123,6 +123,7 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
 struct SettingsView: View {
     @EnvironmentObject private var shell: AppShell
     @EnvironmentObject private var tabState: SettingsTabState
+    @EnvironmentObject private var setupAssistantState: SetupAssistantWindowState
     @State private var contentWidth = SettingsTab.general.preferredWidth
     @State private var contentHeight = SettingsTab.general.minHeight
     @State private var measuredPageHeights: [SettingsTab: CGFloat] = [:]
@@ -244,6 +245,11 @@ struct SettingsView: View {
         } message: {
             Text("This moves OpenScribe local sessions, models, rules, and settings to Trash.")
         }
+        .sheet(isPresented: $setupAssistantState.isPresented) {
+            SetupAssistantView()
+                .environmentObject(shell)
+                .environmentObject(setupAssistantState)
+        }
     }
 
     private var tabHeader: some View {
@@ -338,6 +344,27 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         settingsPage(for: .general) {
+            settingsCard("SETUP") {
+                Text("Use the setup assistant to validate the best Groq path or a local-only path with one short checklist.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    Button("Open setup assistant") {
+                        setupAssistantState.selectedTrack = shell.setupAssistantPreferredTrack
+                        setupAssistantState.isPresented = true
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    if shell.shouldAutoPresentSetupAssistantOnLaunch {
+                        Button("Do not show on launch") {
+                            shell.setSetupAssistantDoNotShowAgain(true)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
+
             settingsCard("USAGE") {
                 settingRow("Appearance") {
                     Picker("", selection: Binding(

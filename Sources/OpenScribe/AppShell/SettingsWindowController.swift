@@ -8,15 +8,28 @@ final class SettingsTabState: ObservableObject {
 }
 
 @MainActor
+final class SetupAssistantWindowState: ObservableObject {
+    @Published var isPresented = false
+    @Published var selectedTrack: SetupAssistantTrack = .recommended
+    @Published var selectedLocalModel = SetupAssistantChecklist.defaultLocalModelID
+}
+
+@MainActor
 final class SettingsWindowController: NSWindowController {
     private static let minimumContentSize = NSSize(width: 760, height: 540)
     private static let defaultContentSize = NSSize(width: 760, height: 580)
     private let tabState = SettingsTabState()
+    private let setupAssistantState = SetupAssistantWindowState()
 
     init(shell: AppShell) {
+        setupAssistantState.selectedTrack = shell.setupAssistantPreferredTrack
+        if SetupAssistantChecklist.localModelOptions.contains(where: { $0.id == shell.settings.transcriptionModel }) {
+            setupAssistantState.selectedLocalModel = shell.settings.transcriptionModel
+        }
         let host = NSHostingController(rootView: SettingsView()
             .environmentObject(shell)
-            .environmentObject(tabState))
+            .environmentObject(tabState)
+            .environmentObject(setupAssistantState))
         let window = NSWindow(contentViewController: host)
         window.title = "OpenScribe Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -30,6 +43,7 @@ final class SettingsWindowController: NSWindowController {
         }
         .environmentObject(shell)
         .environmentObject(tabState)
+        .environmentObject(setupAssistantState)
     }
 
     @available(*, unavailable)
@@ -45,6 +59,15 @@ final class SettingsWindowController: NSWindowController {
 
     func selectTab(_ tab: SettingsTab) {
         tabState.selectedTab = tab
+    }
+
+    func showSetupAssistant(track: SetupAssistantTrack? = nil) {
+        if let track {
+            setupAssistantState.selectedTrack = track
+        }
+        tabState.selectedTab = .general
+        show()
+        setupAssistantState.isPresented = true
     }
 
     func moveToPreferredCaptureScreen() {
