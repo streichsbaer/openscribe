@@ -2,7 +2,7 @@
 
 OpenScribe lets you mix local and cloud providers depending on how you want the app to behave. A simple setup can stay fully local. A more flexible setup can add cloud models for transcription, polish, or both.
 
-If you want the best no-cost setup path, start with [Using Free Tiers](free-tiers.md) and configure Groq transcription plus Gemini polish.
+If you want the best no-cost setup path, start with [Using Free Tiers](free-tiers.md) and configure Groq transcription plus Groq polish on `openai/gpt-oss-120b`.
 
 ![Providers settings tab](/images/ui/settings-providers.png){ .guide-shot data-light-src="/images/ui/settings-providers.png" data-dark-src="/images/ui/settings-providers-dark.png" }
 
@@ -32,10 +32,10 @@ These providers send your audio over the network and require an API key:
 
 Polish runs a language model on your raw transcript to improve grammar, formatting, and structure. All polish providers are cloud-based, so this step always needs an API key.
 
-- **OpenAI** -- default: `gpt-5-nano`.
-- **Groq** -- fast inference for supported models.
+- **OpenAI** -- built-in default: `gpt-5-nano`.
+- **Groq** -- recommended cloud polish path with `openai/gpt-oss-120b`.
 - **OpenRouter** -- access to multiple model providers through one API key.
-- **Gemini** -- Google models.
+- **Gemini** -- Google models that can cover transcription and polish, but they are not the recommended polish path.
 
 Polish is disabled by default. Enable it in Settings > Polish.
 
@@ -56,7 +56,7 @@ App updates do not clear those saved keys for the same macOS user account.
 
 Use the model picker in Settings > Transcribe or Settings > Polish to browse what each provider offers. Refresh the provider model list in Settings > Providers when you want the latest options.
 
-For transcription, larger models are usually more accurate and slower. For polish, the right choice depends on how much latency you are willing to trade for better cleanup.
+For transcription, larger models are usually more accurate and slower. For polish, the right choice depends on how much latency you are willing to trade for better cleanup. If you want the simplest recommended hosted setup, use `whisper-large-v3-turbo` for transcription and `openai/gpt-oss-120b` on Groq for polish.
 
 ## Language
 

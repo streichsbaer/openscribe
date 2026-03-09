@@ -28,7 +28,7 @@ If you do not see any text after stopping, check the menu bar icon state. A no-a
 
 If you just want a quick smoke test, the default local whisper.cpp provider is enough to confirm that recording works.
 
-If you want the best day-to-day setup after launch, continue with [Using Free Tiers](free-tiers.md) and configure Groq transcription plus Gemini polish.
+If you want the best day-to-day setup after launch, continue with [Using Free Tiers](free-tiers.md) and configure Groq transcription plus Groq polish on `openai/gpt-oss-120b`.
 
 If you want OpenScribe to clean up grammar and formatting after transcription, turn on polish in Settings > Polish and then tailor the output with [Custom Rules](custom-rules.md).
 

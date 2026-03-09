@@ -6,12 +6,12 @@ For this guide, the recommended path is:
 
 - Transcription on `Groq Whisper`
 - Transcription model `whisper-large-v3-turbo`
-- Polish on `Gemini`
-- Polish model `gemini-3.1-flash-lite-preview`
+- Polish on `Groq`
+- Polish model `openai/gpt-oss-120b`
 - Language mode `auto`
 - Copy on complete `On`
 
-This setup gives a better first impression than the default local model alone. Groq transcription is fast and optimized, and polish adds a large part of the value people notice in OpenScribe.
+This setup gives a better first impression than the default local model alone. Groq transcription is fast and optimized, polish adds a large part of the value people notice in OpenScribe, and one provider key keeps the setup simpler.
 
 !!! note "Free-tier terms can change"
     These guides focus on providers that currently let many users get started without adding a credit card. Check the linked provider docs to confirm current account, rate-limit, and billing requirements before you rely on them.
@@ -19,10 +19,10 @@ This setup gives a better first impression than the default local model alone. G
 ## Why this is the recommended path
 
 - Groq gives near-instant transcription and feels better than the local baseline for day-one use.
-- Gemini 3.1 Flash Lite is fast and capable for transcript cleanup.
-- Gemini can also transcribe, but Groq is the faster transcription choice in this setup.
+- `openai/gpt-oss-120b` on Groq is strong for transcript cleanup without adding a second provider.
+- Gemini can cover both transcription and polish if you want to experiment there, but it is not the recommended polish provider for this guide.
 - Polish makes OpenScribe feel much more useful because the output is closer to ready-to-paste text.
-- This combination stays simple: one provider for speech-to-text and one provider for cleanup.
+- This combination stays simple: one provider, one key, and one model catalog to refresh.
 
 ## How Stefan uses OpenScribe
 
@@ -31,8 +31,8 @@ Stefan's current setup on this machine is:
 - Transcribe with `Groq Whisper`
 - Model `whisper-large-v3-turbo`
 - Polish enabled
-- Polish provider `Gemini`
-- Polish model `gemini-3.1-flash-lite-preview`
+- Polish provider `Groq`
+- Polish model `openai/gpt-oss-120b`
 - Language `auto`
 - Copy on complete enabled
 
@@ -43,9 +43,9 @@ If you want to copy the setup that is already working well in practice, use thos
 1. Open Settings > Providers and add your Groq API key.
 2. In Settings > Transcribe, choose `Groq Whisper`.
 3. Set the transcription model to `whisper-large-v3-turbo`.
-4. Back in Settings > Providers, add your Gemini API key.
-5. In Settings > Polish, turn polish on.
-6. Choose `Gemini` and set the model to `gemini-3.1-flash-lite-preview`.
+4. In Settings > Polish, turn polish on.
+5. Choose `Groq`.
+6. Set the polish model to `openai/gpt-oss-120b`.
 7. Keep language on `auto`.
 8. Leave copy on complete on.
 
@@ -55,7 +55,7 @@ If you want to copy the setup that is already working well in practice, use thos
 - [Gemini Free Tier Setup](gemini-free-tier-setup.md)
 - [OpenRouter Free Tier Setup](openrouter-free-tier-setup.md)
 
-OpenRouter is useful as an alternative for polish experiments. The main recommendation for the best free-tier experience remains Groq transcription plus Gemini polish.
+OpenRouter and Gemini are useful as alternative experiment paths. The main recommendation for the best free-tier experience is Groq transcription plus Groq polish on `openai/gpt-oss-120b`.
 
 ## What about the local model?
 

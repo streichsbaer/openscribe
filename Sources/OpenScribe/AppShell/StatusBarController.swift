@@ -519,8 +519,10 @@ final class StatusBarController: NSObject {
             shell.polishedTranscript = sampleText + " Polished."
             shell.rawTranscriptProviderID = "groq_whisper"
             shell.rawTranscriptModel = "whisper-large-v3-turbo"
-            shell.polishedTranscriptProviderID = "gemini_polish"
-            shell.polishedTranscriptModel = "gemini-2.5-flash-lite"
+            shell.polishedTranscriptProviderID = "groq_polish"
+            shell.polishedTranscriptModel = "openai/gpt-oss-120b"
+            shell.sessionState = .completed
+            shell.statusMessage = "Polished transcript pasted"
             shell.selectPopoverTab(.live)
             try? await Task.sleep(nanoseconds: 500_000_000)
             let liveContentView = popover.contentViewController?.view.window?.contentView

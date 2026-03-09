@@ -137,7 +137,7 @@ You can open Settings from the right-click menu, with `Cmd + ,` when OpenScribe 
 ### About
 
 - App version and build.
-- Current default providers.
+- Current provider selections.
 - Repository and governance links.
 
 ![About settings tab](/images/ui/settings-about.png){ .guide-shot data-light-src="/images/ui/settings-about.png" data-dark-src="/images/ui/settings-about-dark.png" }

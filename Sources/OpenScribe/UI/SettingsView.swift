@@ -955,12 +955,12 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                settingRow("Default STT provider") {
+                settingRow("Current STT provider") {
                     Text(shell.settings.transcriptionProviderID)
                         .foregroundStyle(.secondary)
                 }
 
-                settingRow("Default polish provider") {
+                settingRow("Current polish provider") {
                     Text(shell.settings.polishProviderID)
                         .foregroundStyle(.secondary)
                 }

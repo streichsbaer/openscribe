@@ -33,7 +33,7 @@ If you want to experiment with OpenRouter on its free tier:
 OpenRouter is useful when you want flexibility. The main free-tier recommendation for the best OpenScribe experience is still:
 
 - Groq transcription with `whisper-large-v3-turbo`
-- Gemini polish with `gemini-3.1-flash-lite-preview`
+- Groq polish with `openai/gpt-oss-120b`
 
 ## Continue
 

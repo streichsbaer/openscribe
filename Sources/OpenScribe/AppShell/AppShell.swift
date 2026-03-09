@@ -1134,7 +1134,7 @@ final class AppShell: ObservableObject {
         for providerID: String,
         usage: ProviderModelUsage
     ) -> [String] {
-        let fallback = fallbackModels(for: providerID, usage: usage)
+        let fallback = Self.fallbackModels(for: providerID, usage: usage)
         let backend = backend(for: providerID)
         guard let backend else { return fallback }
 
@@ -1143,15 +1143,15 @@ final class AppShell: ObservableObject {
             return fallback
         }
 
-        let filtered = filterModels(fetched, backend: backend, usage: usage)
+        let filtered = Self.filterModels(fetched, backend: backend, usage: usage)
         if filtered.isEmpty {
             return fallback
         }
 
-        return filtered
+        return Self.prioritizeRecommendedModel(filtered, providerID: providerID, usage: usage)
     }
 
-    private func fallbackModels(for providerID: String, usage: ProviderModelUsage) -> [String] {
+    nonisolated static func fallbackModels(for providerID: String, usage: ProviderModelUsage) -> [String] {
         switch (providerID, usage) {
         case ("whispercpp", .transcription):
             return ["tiny", "base", "small", "medium"]
@@ -1166,7 +1166,7 @@ final class AppShell: ObservableObject {
         case ("openai_polish", .polish):
             return ["gpt-5-nano", "gpt-5-mini"]
         case ("groq_polish", .polish):
-            return ["llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
+            return ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
         case ("openrouter_polish", .polish):
             return ["openai/gpt-5-nano", "openai/gpt-5-mini", "google/gemini-2.5-flash"]
         case ("gemini_polish", .polish):
@@ -1176,6 +1176,19 @@ final class AppShell: ObservableObject {
         case (_, .polish):
             return ["gpt-5-nano"]
         }
+    }
+
+    nonisolated static func prioritizeRecommendedModel(
+        _ models: [String],
+        providerID: String,
+        usage: ProviderModelUsage
+    ) -> [String] {
+        guard let recommended = recommendedModel(for: providerID, usage: usage),
+              models.contains(recommended) else {
+            return models
+        }
+
+        return [recommended] + models.filter { $0 != recommended }
     }
 
     func providerConnectivityStatus(for providerID: String) -> ProviderConnectivityStatus {
@@ -1361,7 +1374,7 @@ final class AppShell: ObservableObject {
         }
     }
 
-    private func filterModels(
+    nonisolated static func filterModels(
         _ models: [String],
         backend: ProviderBackend,
         usage: ProviderModelUsage
@@ -1387,6 +1400,18 @@ final class AppShell: ObservableObject {
             return filtered.sorted()
         case (.whispercpp, _), (.openrouter, _), (.gemini, _):
             return models.sorted()
+        }
+    }
+
+    nonisolated private static func recommendedModel(
+        for providerID: String,
+        usage: ProviderModelUsage
+    ) -> String? {
+        switch (providerID, usage) {
+        case ("groq_polish", .polish):
+            return "openai/gpt-oss-120b"
+        default:
+            return nil
         }
     }
 
