@@ -47,12 +47,18 @@ final class AudioCaptureManager {
 
         let inputNode = freshEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
+        guard inputFormat.channelCount > 0, inputFormat.sampleRate > 0 else {
+            throw ProviderError.unsupported("The selected microphone returned an invalid input format.")
+        }
 
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000, channels: 1, interleaved: true) else {
             throw ProviderError.unsupported("Failed to create output audio format.")
         }
 
-        converter = AVAudioConverter(from: inputFormat, to: targetFormat)
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            throw ProviderError.unsupported("Failed to prepare audio conversion for the selected microphone.")
+        }
+        self.converter = converter
         wavWriter = try WavFileWriter(
             url: tempURL,
             sampleRate: Int(targetFormat.sampleRate),
@@ -66,7 +72,14 @@ final class AudioCaptureManager {
         }
 
         freshEngine.prepare()
-        try freshEngine.start()
+        do {
+            try freshEngine.start()
+        } catch {
+            let selectedInputDescription = inputDeviceID ?? "system default input"
+            throw ProviderError.unsupported(
+                "Unable to start audio capture on \(selectedInputDescription): \(error.localizedDescription)"
+            )
+        }
         engine = freshEngine
     }
 
@@ -160,7 +173,7 @@ final class AudioCaptureManager {
             throw ProviderError.unsupported("Unable to access audio input unit.")
         }
 
-        guard let coreAudioDeviceID = coreAudioInputDeviceID(for: inputDeviceID) else {
+        guard let coreAudioDeviceID = CoreAudioMicrophoneCatalog.audioDeviceID(for: inputDeviceID) else {
             throw ProviderError.unsupported("Selected microphone is unavailable.")
         }
 
@@ -175,96 +188,10 @@ final class AudioCaptureManager {
         )
 
         guard status == noErr else {
-            throw ProviderError.unsupported("Unable to select the requested microphone.")
-        }
-    }
-
-    private func coreAudioInputDeviceID(for uniqueID: String) -> AudioDeviceID? {
-        let deviceIDs = allAudioDeviceIDs()
-        guard !deviceIDs.isEmpty else {
-            return nil
-        }
-
-        for deviceID in deviceIDs {
-            guard let candidateUID = coreAudioDeviceUID(for: deviceID) else {
-                continue
-            }
-
-            if candidateUID == uniqueID {
-                return deviceID
-            }
-        }
-
-        return nil
-    }
-
-    private func allAudioDeviceIDs() -> [AudioDeviceID] {
-        var propertyAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        var dataSize: UInt32 = 0
-        let sizeStatus = AudioObjectGetPropertyDataSize(
-            AudioObjectID(kAudioObjectSystemObject),
-            &propertyAddress,
-            0,
-            nil,
-            &dataSize
-        )
-        guard sizeStatus == noErr, dataSize > 0 else {
-            return []
-        }
-
-        let count = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
-        var deviceIDs = Array(repeating: AudioDeviceID(0), count: count)
-
-        let dataStatus: OSStatus = deviceIDs.withUnsafeMutableBufferPointer { buffer in
-            guard let baseAddress = buffer.baseAddress else {
-                return -1
-            }
-
-            return AudioObjectGetPropertyData(
-                AudioObjectID(kAudioObjectSystemObject),
-                &propertyAddress,
-                0,
-                nil,
-                &dataSize,
-                baseAddress
+            throw ProviderError.unsupported(
+                "Unable to select the requested microphone (OSStatus \(status))."
             )
         }
-        guard dataStatus == noErr else {
-            return []
-        }
-
-        return deviceIDs
-    }
-
-    private func coreAudioDeviceUID(for deviceID: AudioDeviceID) -> String? {
-        var propertyAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceUID,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        var dataSize = UInt32(MemoryLayout<CFString>.size)
-        var uid: CFString = "" as CFString
-        let status: OSStatus = withUnsafeMutablePointer(to: &uid) { uidPointer in
-            AudioObjectGetPropertyData(
-                deviceID,
-                &propertyAddress,
-                0,
-                nil,
-                &dataSize,
-                uidPointer
-            )
-        }
-        guard status == noErr else {
-            return nil
-        }
-
-        return uid as String
     }
 }
 

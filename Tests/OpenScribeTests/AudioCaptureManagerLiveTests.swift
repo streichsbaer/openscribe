@@ -1,4 +1,3 @@
-@preconcurrency import AVFoundation
 import Foundation
 import XCTest
 @testable import OpenScribe
@@ -55,7 +54,10 @@ final class AudioCaptureManagerLiveTests: XCTestCase {
            !configuredID.isEmpty {
             targetID = configuredID
         } else {
-            targetID = AVCaptureDevice.default(for: .audio)?.uniqueID
+            let snapshot = CoreAudioMicrophoneCatalog.currentSnapshot()
+            targetID = snapshot.devices
+                .first(where: { $0.id != snapshot.systemDefaultDeviceID })?
+                .id ?? snapshot.systemDefaultDeviceID
         }
 
         guard let targetID else {

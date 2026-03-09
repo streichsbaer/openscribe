@@ -15,6 +15,7 @@ enum MicrophoneResolutionSource: Equatable {
     case pinned
     case sessionOverride
     case systemDefault
+    case firstAvailable
     case unavailable
 }
 
@@ -62,7 +63,7 @@ enum MicrophoneSelectionResolver {
             if let firstDevice = snapshot.devices.first {
                 return MicrophoneResolutionResult(
                     device: firstDevice,
-                    source: .systemDefault,
+                    source: .firstAvailable,
                     statusMessage: "Pinned mic \"\(pinnedMicrophone.name)\" unavailable. Using available input \"\(firstDevice.name)\"."
                 )
             }
@@ -86,7 +87,7 @@ enum MicrophoneSelectionResolver {
         if let firstDevice = snapshot.devices.first {
             return MicrophoneResolutionResult(
                 device: firstDevice,
-                source: .systemDefault,
+                source: .firstAvailable,
                 statusMessage: nil
             )
         }
@@ -109,7 +110,7 @@ enum MicrophoneCaptureRouting {
         }
 
         switch resolution.source {
-        case .sessionOverride, .pinned:
+        case .sessionOverride, .pinned, .firstAvailable:
             if selectedDeviceID == systemDefaultDeviceID {
                 return nil
             }
