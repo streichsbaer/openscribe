@@ -120,6 +120,24 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(history[0].previewText, "polished transcript")
     }
 
+    func testLoadTranscriptTextReturnsFullPersistedTextWithoutPreviewTruncation() throws {
+        let layout = try makeTempLayout()
+        let manager = SessionManager(layout: layout)
+
+        var session = try manager.startSession(settings: .default, inputDeviceName: nil)
+        let fullTranscript = """
+        First line of a long transcript that should stay intact.
+        Second line stays on its own line instead of being normalized.
+        \(String(repeating: "x", count: 260))
+        """
+        try manager.writePolished(fullTranscript, for: &session)
+
+        let restored = manager.loadTranscriptText(for: session.paths.folderURL)
+
+        XCTAssertEqual(restored, fullTranscript)
+        XCTAssertTrue(manager.loadSessionHistory(limit: 1)[0].previewText.hasSuffix("..."))
+    }
+
     func testLoadSessionHistoryPageReportsHasMoreWhenLimitIsLowerThanTotal() throws {
         let layout = try makeTempLayout()
         let manager = SessionManager(layout: layout)

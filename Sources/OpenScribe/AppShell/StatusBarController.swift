@@ -135,15 +135,6 @@ final class StatusBarController: NSObject {
             settingsItem.isEnabled = true
             menu.addItem(settingsItem)
 
-            let setupAssistantItem = NSMenuItem(
-                title: "Setup Assistant",
-                action: #selector(openSetupAssistant),
-                keyEquivalent: ""
-            )
-            setupAssistantItem.target = self
-            setupAssistantItem.isEnabled = true
-            menu.addItem(setupAssistantItem)
-
             menu.addItem(.separator())
 
             let quitItem = NSMenuItem(

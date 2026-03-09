@@ -10,13 +10,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         statusBarController = StatusBarController(shell: shell)
+        let shouldAutoPresentSetupAssistant = shell.shouldAutoPresentSetupAssistantOnLaunch && !uiSmokeModeEnabled
 
-        if shell.shouldAutoPresentSetupAssistantOnLaunch {
+        if shouldAutoPresentSetupAssistant {
             statusBarController?.showSetupAssistantOnLaunch()
         }
 
         if shell.settings.transcriptionProviderID == "whispercpp",
-           !shell.shouldDeferDefaultModelDownloadForSetupAssistant {
+           !shell.shouldDeferDefaultModelDownloadForSetupAssistant,
+           !uiSmokeModeEnabled {
             shell.downloadDefaultModelIfNeeded()
         }
 

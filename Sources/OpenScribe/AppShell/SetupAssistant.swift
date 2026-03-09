@@ -32,8 +32,11 @@ struct SetupAssistantLocalModelOption: Identifiable, Equatable {
 }
 
 struct SetupAssistantChecklistContext: Equatable {
-    var permissionAuthorized: Bool
+    var accessibilityPermissionGranted: Bool
+    var autoPasteEnabled: Bool
     var hasSuccessfulRecording: Bool
+    var latestOutputAvailable: Bool
+    var testFieldContainsOutput: Bool
     var groqKeySaved: Bool
     var groqVerified: Bool
     var transcriptionProviderID: String
@@ -90,18 +93,32 @@ enum SetupAssistantChecklist {
         !hasSessionHistory && !doNotShowAgain
     }
 
+    static func sessionMatchesTrack(
+        sttProvider: String,
+        sttModel: String,
+        polishProvider: String,
+        polishModel: String,
+        track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> Bool {
+        switch track {
+        case .recommended:
+            return sttProvider == recommendedTranscriptionProviderID &&
+                sttModel == recommendedTranscriptionModel &&
+                polishProvider == recommendedPolishProviderID &&
+                polishModel == recommendedPolishModel
+        case .local:
+            return sttProvider == "whispercpp" &&
+                sttModel == selectedLocalModel &&
+                polishProvider == "disabled" &&
+                polishModel == "passthrough"
+        }
+    }
+
     private static func recommendedItems(
         context: SetupAssistantChecklistContext
     ) -> [SetupAssistantChecklistItem] {
         [
-            .init(
-                id: "recommended.microphone",
-                title: "Microphone permission granted",
-                detail: context.permissionAuthorized
-                    ? "OpenScribe can access your microphone."
-                    : "Grant microphone access before your first test recording.",
-                isComplete: context.permissionAuthorized
-            ),
             .init(
                 id: "recommended.keySaved",
                 title: "Groq API key saved",
@@ -143,12 +160,32 @@ enum SetupAssistantChecklist {
                     context.polishModel == recommendedPolishModel
             ),
             .init(
+                id: "recommended.accessibility",
+                title: "Accessibility permission granted",
+                detail: context.accessibilityPermissionGranted
+                    ? "OpenScribe can paste into your focused app."
+                    : "Grant Accessibility permission to support auto-paste.",
+                isComplete: context.accessibilityPermissionGranted
+            ),
+            .init(
+                id: "recommended.autopaste",
+                title: "Auto-paste enabled",
+                detail: context.autoPasteEnabled
+                    ? "Completed transcripts will paste into the focused app."
+                    : "Turn on auto-paste if you want a one-step dictation workflow.",
+                isComplete: context.autoPasteEnabled
+            ),
+            .init(
                 id: "recommended.recording",
-                title: "First recording completed",
-                detail: context.hasSuccessfulRecording
-                    ? "Your first transcript succeeded."
-                    : "Make one short test recording to confirm the full setup works.",
+                title: "Complete a test recording",
+                detail: "Keep the cursor in the test field below, then use the recording hotkey or the button in the assistant to start and stop recording.",
                 isComplete: context.hasSuccessfulRecording
+            ),
+            .init(
+                id: "recommended.pasteTest",
+                title: "Transcript appeared in the test field",
+                detail: "Keep the cursor in the test field below before you record. The latest transcript should appear there when recording finishes.",
+                isComplete: context.testFieldContainsOutput
             )
         ]
     }
@@ -157,14 +194,6 @@ enum SetupAssistantChecklist {
         context: SetupAssistantChecklistContext
     ) -> [SetupAssistantChecklistItem] {
         [
-            .init(
-                id: "local.microphone",
-                title: "Microphone permission granted",
-                detail: context.permissionAuthorized
-                    ? "OpenScribe can access your microphone."
-                    : "Grant microphone access before your first test recording.",
-                isComplete: context.permissionAuthorized
-            ),
             .init(
                 id: "local.setup",
                 title: "Local transcription is selected",
@@ -188,12 +217,32 @@ enum SetupAssistantChecklist {
                 isComplete: context.localModelInstalled
             ),
             .init(
+                id: "local.accessibility",
+                title: "Accessibility permission granted",
+                detail: context.accessibilityPermissionGranted
+                    ? "OpenScribe can paste into your focused app."
+                    : "Grant Accessibility permission to support auto-paste.",
+                isComplete: context.accessibilityPermissionGranted
+            ),
+            .init(
+                id: "local.autopaste",
+                title: "Auto-paste enabled",
+                detail: context.autoPasteEnabled
+                    ? "Completed transcripts will paste into the focused app."
+                    : "Turn on auto-paste if you want the local setup to paste automatically.",
+                isComplete: context.autoPasteEnabled
+            ),
+            .init(
                 id: "local.recording",
-                title: "First recording completed",
-                detail: context.hasSuccessfulRecording
-                    ? "Your first local transcript succeeded."
-                    : "Make one short test recording to confirm local transcription works.",
+                title: "Complete a test recording",
+                detail: "Keep the cursor in the test field below, then use the recording hotkey or the button in the assistant to start and stop recording.",
                 isComplete: context.hasSuccessfulRecording
+            ),
+            .init(
+                id: "local.pasteTest",
+                title: "Transcript appeared in the test field",
+                detail: "Keep the cursor in the test field below before you record. The latest transcript should appear there when recording finishes.",
+                isComplete: context.testFieldContainsOutput
             )
         ]
     }

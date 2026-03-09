@@ -307,10 +307,42 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func setupAssistantContext(selectedLocalModel: String) -> SetupAssistantChecklistContext {
-        SetupAssistantChecklistContext(
-            permissionAuthorized: permissionState == .authorized,
-            hasSuccessfulRecording: hasSuccessfulRecording,
+    func latestSetupAssistantOutputText(
+        for track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> String {
+        setupAssistantOutputText(
+            for: track,
+            selectedLocalModel: selectedLocalModel
+        )
+    }
+
+    func pasteLatestTranscript(
+        for track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) {
+        let candidate = setupAssistantOutputText(
+            for: track,
+            selectedLocalModel: selectedLocalModel
+        )
+        pasteTranscriptViaHotkey(candidate)
+    }
+
+    func setupAssistantContext(
+        track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> SetupAssistantChecklistContext {
+        let latestTrackOutput = setupAssistantOutputText(
+            for: track,
+            selectedLocalModel: selectedLocalModel
+        )
+
+        return SetupAssistantChecklistContext(
+            accessibilityPermissionGranted: accessibilityPermissionGranted,
+            autoPasteEnabled: autoPasteOnComplete,
+            hasSuccessfulRecording: !latestTrackOutput.isEmpty,
+            latestOutputAvailable: !latestTrackOutput.isEmpty,
+            testFieldContainsOutput: false,
             groqKeySaved: hasPersistedGroqKey,
             groqVerified: providerConnectivityStatus(for: "groq_polish").state == .verified,
             transcriptionProviderID: settings.transcriptionProviderID,
@@ -322,6 +354,24 @@ final class AppShell: ObservableObject {
             selectedLocalModel: selectedLocalModel,
             localModelInstalled: modelManager.isInstalled(modelID: selectedLocalModel)
         )
+    }
+
+    private func setupAssistantOutputText(
+        for track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> String {
+        if currentSessionMatchesSetupAssistantTrack(track, selectedLocalModel: selectedLocalModel) {
+            return latestPolishedCandidate()
+        }
+
+        guard let entry = latestMatchingSetupAssistantHistoryEntry(
+            for: track,
+            selectedLocalModel: selectedLocalModel
+        ) else {
+            return ""
+        }
+
+        return sessionManager.loadTranscriptText(for: entry.folderURL) ?? ""
     }
 
     func updateSettings(_ mutate: (inout AppSettings) -> Void) {
@@ -438,7 +488,7 @@ final class AppShell: ObservableObject {
     func copyLatestPolished() {
         let candidate = latestPolishedCandidate()
         guard !candidate.isEmpty else {
-            statusMessage = "No polished transcript available yet"
+            statusMessage = "No transcript available yet"
             return
         }
 
@@ -485,6 +535,10 @@ final class AppShell: ObservableObject {
         showPopoverHandler?()
     }
 
+    func showLivePopoverWindow() {
+        selectPopoverTab(.live, revealPopover: true)
+    }
+
     func openAccessibilityPrivacySettings() {
         openSystemSettings(path: "com.apple.preference.security?Privacy_Accessibility")
     }
@@ -501,6 +555,61 @@ final class AppShell: ObservableObject {
         permissionState = audioCapture.permissionState()
         applyMicrophoneSnapshot(microphoneCatalog.currentSnapshot())
         registerHotkeys()
+    }
+
+    private func currentSessionMatchesSetupAssistantTrack(
+        _ track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> Bool {
+        guard sessionState == .completed,
+              let currentSession else {
+            return false
+        }
+
+        return setupAssistantSessionMatchesTrack(
+            sttProvider: currentSession.metadata.sttProvider,
+            sttModel: currentSession.metadata.sttModel,
+            polishProvider: currentSession.metadata.polishProvider,
+            polishModel: currentSession.metadata.polishModel,
+            track: track,
+            selectedLocalModel: selectedLocalModel
+        )
+    }
+
+    private func latestMatchingSetupAssistantHistoryEntry(
+        for track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> SessionHistoryEntry? {
+        historySessions.first { entry in
+            entry.state == .completed &&
+                !entry.previewText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                setupAssistantSessionMatchesTrack(
+                    sttProvider: entry.sttProvider,
+                    sttModel: entry.sttModel,
+                    polishProvider: entry.polishProvider,
+                    polishModel: entry.polishModel,
+                    track: track,
+                    selectedLocalModel: selectedLocalModel
+                )
+        }
+    }
+
+    private func setupAssistantSessionMatchesTrack(
+        sttProvider: String,
+        sttModel: String,
+        polishProvider: String,
+        polishModel: String,
+        track: SetupAssistantTrack,
+        selectedLocalModel: String
+    ) -> Bool {
+        SetupAssistantChecklist.sessionMatchesTrack(
+            sttProvider: sttProvider,
+            sttModel: sttModel,
+            polishProvider: polishProvider,
+            polishModel: polishModel,
+            track: track,
+            selectedLocalModel: selectedLocalModel
+        )
     }
 
     func setSetupAssistantDoNotShowAgain(_ value: Bool) {
@@ -1632,12 +1741,15 @@ final class AppShell: ObservableObject {
     }
 
     private func pasteLatestPolishedViaHotkey() {
+        pasteTranscriptViaHotkey(latestPolishedCandidate())
+    }
+
+    private func pasteTranscriptViaHotkey(_ candidate: String) {
         guard AccessibilityInputInjector.isTrusted(promptIfNeeded: false) else {
             statusMessage = "Paste hotkey requires Accessibility permission for OpenScribe."
             return
         }
 
-        let candidate = latestPolishedCandidate()
         guard !candidate.isEmpty else {
             statusMessage = "No polished transcript available yet"
             return

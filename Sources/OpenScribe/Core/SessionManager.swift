@@ -160,6 +160,19 @@ final class SessionManager {
         return nil
     }
 
+    func loadTranscriptText(for sessionFolder: URL) -> String? {
+        let polishedURL = sessionFolder.appendingPathComponent("polished.md")
+        let rawURL = sessionFolder.appendingPathComponent("raw.txt")
+
+        if let polished = persistedTranscriptText(at: polishedURL), !polished.isEmpty {
+            return polished
+        }
+        if let raw = persistedTranscriptText(at: rawURL), !raw.isEmpty {
+            return raw
+        }
+        return nil
+    }
+
     func loadSessionHistory(limit: Int) -> [SessionHistoryEntry] {
         loadSessionHistoryPage(limit: limit).entries
     }
@@ -298,18 +311,31 @@ final class SessionManager {
         let polishedURL = sessionFolder.appendingPathComponent("polished.md")
         let rawURL = sessionFolder.appendingPathComponent("raw.txt")
 
-        if let polished = fileText(at: polishedURL), !polished.isEmpty {
+        if let polished = previewText(at: polishedURL), !polished.isEmpty {
             return polished
         }
-        if let raw = fileText(at: rawURL), !raw.isEmpty {
+        if let raw = previewText(at: rawURL), !raw.isEmpty {
             return raw
         }
         return ""
     }
 
-    private func fileText(at url: URL) -> String? {
+    private func persistedTranscriptText(at url: URL) -> String? {
         guard fileManager.fileExists(atPath: url.path),
               let value = try? String(contentsOf: url, encoding: .utf8) else {
+            return nil
+        }
+
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        return trimmed
+    }
+
+    private func previewText(at url: URL) -> String? {
+        guard let value = persistedTranscriptText(at: url) else {
             return nil
         }
 
@@ -317,9 +343,6 @@ final class SessionManager {
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else {
-            return nil
-        }
 
         let maxPreviewLength = 220
         if normalized.count <= maxPreviewLength {

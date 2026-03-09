@@ -344,27 +344,6 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         settingsPage(for: .general) {
-            settingsCard("SETUP") {
-                Text("Use the setup assistant to validate the best Groq path or a local-only path with one short checklist.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                HStack(spacing: 8) {
-                    Button("Open setup assistant") {
-                        setupAssistantState.selectedTrack = shell.setupAssistantPreferredTrack
-                        setupAssistantState.isPresented = true
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    if shell.shouldAutoPresentSetupAssistantOnLaunch {
-                        Button("Do not show on launch") {
-                            shell.setSetupAssistantDoNotShowAgain(true)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-            }
-
             settingsCard("USAGE") {
                 settingRow("Appearance") {
                     Picker("", selection: Binding(
@@ -482,6 +461,27 @@ struct SettingsView: View {
                         shell.refreshPermissionState()
                     }
                     .buttonStyle(.bordered)
+                }
+            }
+
+            settingsCard("SETUP") {
+                Text("Use the setup assistant to validate the best Groq path or a local-only path with one short checklist.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    Button("Open setup assistant") {
+                        setupAssistantState.selectedTrack = shell.setupAssistantPreferredTrack
+                        setupAssistantState.isPresented = true
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    if shell.shouldAutoPresentSetupAssistantOnLaunch {
+                        Button("Do not show on launch") {
+                            shell.setSetupAssistantDoNotShowAgain(true)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
             }
         }

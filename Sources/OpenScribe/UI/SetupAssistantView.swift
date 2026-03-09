@@ -1,12 +1,36 @@
 import SwiftUI
 
+private enum SetupAssistantFocusTarget: Hashable {
+    case pasteTarget
+}
+
 struct SetupAssistantView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var shell: AppShell
     @EnvironmentObject private var state: SetupAssistantWindowState
+    @State private var pasteTargetText = ""
+    @FocusState private var focusedField: SetupAssistantFocusTarget?
+
+    private var expectedOutputText: String {
+        shell.latestSetupAssistantOutputText(
+            for: state.selectedTrack,
+            selectedLocalModel: state.selectedLocalModel
+        )
+    }
+
+    private var testFieldContainsOutput: Bool {
+        let expected = expectedOutputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let actual = pasteTargetText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !expected.isEmpty && actual == expected
+    }
 
     private var checklistContext: SetupAssistantChecklistContext {
-        shell.setupAssistantContext(selectedLocalModel: state.selectedLocalModel)
+        var context = shell.setupAssistantContext(
+            track: state.selectedTrack,
+            selectedLocalModel: state.selectedLocalModel
+        )
+        context.testFieldContainsOutput = testFieldContainsOutput
+        return context
     }
 
     private var checklistItems: [SetupAssistantChecklistItem] {
@@ -26,8 +50,36 @@ struct SetupAssistantView: View {
         shell.groqKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var canPreparePasteTarget: Bool {
+        switch state.selectedTrack {
+        case .recommended:
+            return checklistContext.groqKeySaved &&
+                checklistContext.groqVerified &&
+                checklistContext.transcriptionProviderID == SetupAssistantChecklist.recommendedTranscriptionProviderID &&
+                checklistContext.transcriptionModel == SetupAssistantChecklist.recommendedTranscriptionModel &&
+                checklistContext.languageMode == "auto" &&
+                checklistContext.polishEnabled &&
+                checklistContext.polishProviderID == SetupAssistantChecklist.recommendedPolishProviderID &&
+                checklistContext.polishModel == SetupAssistantChecklist.recommendedPolishModel &&
+                checklistContext.accessibilityPermissionGranted &&
+                checklistContext.autoPasteEnabled
+        case .local:
+            return checklistContext.transcriptionProviderID == "whispercpp" &&
+                checklistContext.transcriptionModel == state.selectedLocalModel &&
+                checklistContext.languageMode == "auto" &&
+                !checklistContext.polishEnabled &&
+                checklistContext.localModelInstalled &&
+                checklistContext.accessibilityPermissionGranted &&
+                checklistContext.autoPasteEnabled
+        }
+    }
+
     private var recordingButtonTitle: String {
-        shell.sessionState == .recording ? "Stop test recording" : "Start test recording"
+        shell.sessionState == .recording ? "Stop recording" : "Start recording"
+    }
+
+    private var recordingHotkeyDisplay: String {
+        HotkeyDisplay.string(for: shell.settings.startStopHotkey)
     }
 
     var body: some View {
@@ -47,22 +99,27 @@ struct SetupAssistantView: View {
             }
             .pickerStyle(.segmented)
 
-            Group {
-                switch state.selectedTrack {
-                case .recommended:
-                    recommendedSetupCard
-                case .local:
-                    localSetupCard
-                }
-            }
-
+            trackDetailsCard
             checklistCard
-
             footer
         }
         .padding(22)
-        .frame(width: 720)
+        .frame(width: 780)
         .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            focusPasteTargetIfNeeded()
+        }
+        .onChange(of: canPreparePasteTarget) { _, _ in
+            focusPasteTargetIfNeeded()
+        }
+        .onChange(of: state.selectedTrack) { _, _ in
+            resetPasteTarget()
+            focusPasteTargetIfNeeded()
+        }
+        .onChange(of: state.selectedLocalModel) { _, _ in
+            resetPasteTarget()
+            focusPasteTargetIfNeeded()
+        }
     }
 
     private var header: some View {
@@ -79,101 +136,38 @@ struct SetupAssistantView: View {
                     .font(.caption)
                     .foregroundStyle(.green)
             } else {
-                Text("Follow the checklist until every item is complete, then make one short test recording.")
+                Text("Follow the checklist in order. Each row includes the action that completes it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
     }
 
-    private var recommendedSetupCard: some View {
-        setupCard("GROQ KEY") {
-            SecureField("Groq API key", text: $shell.groqKeyInput)
+    private var trackDetailsCard: some View {
+        setupCard(state.selectedTrack == .recommended ? "GROQ KEY" : "LOCAL MODEL") {
+            switch state.selectedTrack {
+            case .recommended:
+                SecureField("Groq API key", text: $shell.groqKeyInput)
 
-            Text("Create a Groq key, paste it here, then save and verify it inside OpenScribe.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                Link("Create Groq key", destination: URL(string: "https://console.groq.com/keys")!)
-                    .buttonStyle(.link)
-
-                Spacer()
-
-                Button("Save key") {
-                    shell.saveAPIKeys()
-                }
-                .buttonStyle(.bordered)
-                .disabled(isGroqInputEmpty)
-
-                Button("Save and verify") {
-                    shell.saveAPIKeysAndVerifyProvider(for: "groq_polish")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isGroqInputEmpty)
-            }
-
-            HStack(spacing: 8) {
-                Button("Apply recommended setup") {
-                    shell.applyRecommendedHostedSetup()
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button(recordingButtonTitle) {
-                    shell.toggleRecording()
-                }
-                .buttonStyle(.bordered)
-
-                if shell.permissionState != .authorized {
-                    Button("Open Microphone Settings") {
-                        shell.openMicrophonePrivacySettings()
+                Text("Paste your Groq key here, then use the checklist rows to save and verify it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .local:
+                Picker("Model", selection: $state.selectedLocalModel) {
+                    ForEach(SetupAssistantChecklist.localModelOptions) { option in
+                        Text(option.title).tag(option.id)
                     }
-                    .buttonStyle(.bordered)
                 }
-            }
-        }
-    }
-
-    private var localSetupCard: some View {
-        setupCard("LOCAL MODEL") {
-            Picker("Model", selection: $state.selectedLocalModel) {
-                ForEach(SetupAssistantChecklist.localModelOptions) { option in
-                    Text(option.title).tag(option.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: state.selectedLocalModel) { _, newValue in
-                if SetupAssistantChecklist.localModelOptions.contains(where: { $0.id == newValue }) {
-                    shell.setupAssistantPreferredTrack = .local
-                }
-            }
-
-            Text(localModelOption.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 8) {
-                Button("Apply local setup") {
-                    shell.applyLocalOnlySetup(modelID: state.selectedLocalModel)
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("Download model") {
-                    shell.installWhisperModel(state.selectedLocalModel)
-                }
-                .buttonStyle(.bordered)
-
-                Button(recordingButtonTitle) {
-                    shell.toggleRecording()
-                }
-                .buttonStyle(.bordered)
-
-                if shell.permissionState != .authorized {
-                    Button("Open Microphone Settings") {
-                        shell.openMicrophonePrivacySettings()
+                .pickerStyle(.menu)
+                .onChange(of: state.selectedLocalModel) { _, newValue in
+                    if SetupAssistantChecklist.localModelOptions.contains(where: { $0.id == newValue }) {
+                        shell.setupAssistantPreferredTrack = .local
                     }
-                    .buttonStyle(.bordered)
                 }
+
+                Text(localModelOption.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -181,24 +175,8 @@ struct SetupAssistantView: View {
     private var checklistCard: some View {
         setupCard("CHECKLIST") {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(checklistItems) { item in
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(item.isComplete ? Color.green : Color.secondary)
-                            .font(.system(size: 16, weight: .semibold))
-                            .padding(.top, 2)
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(item.title)
-                                .font(.subheadline.weight(.semibold))
-
-                            Text(item.detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer(minLength: 0)
-                    }
+                ForEach(Array(checklistItems.enumerated()), id: \.element.id) { index, item in
+                    checklistRow(item, isUnlocked: isUnlocked(itemAt: index))
                 }
             }
 
@@ -207,6 +185,203 @@ struct SetupAssistantView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func isUnlocked(itemAt index: Int) -> Bool {
+        let item = checklistItems[index]
+        if item.id.hasSuffix("pasteTest") {
+            return canPreparePasteTarget
+        }
+        guard index > 0 else {
+            return true
+        }
+        return checklistItems[..<index].allSatisfy(\.isComplete)
+    }
+
+    @ViewBuilder
+    private func checklistRow(_ item: SetupAssistantChecklistItem, isUnlocked: Bool) -> some View {
+        Group {
+            if item.id.hasSuffix("pasteTest") {
+                VStack(alignment: .leading, spacing: 10) {
+                    checklistSummary(item, isUnlocked: isUnlocked)
+                    checklistActions(for: item, isUnlocked: isUnlocked)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 14) {
+                        checklistSummary(item, isUnlocked: isUnlocked)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        checklistActions(for: item, isUnlocked: isUnlocked)
+                            .frame(width: 300, alignment: .trailing)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        checklistSummary(item, isUnlocked: isUnlocked)
+                        checklistActions(for: item, isUnlocked: isUnlocked)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 2)
+        .opacity(isUnlocked || item.isComplete ? 1 : 0.65)
+    }
+
+    private func checklistSummary(_ item: SetupAssistantChecklistItem, isUnlocked: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: item.isComplete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(item.isComplete ? Color.green : (isUnlocked ? Color.secondary : Color.secondary.opacity(0.55)))
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.subheadline.weight(.semibold))
+
+                Text(item.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func checklistActions(for item: SetupAssistantChecklistItem, isUnlocked: Bool) -> some View {
+        switch item.id {
+        case "recommended.keySaved":
+            actionGroup {
+                Link("Create Groq key", destination: URL(string: "https://console.groq.com/keys")!)
+                    .buttonStyle(.link)
+
+                Button("Save key") {
+                    shell.saveAPIKeys()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!isUnlocked || isGroqInputEmpty)
+            }
+        case "recommended.keyVerified":
+            actionGroup {
+                Button("Verify") {
+                    shell.verifyProvider(for: "groq_polish")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isUnlocked || isGroqInputEmpty)
+
+                Button("Save and verify") {
+                    shell.saveAPIKeysAndVerifyProvider(for: "groq_polish")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!isUnlocked || isGroqInputEmpty)
+            }
+        case "recommended.transcribe", "recommended.polish":
+            actionGroup {
+                Button("Apply recommended setup") {
+                    shell.applyRecommendedHostedSetup()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isUnlocked)
+            }
+        case "local.setup":
+            actionGroup {
+                Button("Apply local setup") {
+                    shell.applyLocalOnlySetup(modelID: state.selectedLocalModel)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isUnlocked)
+            }
+        case "local.model":
+            actionGroup {
+                Button("Download model") {
+                    shell.installWhisperModel(state.selectedLocalModel)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isUnlocked)
+            }
+        case "recommended.recording", "local.recording":
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Keep the cursor in the test field, then use \(recordingHotkeyDisplay) or the button here to start and stop recording.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                actionGroup {
+                    Button(recordingButtonTitle) {
+                        preparePasteTargetForRecording()
+                        shell.toggleRecording()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isUnlocked)
+                }
+            }
+        case "recommended.accessibility", "local.accessibility":
+            actionGroup {
+                Button("Open Accessibility Settings") {
+                    shell.openAccessibilityPrivacySettings()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!isUnlocked)
+
+                Button("Refresh") {
+                    shell.refreshPermissionState()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!isUnlocked)
+            }
+        case "recommended.autopaste", "local.autopaste":
+            Toggle("Auto-paste", isOn: $shell.autoPasteOnComplete)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .disabled(!isUnlocked)
+        case "recommended.pasteTest", "local.pasteTest":
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Keep the cursor in this field before you start recording. OpenScribe compares it with the latest transcript from the app, not the clipboard.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                actionGroup {
+                    Button("Focus test field") {
+                        focusedField = .pasteTarget
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!isUnlocked)
+
+                    Button("Paste latest transcript") {
+                        focusedField = .pasteTarget
+                        shell.pasteLatestTranscript(
+                            for: state.selectedTrack,
+                            selectedLocalModel: state.selectedLocalModel
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isUnlocked || expectedOutputText.isEmpty)
+
+                    Button("Clear") {
+                        pasteTargetText = ""
+                        focusedField = .pasteTarget
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!isUnlocked)
+                }
+
+                TextEditor(text: $pasteTargetText)
+                    .font(.system(size: 12))
+                    .frame(minHeight: 92)
+                    .padding(6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(NSColor.textBackgroundColor))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    )
+                    .focused($focusedField, equals: .pasteTarget)
+                    .disabled(!isUnlocked)
+            }
+        default:
+            EmptyView()
         }
     }
 
@@ -254,5 +429,39 @@ struct SetupAssistantView: View {
                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             )
         }
+    }
+
+    private func actionGroup<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                content()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                content()
+            }
+        }
+    }
+
+    private func preparePasteTargetForRecording() {
+        focusPasteTarget()
+    }
+
+    private func focusPasteTargetIfNeeded() {
+        guard canPreparePasteTarget && !testFieldContainsOutput else {
+            return
+        }
+        focusPasteTarget()
+    }
+
+    private func focusPasteTarget() {
+        DispatchQueue.main.async {
+            focusedField = .pasteTarget
+        }
+    }
+
+    private func resetPasteTarget() {
+        pasteTargetText = ""
+        focusedField = nil
     }
 }
