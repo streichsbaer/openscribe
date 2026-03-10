@@ -20,6 +20,11 @@ Outputs:
 - `dist/OpenScribe-<version>/OpenScribe.app`
 - `dist/OpenScribe-<version>.zip`
 
+Notes:
+
+- Release builds bundle a pinned Apple Silicon `whisper-cli` inside `OpenScribe.app`.
+- Local whisper models are still downloaded on demand after install.
+
 ## Tag and publish
 
 ```bash

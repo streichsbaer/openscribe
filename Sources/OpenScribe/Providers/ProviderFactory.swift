@@ -68,16 +68,43 @@ final class ProviderFactory {
     }
 
     private func resolveWhisperBinary() throws -> URL {
-        let fileManager = FileManager.default
-        let candidates = [
-            "/opt/homebrew/bin/whisper-cli",
-            "/usr/local/bin/whisper-cli",
-            "/opt/homebrew/bin/whisper-cpp",
-            "/usr/local/bin/whisper-cpp",
-            Bundle.main.resourceURL?.appendingPathComponent("bin/whisper-cli").path
-        ].compactMap { $0 }
+        try WhisperBinaryResolver.resolve()
+    }
+}
 
-        for path in candidates where fileManager.isExecutableFile(atPath: path) {
+enum WhisperBinaryResolver {
+    static let bundledRelativePath = "bin/whisper-cli"
+
+    private static let localCandidates = [
+        "/opt/homebrew/bin/whisper-cli",
+        "/usr/local/bin/whisper-cli",
+        "/opt/homebrew/bin/whisper-cpp",
+        "/usr/local/bin/whisper-cpp"
+    ]
+
+    static func resolve(
+        fileManager: FileManager = .default,
+        bundleResourceURL: URL? = Bundle.main.resourceURL,
+        bundleURL: URL = Bundle.main.bundleURL,
+        localCandidatePaths: [String] = localCandidates
+    ) throws -> URL {
+        let bundledURL = bundleResourceURL?.appendingPathComponent(bundledRelativePath)
+        let isAppBundle = bundleURL.pathExtension == "app"
+
+        if isAppBundle {
+            if let bundledURL, fileManager.isExecutableFile(atPath: bundledURL.path) {
+                return bundledURL
+            }
+            throw ProviderError.unsupported(
+                "Bundled whisper.cpp binary not found in the app bundle."
+            )
+        }
+
+        if let bundledURL, fileManager.isExecutableFile(atPath: bundledURL.path) {
+            return bundledURL
+        }
+
+        for path in localCandidatePaths where fileManager.isExecutableFile(atPath: path) {
             return URL(fileURLWithPath: path)
         }
 

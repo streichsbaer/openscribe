@@ -44,14 +44,24 @@ fi
 RELEASE_DIR="$OUT_DIR/$APP_NAME-$VERSION"
 APP_DIR="$RELEASE_DIR/$APP_NAME.app"
 ZIP_PATH="$OUT_DIR/$APP_NAME-$VERSION.zip"
+WHISPER_STAGE_DIR="$RELEASE_DIR/whisper.cpp"
 
 rm -rf "$RELEASE_DIR" "$ZIP_PATH"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+mkdir -p \
+  "$APP_DIR/Contents/MacOS" \
+  "$APP_DIR/Contents/Resources" \
+  "$APP_DIR/Contents/Resources/bin" \
+  "$APP_DIR/Contents/Resources/licenses"
+
+zsh "$ROOT_DIR/Scripts/build_bundled_whisper_cli.sh" "$WHISPER_STAGE_DIR"
 
 cp "$PLIST_PATH" "$APP_DIR/Contents/Info.plist"
 cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp -R "$RESOURCE_BUNDLE" "$APP_DIR/Contents/Resources/"
 cp "$ICON_PATH" "$APP_DIR/Contents/Resources/AppIcon.icns"
+cp "$WHISPER_STAGE_DIR/whisper-cli" "$APP_DIR/Contents/Resources/bin/whisper-cli"
+cp "$WHISPER_STAGE_DIR"/*.dylib "$APP_DIR/Contents/Resources/bin/"
+cp "$WHISPER_STAGE_DIR/LICENSE.whisper.cpp.txt" "$APP_DIR/Contents/Resources/licenses/whisper.cpp-LICENSE.txt"
 
 codesign --force --deep --sign - "$APP_DIR"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"

@@ -5,6 +5,7 @@
 - Apple Silicon Mac.
 - Xcode and command line tools.
 - Swift toolchain compatible with `Package.swift`.
+- If you want local `whisper.cpp` transcription while running from source, install `whisper-cli` separately. Release builds bundle it automatically.
 
 ## Build and run
 
