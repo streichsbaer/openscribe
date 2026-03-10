@@ -4,17 +4,23 @@ OpenScribe is a native macOS menu bar dictation app for fast speech-to-text with
 
 ## Start Here
 
+- Getting Started: <https://openscribe.dev/guides/getting-started/>
 - Docs site: <https://openscribe.dev/>
 - Product spec: <https://openscribe.dev/product/spec/>
 - Roadmap: <https://openscribe.dev/product/roadmap/>
 - Open issues: <https://github.com/streichsbaer/openscribe/issues>
 
-## Quick Start
+## Compatibility
+
+- Apple Silicon Mac
+- macOS 15 Sequoia or later
+
+## Build from Source
 
 Prerequisites:
 
-- Apple Silicon Mac
 - Xcode and command line tools
+- Swift toolchain compatible with `Package.swift`
 
 Build and run:
 
@@ -30,45 +36,10 @@ First-run checks:
 3. Confirm text appears in the Live tab.
 4. Confirm a session folder is created under `~/Library/Application Support/OpenScribe`.
 
-## What OpenScribe Does
+More setup details:
 
-- Global hotkey recording flow.
-- Local and API transcription providers.
-- Optional polish step with configurable rules.
-- Live, History, and Stats popover tabs.
-- Session artifacts for replay and traceability.
-- Copy and paste hotkeys for fast output handoff.
-
-## Learn More
-
-- Product overview: [site-docs/product/index.md](site-docs/product/index.md)
-- Guides: [site-docs/guides/](site-docs/guides)
-- UI reference: [site-docs/reference/ui-reference.md](site-docs/reference/ui-reference.md)
-- Testing: [site-docs/ops/testing.md](site-docs/ops/testing.md)
-- Release flow: [site-docs/ops/release.md](site-docs/ops/release.md)
-- Reference contracts: [site-docs/reference/](site-docs/reference)
-
-## Docs Development
-
-```bash
-uv sync --frozen --only-group docs --no-install-project
-uv run mkdocs build --strict
-uv run mkdocs serve --dev-addr 127.0.0.1:8000
-```
-
-Local preview URL:
-
-- `http://127.0.0.1:8000/`
-
-Post-push docs verification:
-
-- [docs/ops/docs-verification.md](docs/ops/docs-verification.md)
-
-## Contributing and Tracking
-
-- Use GitHub Issues for features, bugs, and docs work.
-- Tracking workflow: [site-docs/ops/issue-tracking.md](site-docs/ops/issue-tracking.md)
-- Label taxonomy: [site-docs/ops/label-conventions.md](site-docs/ops/label-conventions.md)
+- Getting Started: <https://openscribe.dev/guides/getting-started/>
+- Development Setup: [site-docs/reference/development-setup.md](site-docs/reference/development-setup.md)
 
 ## License
 

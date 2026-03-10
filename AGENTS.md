@@ -70,6 +70,7 @@
 
 - For app behavior changes or test requests, load `site-docs/ops/testing.md` before running checks.
 - For docs content, docs styling, docs workflow, or GitHub Pages verification, load `docs/ops/docs-verification.md` and `.agents/skills/docs-visual-review/SKILL.md`.
+- For app UI, docs layout, or docs image changes, verify both a compact laptop-sized viewport and a larger viewport. Confirm key actions stay visible or reachable by scrolling, and confirm required image detail is not cropped away.
 - For Cloudflare DNS, edge security headers, HTTPS settings, or domain routing tasks, load `docs/ops/cloudflare.md` before making changes.
 - For GitHub issue triage or issue updates, load `site-docs/ops/issue-tracking.md` and `site-docs/ops/label-conventions.md` before running issue commands.
 - For post-push docs verification, run `$docs-visual-review --remote-url https://openscribe.dev/ --out artifacts/docs-visual/remote-latest` and report `report.md` plus screenshot paths.

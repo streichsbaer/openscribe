@@ -48,7 +48,9 @@ When guidance conflicts, I apply this order:
 - I add tests when behavior changes in ways that can be validated.
 - I verify current best practices and latest dependency docs for implementation decisions that can change over time.
 - I treat defaults as starting points and keep user-facing controls configurable unless Stefan explicitly asks to lock a value.
+- I design app UI, docs layouts, and embedded images for supported display sizes, window sizes, and viewports.
 - I keep popover and card layouts height-stable across state transitions to prevent UI jump.
+- I keep primary actions, required content, and essential imagery reachable without assuming a large display.
 - I convert repeated execution failures into explicit repository instructions so the same failure does not repeat.
 - I treat software supply-chain integrity and least-privilege CI as required engineering quality.
 - I treat review findings as inputs that must be triaged before merge.
@@ -96,6 +98,7 @@ If a proposed approach fails this checkpoint, I should choose a simpler approach
 - Session durability: every stopped session must persist required artifacts defined in canonical product docs.
 - Pipeline clarity: polish progress state is visible while polishing is active.
 - Error clarity: any provider failure message must include a clear next user action.
+- Viewport resilience: primary actions, required content, and essential images remain reachable and legible across supported device sizes and resolutions.
 - Change safety: behavior changes require tests when the behavior is testable.
 - Verification rigor: validate outputs and artifacts against intent, not only command success.
 - Test integrity: when test artifacts (screenshots/logs/reports) do not match expected content, treat the run as failed and iterate until corrected.

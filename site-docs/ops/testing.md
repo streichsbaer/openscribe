@@ -32,6 +32,17 @@ Notes:
 - Settings screenshots are the docs refresh candidates and should come from the built-in Retina display when available in both light and dark appearances.
 - Popover smoke screenshots are regression artifacts only. Published docs reuse curated assets in `site-docs/images/ui/`.
 
+## UI layout checks
+
+For app UI changes, verify both a compact laptop-sized window and a larger window on supported hardware.
+
+Pass criteria:
+
+- Primary actions stay visible or are reachable by scrolling.
+- Required content and status text remain visible without clipped controls.
+- No critical panel or sheet assumes an external display or oversized resolution.
+- Images and screenshots shown in the app remain legible and do not crop required detail.
+
 Popover parity artifacts:
 
 - `openscribe-window-click-history.png`
@@ -54,3 +65,4 @@ zsh Scripts/generate_audio_fixtures.sh
 3. Record and stop once.
 4. Confirm `audio.m4a`, `session.json`, `raw.txt`, and `polished.md` exist.
 5. Confirm copy latest works.
+6. For UI changes, confirm the changed surface still works in a compact laptop-sized window and a larger window.
