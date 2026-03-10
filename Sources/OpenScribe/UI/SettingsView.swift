@@ -80,7 +80,7 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     var minHeight: CGFloat {
         switch self {
         case .general:
-            return 580
+            return 620
         case .transcribe:
             return 600
         case .polish:
@@ -90,7 +90,7 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         case .hotkeys:
             return 620
         case .rules:
-            return 760
+            return 620
         case .data:
             return 540
         case .about:
@@ -101,7 +101,7 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     var maxHeight: CGFloat {
         switch self {
         case .general:
-            return 700
+            return 760
         case .transcribe:
             return 760
         case .polish:
@@ -111,7 +111,7 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         case .hotkeys:
             return 800
         case .rules:
-            return 860
+            return 760
         case .data:
             return 700
         case .about:
@@ -129,6 +129,7 @@ struct SettingsView: View {
     @State private var measuredPageHeights: [SettingsTab: CGFloat] = [:]
     @State private var pendingLocalModelAction: LocalModelAction?
     @State private var showDeleteAppSupportConfirmation = false
+    @State private var showRulesSavedFeedback = false
     @State private var sttModelFilter = ""
     @State private var polishModelFilter = ""
     @State private var transcriptionInstructionDraft = ""
@@ -140,8 +141,11 @@ struct SettingsView: View {
     private let compactControlMaxWidth: CGFloat = 320
     private let wideControlMaxWidth: CGFloat = 460
     private let settingsWindowChromeHeight: CGFloat = 104
+    private let rulesActionRowHeight: CGFloat = 32
+    private let rulesEditorMinimumHeight: CGFloat = 220
     private let transcriptionDefaultInstruction = "No instruction set."
     private let polishDefaultInstruction = "No instruction set."
+    private let rulesSavedFeedbackDurationNs: UInt64 = 1_500_000_000
 
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
@@ -859,33 +863,53 @@ struct SettingsView: View {
     }
 
     private var rulesTab: some View {
-        settingsPage(for: .rules) {
-            settingsCard("RULES") {
-                TextEditor(text: $shell.rulesDraft)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 260)
-                    .padding(8)
-                    .background(Color(NSColor.textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+        VStack(alignment: .leading, spacing: 18) {
+            settingsCard("RULES", fillsHeight: true) {
+                VStack(alignment: .leading, spacing: 12) {
+                    TextEditor(text: $shell.rulesDraft)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: rulesEditorMinimumHeight, maxHeight: .infinity)
+                        .padding(8)
+                        .background(Color(NSColor.textBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                HStack(spacing: 8) {
-                    Button("Save") {
-                        shell.saveRulesDraft()
-                    }
-                    .buttonStyle(.borderedProminent)
+                    HStack(spacing: 8) {
+                        Button("Save") {
+                            if shell.saveRulesDraft() {
+                                showTransientRulesSavedFeedback()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
 
-                    Button("Revert") {
-                        shell.reloadRulesDraft()
-                    }
-                    .buttonStyle(.bordered)
+                        Button("Revert") {
+                            shell.reloadRulesDraft()
+                            showRulesSavedFeedback = false
+                        }
+                        .buttonStyle(.bordered)
 
-                    Button("Open in external editor") {
-                        shell.rulesStore.openInExternalEditor()
+                        Button("Open in external editor") {
+                            shell.rulesStore.openInExternalEditor()
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer(minLength: 0)
+
+                        if showRulesSavedFeedback {
+                            Text("Saved")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.green)
+                                .transition(.opacity)
+                        }
                     }
-                    .buttonStyle(.bordered)
+                    .frame(height: rulesActionRowHeight)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var dataTab: some View {
@@ -981,21 +1005,6 @@ struct SettingsView: View {
                     Text(appBuild)
                         .foregroundStyle(.secondary)
                 }
-
-                settingRow("Current STT provider") {
-                    Text(shell.settings.transcriptionProviderID)
-                        .foregroundStyle(.secondary)
-                }
-
-                settingRow("Current polish provider") {
-                    Text(shell.settings.polishProviderID)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            settingsCard("CURRENT PURPOSE") {
-                Text("Reliable dictation capture with durable session artifacts and clear two-step transcript processing.")
-                    .foregroundStyle(.secondary)
             }
 
             settingsCard("ABOUT THE AUTHOR") {
@@ -1042,7 +1051,7 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .background(
                 GeometryReader { geometry in
                     Color.clear
@@ -1055,7 +1064,11 @@ struct SettingsView: View {
         }
     }
 
-    private func settingsCard<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func settingsCard<Content: View>(
+        _ title: String,
+        fillsHeight: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption2.weight(.semibold))
@@ -1067,7 +1080,11 @@ struct SettingsView: View {
                 content()
             }
             .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: fillsHeight ? .infinity : nil,
+                alignment: .topLeading
+            )
             .background(
                 RoundedRectangle(cornerRadius: 11)
                     .fill(Color(NSColor.controlBackgroundColor))
@@ -1077,6 +1094,11 @@ struct SettingsView: View {
                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             )
         }
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: fillsHeight ? .infinity : nil,
+            alignment: .topLeading
+        )
     }
 
     private func settingRow<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
@@ -1215,6 +1237,14 @@ struct SettingsView: View {
         }
         if tab == .polish, focusedInstructionEditor == .polish {
             focusedInstructionEditor = nil
+        }
+    }
+
+    private func showTransientRulesSavedFeedback() {
+        showRulesSavedFeedback = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: rulesSavedFeedbackDurationNs)
+            showRulesSavedFeedback = false
         }
     }
 

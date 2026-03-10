@@ -22,7 +22,7 @@ final class SetupAssistantChecklistTests: XCTestCase {
         )
 
         XCTAssertTrue(SetupAssistantChecklist.isComplete(for: .recommended, context: context))
-        XCTAssertEqual(SetupAssistantChecklist.items(for: .recommended, context: context).count, 8)
+        XCTAssertEqual(SetupAssistantChecklist.items(for: .recommended, context: context).count, 7)
     }
 
     func testRecommendedSetupStaysIncompleteWithoutVerifiedGroqKey() {
@@ -76,8 +76,7 @@ final class SetupAssistantChecklistTests: XCTestCase {
             [
                 "recommended.keySaved",
                 "recommended.keyVerified",
-                "recommended.transcribe",
-                "recommended.polish",
+                "recommended.setup",
                 "recommended.accessibility",
                 "recommended.autopaste",
                 "recommended.recording",

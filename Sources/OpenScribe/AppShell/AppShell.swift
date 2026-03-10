@@ -1057,13 +1057,16 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func saveRulesDraft() {
+    @discardableResult
+    func saveRulesDraft() -> Bool {
         do {
             try rulesStore.save(rulesDraft)
             statusMessage = "Rules saved"
+            return true
         } catch {
             lastError = error.localizedDescription
             statusMessage = "Failed to save rules"
+            return false
         }
     }
 

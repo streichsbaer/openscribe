@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private enum SetupAssistantFocusTarget: Hashable {
@@ -5,6 +6,12 @@ private enum SetupAssistantFocusTarget: Hashable {
 }
 
 struct SetupAssistantView: View {
+    private static let contentWidth: CGFloat = 780
+    private static let minSheetHeight: CGFloat = 440
+    private static let preferredSheetHeight: CGFloat = 680
+    private static let bottomSpacing: CGFloat = 20
+    private static let pasteFieldHeight: CGFloat = 56
+
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var shell: AppShell
     @EnvironmentObject private var state: SetupAssistantWindowState
@@ -82,29 +89,46 @@ struct SetupAssistantView: View {
         HotkeyDisplay.string(for: shell.settings.startStopHotkey)
     }
 
+    private var maxSheetHeight: CGFloat {
+        let visibleHeight = NSScreen.main?.visibleFrame.height ?? Self.preferredSheetHeight
+        return max(Self.minSheetHeight, min(Self.preferredSheetHeight, visibleHeight - 140))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            header
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    header
 
-            Picker("Track", selection: Binding(
-                get: { state.selectedTrack },
-                set: { newValue in
-                    state.selectedTrack = newValue
-                    shell.setupAssistantPreferredTrack = newValue
+                    Picker("Track", selection: Binding(
+                        get: { state.selectedTrack },
+                        set: { newValue in
+                            state.selectedTrack = newValue
+                            shell.setupAssistantPreferredTrack = newValue
+                        }
+                    )) {
+                        ForEach(SetupAssistantTrack.allCases) { track in
+                            Text(track.title).tag(track)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    trackDetailsCard
+                    checklistCard
                 }
-            )) {
-                ForEach(SetupAssistantTrack.allCases) { track in
-                    Text(track.title).tag(track)
-                }
+                .padding(22)
+                .padding(.bottom, Self.bottomSpacing)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(.segmented)
 
-            trackDetailsCard
-            checklistCard
+            Divider()
+
             footer
+                .padding(.horizontal, 22)
+                .padding(.vertical, 16)
         }
-        .padding(22)
-        .frame(width: 780)
+        .frame(width: Self.contentWidth)
+        .frame(minHeight: Self.minSheetHeight, maxHeight: maxSheetHeight)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             focusPasteTargetIfNeeded()
@@ -276,9 +300,9 @@ struct SetupAssistantView: View {
                 .buttonStyle(.bordered)
                 .disabled(!isUnlocked || isGroqInputEmpty)
             }
-        case "recommended.transcribe", "recommended.polish":
+        case "recommended.setup":
             actionGroup {
-                Button("Apply recommended setup") {
+                Button("Set recommended setup") {
                     shell.applyRecommendedHostedSetup()
                 }
                 .buttonStyle(.borderedProminent)
@@ -301,19 +325,13 @@ struct SetupAssistantView: View {
                 .disabled(!isUnlocked)
             }
         case "recommended.recording", "local.recording":
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Keep the cursor in the test field, then use \(recordingHotkeyDisplay) or the button here to start and stop recording.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                actionGroup {
-                    Button(recordingButtonTitle) {
-                        preparePasteTargetForRecording()
-                        shell.toggleRecording()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!isUnlocked)
+            actionGroup {
+                Button(recordingButtonTitle) {
+                    preparePasteTargetForRecording()
+                    shell.toggleRecording()
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isUnlocked)
             }
         case "recommended.accessibility", "local.accessibility":
             actionGroup {
@@ -336,10 +354,6 @@ struct SetupAssistantView: View {
                 .disabled(!isUnlocked)
         case "recommended.pasteTest", "local.pasteTest":
             VStack(alignment: .leading, spacing: 8) {
-                Text("Keep the cursor in this field before you start recording. OpenScribe compares it with the latest transcript from the app, not the clipboard.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 actionGroup {
                     Button("Focus test field") {
                         focusedField = .pasteTarget
@@ -367,7 +381,7 @@ struct SetupAssistantView: View {
 
                 TextEditor(text: $pasteTargetText)
                     .font(.system(size: 12))
-                    .frame(minHeight: 92)
+                    .frame(minHeight: Self.pasteFieldHeight)
                     .padding(6)
                     .background(
                         RoundedRectangle(cornerRadius: 8)

@@ -17,7 +17,7 @@ final class SetupAssistantWindowState: ObservableObject {
 @MainActor
 final class SettingsWindowController: NSWindowController {
     private static let minimumContentSize = NSSize(width: 760, height: 540)
-    private static let defaultContentSize = NSSize(width: 760, height: 580)
+    private static let defaultContentSize = NSSize(width: 860, height: 620)
     private let tabState = SettingsTabState()
     private let setupAssistantState = SetupAssistantWindowState()
 
@@ -97,6 +97,11 @@ final class SettingsWindowController: NSWindowController {
         var newFrame = window.frame
         newFrame.origin.y += newFrame.height - frameRect.height
         newFrame.size = frameRect.size
+
+        if let availableFrame = (window.screen ?? NSScreen.main ?? Self.preferredCaptureScreen())?.visibleFrame.insetBy(dx: 24, dy: 24) {
+            newFrame.size.height = min(newFrame.size.height, availableFrame.height)
+            newFrame.origin.y = min(max(newFrame.origin.y, availableFrame.minY), availableFrame.maxY - newFrame.height)
+        }
 
         if animated {
             window.animator().setFrame(newFrame, display: true)

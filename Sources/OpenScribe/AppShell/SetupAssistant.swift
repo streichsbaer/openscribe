@@ -118,7 +118,15 @@ enum SetupAssistantChecklist {
     private static func recommendedItems(
         context: SetupAssistantChecklistContext
     ) -> [SetupAssistantChecklistItem] {
-        [
+        let recommendedSetupMatches =
+            context.transcriptionProviderID == recommendedTranscriptionProviderID &&
+            context.transcriptionModel == recommendedTranscriptionModel &&
+            context.languageMode == "auto" &&
+            context.polishEnabled &&
+            context.polishProviderID == recommendedPolishProviderID &&
+            context.polishModel == recommendedPolishModel
+
+        return [
             .init(
                 id: "recommended.keySaved",
                 title: "Groq API key saved",
@@ -136,28 +144,12 @@ enum SetupAssistantChecklist {
                 isComplete: context.groqVerified
             ),
             .init(
-                id: "recommended.transcribe",
-                title: "Groq Whisper is selected",
-                detail: context.transcriptionProviderID == recommendedTranscriptionProviderID &&
-                    context.transcriptionModel == recommendedTranscriptionModel &&
-                    context.languageMode == "auto"
-                    ? "Transcription uses whisper-large-v3-turbo with language auto."
-                    : "Use Groq Whisper with whisper-large-v3-turbo and language auto.",
-                isComplete: context.transcriptionProviderID == recommendedTranscriptionProviderID &&
-                    context.transcriptionModel == recommendedTranscriptionModel &&
-                    context.languageMode == "auto"
-            ),
-            .init(
-                id: "recommended.polish",
-                title: "Groq polish is enabled",
-                detail: context.polishEnabled &&
-                    context.polishProviderID == recommendedPolishProviderID &&
-                    context.polishModel == recommendedPolishModel
-                    ? "Polish runs on openai/gpt-oss-120b."
-                    : "Enable polish on Groq with openai/gpt-oss-120b.",
-                isComplete: context.polishEnabled &&
-                    context.polishProviderID == recommendedPolishProviderID &&
-                    context.polishModel == recommendedPolishModel
+                id: "recommended.setup",
+                title: "Recommended setup configured",
+                detail: recommendedSetupMatches
+                    ? "Groq Whisper and Groq polish use the recommended models."
+                    : "Apply the recommended Groq transcription and polish setup.",
+                isComplete: recommendedSetupMatches
             ),
             .init(
                 id: "recommended.accessibility",
@@ -178,13 +170,13 @@ enum SetupAssistantChecklist {
             .init(
                 id: "recommended.recording",
                 title: "Complete a test recording",
-                detail: "Keep the cursor in the test field below, then use the recording hotkey or the button in the assistant to start and stop recording.",
+                detail: "Start and stop one short recording with the current setup.",
                 isComplete: context.hasSuccessfulRecording
             ),
             .init(
                 id: "recommended.pasteTest",
                 title: "Transcript appeared in the test field",
-                detail: "Keep the cursor in the test field below before you record. The latest transcript should appear there when recording finishes.",
+                detail: "Confirm the latest transcript appears in the test field.",
                 isComplete: context.testFieldContainsOutput
             )
         ]
@@ -235,13 +227,13 @@ enum SetupAssistantChecklist {
             .init(
                 id: "local.recording",
                 title: "Complete a test recording",
-                detail: "Keep the cursor in the test field below, then use the recording hotkey or the button in the assistant to start and stop recording.",
+                detail: "Start and stop one short recording with the current setup.",
                 isComplete: context.hasSuccessfulRecording
             ),
             .init(
                 id: "local.pasteTest",
                 title: "Transcript appeared in the test field",
-                detail: "Keep the cursor in the test field below before you record. The latest transcript should appear there when recording finishes.",
+                detail: "Confirm the latest transcript appears in the test field.",
                 isComplete: context.testFieldContainsOutput
             )
         ]
