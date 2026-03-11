@@ -19,6 +19,29 @@ xcrun notarytool store-credentials openscribe-notary \
   --team-id "<TEAMID>"
 ```
 
+## First-Time Apple Setup
+
+1. Create the explicit App ID in Apple Developer and make sure it matches `CFBundleIdentifier` exactly.
+2. On the Mac that will perform the final release signing, generate the certificate signing request in Keychain Access.
+3. Have the Apple Developer `Account Holder` create the `Developer ID Application` certificate from that CSR.
+4. Install the returned `.cer` on the same Mac that generated the CSR so the certificate pairs with the local private key.
+5. If Keychain Access shows the certificate as untrusted or `security find-identity -v -p codesigning` reports `0 valid identities`, install the Apple `Developer ID - G2` intermediate certificate and re-check.
+6. Store notarization credentials with `notarytool` and confirm the profile validates before the release build.
+
+## Signing Notes
+
+- `Scripts/sign_and_notarize_app.sh` signs bundled Mach-O files inside `OpenScribe.app/Contents/Resources/bin` before signing the outer app bundle.
+- If new bundled executables, dynamic libraries, or frameworks are added later, they must be signed with the same `Developer ID` identity before the app bundle is signed and submitted for notarization.
+
+## Troubleshooting
+
+- Symptom: `security find-identity -v -p codesigning` reports `0 valid identities`
+  Cause: the certificate is missing its matching private key on the signing Mac, or the Apple `Developer ID - G2` intermediate certificate is not installed.
+- Symptom: notarization reports bundled binaries are not signed with a valid `Developer ID` certificate, are missing a secure timestamp, or do not have hardened runtime
+  Cause: nested Mach-O code inside the app bundle was not signed explicitly before the outer app signature was applied.
+- Symptom: stapling fails with `Record not found`
+  Cause: the notarization submission was rejected. Fetch the notarization log with `xcrun notarytool log <submission-id> --keychain-profile openscribe-notary` and fix the reported validation errors before retrying.
+
 ## Preflight
 
 - Clean working tree.
