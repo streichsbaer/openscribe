@@ -7,7 +7,7 @@ Download the latest stable version from the [latest GitHub release](https://gith
 Install with Homebrew:
 
 ```bash
-brew install --cask https://github.com/streichsbaer/openscribe/releases/latest/download/openscribe.rb
+brew install --cask streichsbaer/tap/openscribe
 ```
 
 ## Start Here
@@ -15,6 +15,8 @@ brew install --cask https://github.com/streichsbaer/openscribe/releases/latest/d
 - Getting Started: <https://openscribe.dev/guides/getting-started/>
 - Docs site: <https://openscribe.dev/>
 - Latest stable download: <https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest.zip>
+- Homebrew cask: `brew install --cask streichsbaer/tap/openscribe`
+- Latest stable release page: <https://github.com/streichsbaer/openscribe/releases/latest>
 - Product spec: <https://openscribe.dev/product/spec/>
 - Roadmap: <https://openscribe.dev/product/roadmap/>
 - Open issues: <https://github.com/streichsbaer/openscribe/issues>

@@ -77,12 +77,29 @@ Create GitHub Release from that tag and upload:
 
 - `dist/OpenScribe-<version>.zip`
 - `dist/OpenScribe-latest.zip`
-- `dist/homebrew/openscribe.rb`
 
-The docs landing page and README depend on these stable release asset names:
+The docs landing page and README currently depend on this stable release asset name:
 
 - `OpenScribe-latest.zip`
-- `openscribe.rb`
+
+## Homebrew tap
+
+OpenScribe ships via the sibling tap repo at `../homebrew-tap`.
+
+After publishing the GitHub release, update `../homebrew-tap/Casks/openscribe.rb`:
+
+- set `version`
+- set `sha256`
+- keep the `url` on the versioned GitHub release asset
+
+Then verify:
+
+```bash
+brew uninstall --cask openscribe || true
+brew untap streichsbaer/tap || true
+brew tap streichsbaer/tap
+brew install --cask streichsbaer/tap/openscribe
+```
 
 ## Optional signing and notarization
 

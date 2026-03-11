@@ -7,7 +7,7 @@ Download the latest stable release from [GitHub Releases](https://github.com/str
 ### Install with Homebrew
 
 ```bash
-brew install --cask https://github.com/streichsbaer/openscribe/releases/latest/download/openscribe.rb
+brew install --cask streichsbaer/tap/openscribe
 ```
 
 OpenScribe is distributed as a signed and notarized app for direct download.
