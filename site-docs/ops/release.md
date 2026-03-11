@@ -31,6 +31,7 @@ xcrun notarytool store-credentials openscribe-notary \
 ## Signing Notes
 
 - `Scripts/sign_and_notarize_app.sh` signs bundled Mach-O files inside `OpenScribe.app/Contents/Resources/bin` before signing the outer app bundle.
+- The hardened runtime release app must include the microphone entitlement `com.apple.security.device.audio-input` so macOS can present the microphone permission prompt.
 - If new bundled executables, dynamic libraries, or frameworks are added later, they must be signed with the same `Developer ID` identity before the app bundle is signed and submitted for notarization.
 
 ## Troubleshooting
@@ -39,6 +40,8 @@ xcrun notarytool store-credentials openscribe-notary \
   Cause: the certificate is missing its matching private key on the signing Mac, or the Apple `Developer ID - G2` intermediate certificate is not installed.
 - Symptom: notarization reports bundled binaries are not signed with a valid `Developer ID` certificate, are missing a secure timestamp, or do not have hardened runtime
   Cause: nested Mach-O code inside the app bundle was not signed explicitly before the outer app signature was applied.
+- Symptom: the app never appears in Microphone settings and recording is denied immediately after launch
+  Cause: the hardened runtime app was signed without the `com.apple.security.device.audio-input` entitlement, so TCC refuses to prompt for microphone access.
 - Symptom: stapling fails with `Record not found`
   Cause: the notarization submission was rejected. Fetch the notarization log with `xcrun notarytool log <submission-id> --keychain-profile openscribe-notary` and fix the reported validation errors before retrying.
 
