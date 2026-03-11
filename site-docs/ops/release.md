@@ -73,7 +73,16 @@ git tag v<version>
 git push origin v<version>
 ```
 
-Create GitHub Release from that tag and upload release zip.
+Create GitHub Release from that tag and upload:
+
+- `dist/OpenScribe-<version>.zip`
+- `dist/OpenScribe-latest.zip`
+- `dist/homebrew/openscribe.rb`
+
+The docs landing page and README depend on these stable release asset names:
+
+- `OpenScribe-latest.zip`
+- `openscribe.rb`
 
 ## Optional signing and notarization
 

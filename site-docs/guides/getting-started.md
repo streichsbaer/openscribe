@@ -2,10 +2,15 @@
 
 ## Install OpenScribe
 
-Download the latest release from [GitHub Releases](https://github.com/streichsbaer/openscribe/releases) and drag `OpenScribe.app` to your Applications folder.
+Download the latest stable release from [GitHub Releases](https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest.zip) and drag `OpenScribe.app` to your Applications folder.
 
-!!! note "Unsigned builds"
-    OpenScribe is currently distributed as an unsigned app. On first launch, macOS may block it. If that happens, try to open the app once, then go to System Settings > Privacy & Security and use Open Anyway. Apple Developer Program enrollment is pending.
+### Install with Homebrew
+
+```bash
+brew install --cask https://github.com/streichsbaer/openscribe/releases/latest/download/openscribe.rb
+```
+
+OpenScribe is distributed as a signed and notarized app for direct download.
 
 ## Launch it once
 

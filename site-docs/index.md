@@ -19,8 +19,9 @@ OpenScribe is a native macOS menu bar app that captures your voice and turns it 
 </p>
 
 <div class="hero-actions">
-  <a href="guides/getting-started/" class="btn-primary">Get Started</a>
-  <a href="https://github.com/streichsbaer/openscribe" class="btn-secondary">View on GitHub</a>
+  <a href="https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest.zip" class="btn-primary">Download Latest</a>
+  <a href="guides/getting-started/#install-with-homebrew" class="btn-secondary">Install with Homebrew</a>
+  <a href="guides/getting-started/" class="btn-secondary">Get Started</a>
 </div>
 
 <div class="hero-carousel" role="group" aria-label="Homepage screenshot gallery">
