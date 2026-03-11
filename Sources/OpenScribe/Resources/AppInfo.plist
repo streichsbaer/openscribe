@@ -9,7 +9,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.streichsbaer.openscribe</string>
+	<string>dev.openscribe.app</string>
 	<key>CFBundleName</key>
 	<string>OpenScribe</string>
 	<key>CFBundlePackageType</key>
