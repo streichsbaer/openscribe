@@ -24,6 +24,12 @@ APP_NAME="$(basename "$APP_PATH" .app)"
 ZIP_PATH="$APP_DIR/$APP_NAME-signed.zip"
 NOTARIZED_ZIP_PATH="$APP_DIR/$APP_NAME-notarized.zip"
 BIN_DIR="$APP_PATH/Contents/Resources/bin"
+ENTITLEMENTS_PATH="$ROOT_DIR/Sources/OpenScribe/Resources/OpenScribe.entitlements"
+
+if [[ ! -f "$ENTITLEMENTS_PATH" ]]; then
+  echo "Missing entitlements plist at $ENTITLEMENTS_PATH" >&2
+  exit 1
+fi
 
 sign_nested_code() {
   local code_path="$1"
@@ -46,7 +52,14 @@ if [[ -d "$BIN_DIR" ]]; then
   done
 fi
 
-codesign --force --deep --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP_PATH"
+codesign \
+  --force \
+  --deep \
+  --options runtime \
+  --timestamp \
+  --entitlements "$ENTITLEMENTS_PATH" \
+  --sign "$SIGNING_IDENTITY" \
+  "$APP_PATH"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 echo "[release] zipping signed app"
