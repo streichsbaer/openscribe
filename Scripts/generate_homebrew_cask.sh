@@ -26,18 +26,16 @@ else
 fi
 
 SHA256="$(shasum -a 256 "$ZIP_PATH" | awk '{print $1}')"
+TEMPLATE_PATH="$ROOT_DIR/packaging/homebrew/Casks/openscribe.rb.template"
 
-CASK_CONTENT="cask \"openscribe\" do
-  version \"$VERSION\"
-  sha256 \"$SHA256\"
+if [[ ! -f "$TEMPLATE_PATH" ]]; then
+  echo "Template not found: $TEMPLATE_PATH" >&2
+  exit 1
+fi
 
-  url \"https://github.com/streichsbaer/openscribe/releases/download/$TAG/OpenScribe-#{version}.zip\"
-  name \"OpenScribe\"
-  desc \"Native macOS menubar dictation app\"
-  homepage \"https://github.com/streichsbaer/openscribe\"
-
-  app \"OpenScribe.app\"
-end"
+CASK_CONTENT="$(<"$TEMPLATE_PATH")"
+CASK_CONTENT="${CASK_CONTENT//__VERSION__/$VERSION}"
+CASK_CONTENT="${CASK_CONTENT//__SHA256__/$SHA256}"
 
 if [[ -n "$OUT_FILE" ]]; then
   mkdir -p "$(dirname "$OUT_FILE")"

@@ -2,10 +2,14 @@ cask "openscribe" do
   version "__VERSION__"
   sha256 "__SHA256__"
 
-  url "https://github.com/streichsbaer/openscribe/releases/download/v#{version}/OpenScribe-#{version}.zip"
+  url "https://github.com/streichsbaer/openscribe/releases/download/v#{version}/OpenScribe-#{version}.zip",
+      verified: "github.com/streichsbaer/openscribe/"
   name "OpenScribe"
-  desc "Native macOS menubar dictation app"
-  homepage "https://github.com/streichsbaer/openscribe"
+  desc "Menubar dictation app"
+  homepage "https://openscribe.dev/"
+
+  depends_on arch: :arm64
+  depends_on macos: ">= :sequoia"
 
   app "OpenScribe.app"
 end

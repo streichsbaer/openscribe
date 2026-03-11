@@ -86,15 +86,24 @@ The docs landing page and README currently depend on this stable release asset n
 
 OpenScribe ships via the sibling tap repo at `../homebrew-tap`.
 
-After publishing the GitHub release, update `../homebrew-tap/Casks/openscribe.rb`:
-
-- set `version`
-- set `sha256`
-- keep the `url` on the versioned GitHub release asset
-
-Then verify:
+After publishing the GitHub release, regenerate the tap cask from the released zip:
 
 ```bash
+zsh Scripts/generate_homebrew_cask.sh \
+  dist/OpenScribe-<version>.zip \
+  v<version> \
+  ../homebrew-tap/Casks/openscribe.rb
+```
+
+Then verify the tap repo:
+
+- `brew style --display-cop-names Casks/openscribe.rb`
+- `brew audit --strict --online --cask streichsbaer/tap/openscribe`
+
+Then verify install behavior:
+
+```bash
+cd ../homebrew-tap
 brew uninstall --cask openscribe || true
 brew untap streichsbaer/tap || true
 brew tap streichsbaer/tap
