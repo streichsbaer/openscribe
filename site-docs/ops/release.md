@@ -4,6 +4,21 @@
 
 Create a shareable `.app` and release zip from `main`.
 
+## Signing Prerequisites
+
+- Use an explicit Apple identifier that matches the app bundle ID exactly.
+- For the current direct-download release path, use `Developer ID Application` signing plus notarization.
+- `Developer ID Application` certificate creation may require the Apple Developer `Account Holder`.
+- Generate the certificate signing request on the Mac that will perform final signing, then create the certificate in Apple Developer and install the returned `.cer` on that same Mac.
+- If the `Developer ID Application` certificate appears as untrusted, install the Apple `Developer ID - G2` intermediate certificate from the Apple PKI page.
+- Store notarization credentials on the signing Mac before the release build:
+
+```bash
+xcrun notarytool store-credentials openscribe-notary \
+  --apple-id "<apple-id-email>" \
+  --team-id "<TEAMID>"
+```
+
 ## Preflight
 
 - Clean working tree.
