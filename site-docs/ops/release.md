@@ -99,6 +99,7 @@ Then verify the tap repo:
 
 - `brew style --display-cop-names Casks/openscribe.rb`
 - `brew audit --strict --online --cask streichsbaer/tap/openscribe`
+- Review pinned third party GitHub Action SHAs in the tap workflow and replace any pin that GitHub flags for runtime deprecation before cutting the release.
 
 Then verify install behavior:
 
