@@ -1489,6 +1489,11 @@ struct PopoverView: View {
             providerName: "Gemini",
             models: shell.availableModels(for: "gemini_polish", usage: .polish)
         ))
+        options.append(contentsOf: verifiedOptions(
+            providerID: "cerebras_polish",
+            providerName: "Cerebras",
+            models: shell.availableModels(for: "cerebras_polish", usage: .polish)
+        ))
 
         if options.isEmpty {
             options = [RetryModelOption(
@@ -1604,6 +1609,8 @@ struct PopoverView: View {
             return "OpenRouter"
         case "gemini_polish":
             return "Gemini"
+        case "cerebras_polish":
+            return "Cerebras"
         default:
             return providerID
         }

@@ -98,6 +98,8 @@ final class LiveProviderSmokeTests: XCTestCase {
             return OpenRouterPolishProvider(apiKey: try apiKey(for: .openRouter))
         case "gemini_polish":
             return GeminiPolishProvider(apiKey: try apiKey(for: .gemini))
+        case "cerebras_polish":
+            return CerebrasPolishProvider(apiKey: try apiKey(for: .cerebras))
         default:
             throw ProviderError.unsupported("Unsupported live smoke polish provider: \(id)")
         }

@@ -159,7 +159,8 @@ struct SettingsView: View {
         (id: "openai_polish", label: "OpenAI"),
         (id: "groq_polish", label: "Groq"),
         (id: "openrouter_polish", label: "OpenRouter"),
-        (id: "gemini_polish", label: "Gemini")
+        (id: "gemini_polish", label: "Gemini"),
+        (id: "cerebras_polish", label: "Cerebras")
     ]
     private let authorGitHubURL = URL(string: "https://github.com/streichsbaer")!
     private let authorXURL = URL(string: "https://x.com/s_streichsbier")!
@@ -542,6 +543,18 @@ struct SettingsView: View {
                     providerID: "gemini_polish"
                 ) {
                     shell.clearAPIKey(.gemini)
+                }
+
+                sectionDivider()
+
+                providerKeySection(
+                    title: "Cerebras",
+                    placeholder: "Cerebras API key",
+                    keyText: $shell.cerebrasKeyInput,
+                    statusDescription: shell.cerebrasKeyStatusDescription,
+                    providerID: "cerebras_polish"
+                ) {
+                    shell.clearAPIKey(.cerebras)
                 }
 
                 HStack(spacing: 8) {

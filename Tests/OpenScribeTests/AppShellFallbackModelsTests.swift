@@ -30,4 +30,27 @@ final class AppShellFallbackModelsTests: XCTestCase {
             ["allam-2-7b", "groq/compound", "llama-3.3-70b-versatile"]
         )
     }
+
+    func testCerebrasPolishFallbackModelsPreferRecommendedModel() {
+        let models = AppShell.fallbackModels(for: "cerebras_polish", usage: .polish)
+
+        XCTAssertEqual(models, ["gpt-oss-120b"])
+    }
+
+    func testCerebrasPolishFetchedCatalogStillPrefersRecommendedModel() {
+        let models = [
+            "llama3.1-8b",
+            "gpt-oss-120b",
+            "qwen-3-32b"
+        ]
+
+        let ordered = AppShell.prioritizeRecommendedModel(
+            models,
+            providerID: "cerebras_polish",
+            usage: .polish
+        )
+
+        XCTAssertEqual(ordered.first, "gpt-oss-120b")
+        XCTAssertEqual(Array(ordered.dropFirst()), ["llama3.1-8b", "qwen-3-32b"])
+    }
 }

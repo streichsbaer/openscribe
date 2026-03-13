@@ -12,7 +12,7 @@ final class APIKeyResolverTests: XCTestCase {
     }
 
     override func tearDown() {
-        for entry in [KeychainEntry.openAI, .groq, .openRouter, .gemini] {
+        for entry in [KeychainEntry.openAI, .groq, .openRouter, .gemini, .cerebras] {
             keychain.delete(entry)
         }
         keychain = nil

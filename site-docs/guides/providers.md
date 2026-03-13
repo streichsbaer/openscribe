@@ -36,6 +36,7 @@ Polish runs a language model on your raw transcript to improve grammar, formatti
 - **Groq** -- recommended cloud polish path with `openai/gpt-oss-120b`.
 - **OpenRouter** -- access to multiple model providers through one API key.
 - **Gemini** -- Google models that can cover transcription and polish, but they are not the recommended polish path.
+- **Cerebras** -- OpenAI-compatible chat API with `gpt-oss-120b` as a strong default polish model.
 
 Polish is disabled by default. Enable it in Settings > Polish.
 
