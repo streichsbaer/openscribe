@@ -47,5 +47,7 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
 6. Copy the notarized zip to `dist/OpenScribe-<version>.zip` and `dist/OpenScribe-latest.zip`.
 7. Generate Homebrew cask from the notarized release zip:
    - `zsh Scripts/generate_homebrew_cask.sh ...`
-8. Draft release notes from `site-docs/ops/release-notes-template.md` and fill the sections deliberately.
+8. Draft short user-facing release notes from `site-docs/ops/release-notes-template.md`.
+   - Use one opening sentence, `Highlights`, and optional `Notes`.
+   - Do not include verification commands or an asset list in the published body.
 9. Commit, tag, and publish GitHub release with the notarized zip assets and the drafted notes file.

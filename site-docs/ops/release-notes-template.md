@@ -1,20 +1,10 @@
-# Summary
+OpenScribe <version> <one-sentence summary>.
 
-- Replace this line with a short user-facing summary of the release.
-
-# What Is New
+## Highlights
 
 - Replace this line with the primary shipped capability.
+- Replace this line with the next most important user-facing change.
 
-# Verification
+## Notes
 
-- `swift build`
-- `swift test`
-- `RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests`
-- `zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
-- `zsh Scripts/build_release_app.sh`
-- `zsh Scripts/sign_and_notarize_app.sh ...`
-
-# Notes
-
-- Replace this line with any concise install, distribution, or upgrade note.
+- Optional. Remove this section when there is no install, compatibility, or reissue note.

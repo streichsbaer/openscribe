@@ -101,6 +101,8 @@ echo "[release] draft release notes"
 echo "  mkdir -p artifacts/release-notes"
 echo "  cp site-docs/ops/release-notes-template.md artifacts/release-notes/v$VERSION.md"
 echo "  \$EDITOR artifacts/release-notes/v$VERSION.md"
+echo "  Keep notes short: opening sentence, Highlights, optional Notes."
+echo "  Do not include verification commands or an asset list in the release body."
 
 echo "[release] prepared locally"
 echo "Next steps:"

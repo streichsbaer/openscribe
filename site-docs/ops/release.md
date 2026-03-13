@@ -135,18 +135,19 @@ mkdir -p artifacts/release-notes
 cp site-docs/ops/release-notes-template.md artifacts/release-notes/v<version>.md
 ```
 
-Required sections:
+Default structure:
 
-- `Summary`
-- `What is new`
-- `Verification`
-- `Notes`
+- one short opening sentence
+- `Highlights`
+- optional `Notes`
 
 Guidelines:
 
 - Keep the scope to shipped behavior in that tag.
 - Mention the primary user-facing capability first.
-- Keep verification factual and concise.
+- Keep the body short. Two to four highlight bullets is enough.
+- Keep verification details in this runbook, not in the published release body.
+- Do not add an `Assets` section. GitHub already shows the uploaded assets.
 - Mention notarization for direct-download releases when the asset was replaced or reissued.
 - Avoid raw commit lists and avoid GitHub generated notes as the published body.
 
