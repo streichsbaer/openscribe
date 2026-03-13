@@ -7,5 +7,6 @@ final class KeychainEntryTests: XCTestCase {
         XCTAssertEqual(KeychainEntry.groq.providerDisplayName, "Groq")
         XCTAssertEqual(KeychainEntry.openRouter.providerDisplayName, "OpenRouter")
         XCTAssertEqual(KeychainEntry.gemini.providerDisplayName, "Gemini")
+        XCTAssertEqual(KeychainEntry.cerebras.providerDisplayName, "Cerebras")
     }
 }

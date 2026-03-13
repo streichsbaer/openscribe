@@ -19,6 +19,7 @@ enum ProviderBackend: String {
     case groq
     case openrouter
     case gemini
+    case cerebras
 
     var displayName: String {
         switch self {
@@ -32,6 +33,8 @@ enum ProviderBackend: String {
             return "OpenRouter"
         case .gemini:
             return "Gemini"
+        case .cerebras:
+            return "Cerebras"
         }
     }
 
@@ -135,6 +138,7 @@ final class AppShell: ObservableObject {
     @Published var groqKeyInput: String = ""
     @Published var openRouterKeyInput: String = ""
     @Published var geminiKeyInput: String = ""
+    @Published var cerebrasKeyInput: String = ""
     @Published var latestPolishedTranscript: String = ""
     @Published var transcribeElapsedSeconds: Int = 0
     @Published var polishElapsedSeconds: Int = 0
@@ -228,6 +232,7 @@ final class AppShell: ObservableObject {
         self.groqKeyInput = keychainStore.load(.groq) ?? ""
         self.openRouterKeyInput = keychainStore.load(.openRouter) ?? ""
         self.geminiKeyInput = keychainStore.load(.gemini) ?? ""
+        self.cerebrasKeyInput = keychainStore.load(.cerebras) ?? ""
 
         audioCapture.onLevelUpdate = { [audioMeter] level in
             Task { @MainActor in
@@ -273,6 +278,10 @@ final class AppShell: ObservableObject {
 
     var geminiKeyStatusDescription: String {
         apiKeyStatusDescription(for: .gemini)
+    }
+
+    var cerebrasKeyStatusDescription: String {
+        apiKeyStatusDescription(for: .cerebras)
     }
 
     var accessibilityPermissionGranted: Bool {
@@ -445,6 +454,13 @@ final class AppShell: ObservableObject {
             try? keychainStore.save(gemini, for: .gemini)
         }
 
+        let cerebras = cerebrasKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cerebras.isEmpty {
+            keychainStore.delete(.cerebras)
+        } else {
+            try? keychainStore.save(cerebras, for: .cerebras)
+        }
+
         statusMessage = "API keys saved"
     }
 
@@ -458,6 +474,8 @@ final class AppShell: ObservableObject {
             openRouterKeyInput = ""
         case .gemini:
             geminiKeyInput = ""
+        case .cerebras:
+            cerebrasKeyInput = ""
         }
         saveAPIKeys()
     }
@@ -467,6 +485,7 @@ final class AppShell: ObservableObject {
         groqKeyInput = ""
         openRouterKeyInput = ""
         geminiKeyInput = ""
+        cerebrasKeyInput = ""
         saveAPIKeys()
         statusMessage = "API keys cleared"
     }
@@ -1379,6 +1398,8 @@ final class AppShell: ObservableObject {
             return ["openai/gpt-5-nano", "openai/gpt-5-mini", "google/gemini-2.5-flash"]
         case ("gemini_polish", .polish):
             return ["gemini-2.5-flash"]
+        case ("cerebras_polish", .polish):
+            return ["gpt-oss-120b"]
         case (_, .transcription):
             return ["base"]
         case (_, .polish):
@@ -1446,7 +1467,8 @@ final class AppShell: ObservableObject {
             (.openAI, "openai_whisper"),
             (.groq, "groq_whisper"),
             (.openRouter, "openrouter_transcribe"),
-            (.gemini, "gemini_transcribe")
+            (.gemini, "gemini_transcribe"),
+            (.cerebras, "cerebras_polish")
         ]
 
         for (entry, providerID) in verificationPlan {
@@ -1577,6 +1599,8 @@ final class AppShell: ObservableObject {
             return .openrouter
         case "gemini_transcribe", "gemini_polish":
             return .gemini
+        case "cerebras_polish":
+            return .cerebras
         default:
             return nil
         }
@@ -1606,7 +1630,7 @@ final class AppShell: ObservableObject {
         case (.groq, .polish):
             let filtered = models.filter { !$0.lowercased().contains("whisper") }
             return filtered.sorted()
-        case (.whispercpp, _), (.openrouter, _), (.gemini, _):
+        case (.whispercpp, _), (.openrouter, _), (.gemini, _), (.cerebras, _):
             return models.sorted()
         }
     }
@@ -1618,6 +1642,8 @@ final class AppShell: ObservableObject {
         switch (providerID, usage) {
         case ("groq_polish", .polish):
             return "openai/gpt-oss-120b"
+        case ("cerebras_polish", .polish):
+            return "gpt-oss-120b"
         default:
             return nil
         }
@@ -1652,6 +1678,13 @@ final class AppShell: ObservableObject {
             let key = apiKeyResolver.resolve(.gemini).value
             guard let key else { throw ProviderError.missingAPIKey("Gemini") }
             return try await fetchGeminiModels(apiKey: key)
+        case .cerebras:
+            let key = apiKeyResolver.resolve(.cerebras).value
+            guard let key else { throw ProviderError.missingAPIKey("Cerebras") }
+            return try await fetchOpenAICompatibleModels(
+                endpoint: URL(string: "https://api.cerebras.ai/v1/models")!,
+                apiKey: key
+            )
         }
     }
 

@@ -62,6 +62,11 @@ final class ProviderFactory {
                 throw ProviderError.missingAPIKey("Gemini")
             }
             return GeminiPolishProvider(apiKey: key)
+        case "cerebras_polish":
+            guard let key = apiKeyResolver.resolve(.cerebras).value else {
+                throw ProviderError.missingAPIKey("Cerebras")
+            }
+            return CerebrasPolishProvider(apiKey: key)
         default:
             throw ProviderError.unsupported("Unknown polish provider: \(id)")
         }

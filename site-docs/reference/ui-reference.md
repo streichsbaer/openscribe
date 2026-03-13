@@ -85,7 +85,7 @@ You can open Settings from the right-click menu, with `Cmd + ,` when OpenScribe 
 
 ### Providers
 
-- API key management for OpenAI, Groq, OpenRouter, and Gemini.
+- API key management for OpenAI, Groq, OpenRouter, Gemini, and Cerebras.
 - Verify the current token for each provider.
 - Refresh shared provider model lists used by Transcribe and Polish.
 

@@ -247,6 +247,7 @@ enum KeychainEntry: String {
     case groq = "groq_api_key"
     case openRouter = "openrouter_api_key"
     case gemini = "gemini_api_key"
+    case cerebras = "cerebras_api_key"
 
     var providerDisplayName: String {
         switch self {
@@ -258,6 +259,8 @@ enum KeychainEntry: String {
             return "OpenRouter"
         case .gemini:
             return "Gemini"
+        case .cerebras:
+            return "Cerebras"
         }
     }
 }
