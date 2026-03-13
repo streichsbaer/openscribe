@@ -67,9 +67,24 @@ zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 echo "[release] build artifact"
 zsh Scripts/build_release_app.sh
 
+APP_PATH="dist/OpenScribe-$VERSION/OpenScribe.app"
 ARTIFACT_PATH="dist/OpenScribe-$VERSION.zip"
+NOTARIZED_PATH="dist/OpenScribe-$VERSION/OpenScribe-notarized.zip"
 if [[ -n "$ARTIFACT_OVERRIDE" ]]; then
   ARTIFACT_PATH="$ARTIFACT_OVERRIDE"
+else
+  SIGNING_IDENTITY="${OPENSCRIBE_SIGNING_IDENTITY:-}"
+  NOTARY_PROFILE="${OPENSCRIBE_NOTARY_PROFILE:-openscribe-notary}"
+  if [[ -z "$SIGNING_IDENTITY" ]]; then
+    echo "Set OPENSCRIBE_SIGNING_IDENTITY to the Developer ID Application identity before running release cut." >&2
+    exit 1
+  fi
+  echo "[release] sign and notarize artifact"
+  zsh Scripts/sign_and_notarize_app.sh \
+    "$APP_PATH" \
+    "$SIGNING_IDENTITY" \
+    "$NOTARY_PROFILE"
+  cp "$NOTARIZED_PATH" "$ARTIFACT_PATH"
 fi
 
 if [[ ! -f "$ARTIFACT_PATH" ]]; then
@@ -77,8 +92,15 @@ if [[ ! -f "$ARTIFACT_PATH" ]]; then
   exit 1
 fi
 
+cp "$ARTIFACT_PATH" "dist/OpenScribe-latest.zip"
+
 mkdir -p dist/homebrew
 zsh Scripts/generate_homebrew_cask.sh "$ARTIFACT_PATH" "v$VERSION" "dist/homebrew/openscribe.rb"
+
+echo "[release] draft release notes"
+echo "  mkdir -p artifacts/release-notes"
+echo "  cp site-docs/ops/release-notes-template.md artifacts/release-notes/v$VERSION.md"
+echo "  \$EDITOR artifacts/release-notes/v$VERSION.md"
 
 echo "[release] prepared locally"
 echo "Next steps:"
@@ -97,4 +119,4 @@ echo "  - Cut release v$VERSION."
 echo "  EOF"
 echo "  git tag v$VERSION"
 echo "  git push origin main --tags"
-echo "  gh release create v$VERSION $ARTIFACT_PATH --title 'OpenScribe $VERSION' --generate-notes"
+echo "  gh release create v$VERSION $ARTIFACT_PATH dist/OpenScribe-latest.zip --title 'OpenScribe $VERSION' --notes-file artifacts/release-notes/v$VERSION.md"

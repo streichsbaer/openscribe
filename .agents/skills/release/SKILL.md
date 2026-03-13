@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut OpenScribe releases with a repeatable flow aligned to docs/release.md, including preflight checks, artifact build, and publish commands.
+description: Cut OpenScribe releases with a repeatable flow aligned to docs/release.md, including verification, notarized artifact creation, and publish commands.
 metadata:
   short-description: Cut a release
 ---
@@ -27,7 +27,7 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
 ## Outputs
 
 - Updated `CFBundleShortVersionString` and `CFBundleVersion` in `AppInfo.plist`.
-- Built release artifact in `dist/`.
+- Built notarized release artifacts in `dist/`.
 - Generated Homebrew cask snippet under `dist/homebrew/openscribe.rb`.
 - Printed next-step commands for commit/tag/release.
 
@@ -40,8 +40,12 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
    - `swift test`
    - `RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests`
    - `zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
-4. Build release artifact:
+4. Build release app bundle:
    - `zsh Scripts/build_release_app.sh`
-5. Generate Homebrew cask from the zip:
+5. Sign and notarize the app:
+   - `zsh Scripts/sign_and_notarize_app.sh dist/OpenScribe-<version>/OpenScribe.app "Developer ID Application: <Name> (<TEAMID>)" openscribe-notary`
+6. Copy the notarized zip to `dist/OpenScribe-<version>.zip` and `dist/OpenScribe-latest.zip`.
+7. Generate Homebrew cask from the notarized release zip:
    - `zsh Scripts/generate_homebrew_cask.sh ...`
-6. Commit, tag, and publish GitHub release with generated notes using printed commands.
+8. Draft release notes from `site-docs/ops/release-notes-template.md` and fill the sections deliberately.
+9. Commit, tag, and publish GitHub release with the notarized zip assets and the drafted notes file.

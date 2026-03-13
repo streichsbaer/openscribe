@@ -2,7 +2,7 @@
 
 ## Goal
 
-Create a shareable `.app` and release zip from `main`.
+Create a Developer ID signed, notarized, and shareable `.app` and release zip from `main`.
 
 ## Signing Prerequisites
 
@@ -49,8 +49,19 @@ xcrun notarytool store-credentials openscribe-notary \
 
 - Clean working tree.
 - Verification loop passes.
+- Confirm the signing identity exists:
 
-## Build unsigned app
+```bash
+security find-identity -v -p codesigning
+```
+
+- Confirm the notarization profile is usable:
+
+```bash
+xcrun notarytool history --keychain-profile openscribe-notary
+```
+
+## Build release app bundle
 
 ```bash
 zsh Scripts/build_release_app.sh
@@ -63,8 +74,32 @@ Outputs:
 
 Notes:
 
+- This step creates a local build artifact for verification and notarization input.
+- The zip from this step is not the direct-download release asset.
 - Release builds bundle a pinned Apple Silicon `whisper-cli` inside `OpenScribe.app`.
 - Local whisper models are still downloaded on demand after install.
+
+## Sign and notarize release app
+
+Direct-download releases must be signed with `Developer ID Application`, notarized, and stapled before upload.
+
+```bash
+zsh Scripts/sign_and_notarize_app.sh \
+  dist/OpenScribe-<version>/OpenScribe.app \
+  "Developer ID Application: <Name> (<TEAMID>)" \
+  openscribe-notary
+```
+
+Outputs:
+
+- `dist/OpenScribe-<version>/OpenScribe-signed.zip`
+- `dist/OpenScribe-<version>/OpenScribe-notarized.zip`
+
+Validation:
+
+```bash
+spctl --assess --type execute --verbose=4 dist/OpenScribe-<version>/OpenScribe.app
+```
 
 ## Tag and publish
 
@@ -82,11 +117,44 @@ The docs landing page and README currently depend on this stable release asset n
 
 - `OpenScribe-latest.zip`
 
+Before upload, copy the notarized zip to the public asset names:
+
+```bash
+cp dist/OpenScribe-<version>/OpenScribe-notarized.zip dist/OpenScribe-<version>.zip
+cp dist/OpenScribe-<version>/OpenScribe-notarized.zip dist/OpenScribe-latest.zip
+```
+
+## Release notes
+
+Write release notes deliberately. Do not use `--generate-notes` as the final published body.
+
+Create a draft from the template and fill it with the user-facing changes in the release:
+
+```bash
+mkdir -p artifacts/release-notes
+cp site-docs/ops/release-notes-template.md artifacts/release-notes/v<version>.md
+```
+
+Required sections:
+
+- `Summary`
+- `What is new`
+- `Verification`
+- `Notes`
+
+Guidelines:
+
+- Keep the scope to shipped behavior in that tag.
+- Mention the primary user-facing capability first.
+- Keep verification factual and concise.
+- Mention notarization for direct-download releases when the asset was replaced or reissued.
+- Avoid raw commit lists and avoid GitHub generated notes as the published body.
+
 ## Homebrew tap
 
 OpenScribe ships via the sibling tap repo at `../homebrew-tap`.
 
-After publishing the GitHub release, regenerate the tap cask from the released zip:
+After publishing the GitHub release, regenerate the tap cask from the notarized release zip:
 
 ```bash
 zsh Scripts/generate_homebrew_cask.sh \
@@ -109,17 +177,6 @@ brew uninstall --cask openscribe || true
 brew untap streichsbaer/tap || true
 brew tap streichsbaer/tap
 brew install --cask streichsbaer/tap/openscribe
-```
-
-## Optional signing and notarization
-
-Use the signing script when external distribution requires notarization:
-
-```bash
-zsh Scripts/sign_and_notarize_app.sh \
-  dist/OpenScribe-<version>/OpenScribe.app \
-  "Developer ID Application: <Name> (<TEAMID>)" \
-  openscribe-notary
 ```
 
 ## Related
