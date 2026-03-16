@@ -11,7 +11,7 @@ cask "openscribe" do
   desc "Menubar dictation app"
   homepage "https://openscribe.dev/"
 
-  depends_on macos: ">= :sequoia"
+  depends_on macos: ">= :sonoma"
 
   app "OpenScribe.app"
 end

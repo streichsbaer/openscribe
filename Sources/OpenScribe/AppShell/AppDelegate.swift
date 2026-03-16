@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         statusBarController = StatusBarController(shell: shell)
+        shell.applyInitialAppearanceModeAfterLaunch()
         let shouldAutoPresentSetupAssistant = shell.shouldAutoPresentSetupAssistantOnLaunch && !uiSmokeModeEnabled
 
         if shouldAutoPresentSetupAssistant {

@@ -256,7 +256,6 @@ final class AppShell: ObservableObject {
 
         normalizeReservedHotkeyConflicts()
         registerHotkeys()
-        applyAppearanceMode()
         prefetchProviderCatalogsOnLaunch()
     }
 
@@ -386,6 +385,10 @@ final class AppShell: ObservableObject {
     func updateSettings(_ mutate: (inout AppSettings) -> Void) {
         settingsStore.update(mutate)
         registerHotkeys()
+        applyAppearanceMode()
+    }
+
+    func applyInitialAppearanceModeAfterLaunch() {
         applyAppearanceMode()
     }
 

@@ -27,7 +27,7 @@ brew install --cask streichsbaer/tap/openscribe
 
 ## Compatibility
 
-- macOS 15 Sequoia or later
+- macOS 14 Sonoma or later
 
 ## Build from Source
 

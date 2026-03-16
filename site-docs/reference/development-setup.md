@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Mac capable of running macOS 15 Sequoia.
+- Mac capable of running macOS 14 Sonoma.
 - Xcode and command line tools.
 - Swift toolchain compatible with `Package.swift`.
 - If you want local `whisper.cpp` transcription while running from source, install `whisper-cli` separately. Release builds bundle an architecture-matched binary automatically.
