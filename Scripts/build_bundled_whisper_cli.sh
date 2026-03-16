@@ -4,13 +4,24 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: zsh Scripts/build_bundled_whisper_cli.sh <output-dir>" >&2
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  echo "Usage: zsh Scripts/build_bundled_whisper_cli.sh <output-dir> [arm64|x86_64]" >&2
   exit 1
 fi
 
-if [[ "$(uname -m)" != "arm64" ]]; then
-  echo "Bundled whisper-cli builds currently require an Apple Silicon host." >&2
+TARGET_ARCH="${2:-${OPENSCRIBE_BUILD_ARCH:-$(uname -m)}}"
+HOST_ARCH="$(uname -m)"
+case "$TARGET_ARCH" in
+  arm64|x86_64)
+    ;;
+  *)
+    echo "Unsupported target architecture: $TARGET_ARCH" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "Bundled whisper-cli builds currently require macOS." >&2
   exit 1
 fi
 
@@ -26,10 +37,21 @@ MACOS_DEPLOYMENT_TARGET="15.0"
 
 OUTPUT_DIR="$1"
 DOWNLOADS_DIR="$ROOT_DIR/.build/downloads"
-CACHE_DIR="$ROOT_DIR/.build/vendor/whisper.cpp/${WHISPER_CPP_VERSION}"
+CACHE_DIR="$ROOT_DIR/.build/vendor/whisper.cpp/${WHISPER_CPP_VERSION}/${TARGET_ARCH}"
 ARCHIVE_PATH="$DOWNLOADS_DIR/whisper.cpp-${WHISPER_CPP_VERSION}.tar.gz"
 SOURCE_DIR="$CACHE_DIR/source"
 BUILD_DIR="$CACHE_DIR/build"
+
+CMAKE_ARGS=(
+  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_OSX_ARCHITECTURES="$TARGET_ARCH"
+  -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET"
+)
+
+if [[ "$TARGET_ARCH" != "$HOST_ARCH" ]]; then
+  # Cross-arch release builds must avoid host-native CPU tuning flags.
+  CMAKE_ARGS+=(-DGGML_NATIVE=OFF)
+fi
 
 mkdir -p "$OUTPUT_DIR" "$DOWNLOADS_DIR" "$CACHE_DIR"
 
@@ -51,10 +73,8 @@ if [[ ! -d "$SOURCE_DIR" ]]; then
   tar -xzf "$ARCHIVE_PATH" -C "$SOURCE_DIR" --strip-components=1
 fi
 
-cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_OSX_ARCHITECTURES=arm64 \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET"
+rm -rf "$BUILD_DIR"
+cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${CMAKE_ARGS[@]}"
 
 cmake --build "$BUILD_DIR" --target whisper-cli --config Release -j
 
@@ -63,13 +83,15 @@ BINARY_CANDIDATES=(
   "$BUILD_DIR/bin/Release/whisper-cli"
   "$BUILD_DIR/Release/bin/whisper-cli"
 )
-LIBRARY_CANDIDATES=(
+REQUIRED_LIBRARY_CANDIDATES=(
   "$BUILD_DIR/src/libwhisper.1.dylib"
   "$BUILD_DIR/ggml/src/libggml.0.dylib"
   "$BUILD_DIR/ggml/src/libggml-cpu.0.dylib"
+  "$BUILD_DIR/ggml/src/libggml-base.0.dylib"
+)
+OPTIONAL_LIBRARY_CANDIDATES=(
   "$BUILD_DIR/ggml/src/ggml-blas/libggml-blas.0.dylib"
   "$BUILD_DIR/ggml/src/ggml-metal/libggml-metal.0.dylib"
-  "$BUILD_DIR/ggml/src/libggml-base.0.dylib"
 )
 BUILD_RPATHS=(
   "$BUILD_DIR/src"
@@ -94,12 +116,18 @@ fi
 cp "$WHISPER_CLI_PATH" "$OUTPUT_DIR/whisper-cli"
 cp "$SOURCE_DIR/LICENSE" "$OUTPUT_DIR/LICENSE.whisper.cpp.txt"
 
-for candidate in "${LIBRARY_CANDIDATES[@]}"; do
+for candidate in "${REQUIRED_LIBRARY_CANDIDATES[@]}"; do
   if [[ ! -f "$candidate" ]]; then
     echo "Missing required whisper.cpp library at $candidate" >&2
     exit 1
   fi
   cp "$candidate" "$OUTPUT_DIR/"
+done
+
+for candidate in "${OPTIONAL_LIBRARY_CANDIDATES[@]}"; do
+  if [[ -f "$candidate" ]]; then
+    cp "$candidate" "$OUTPUT_DIR/"
+  fi
 done
 
 for rpath in "${BUILD_RPATHS[@]}"; do
@@ -114,5 +142,6 @@ for dylib in "$OUTPUT_DIR"/*.dylib; do
   install_name_tool -add_rpath "@loader_path" "$dylib"
 done
 
+echo "[whisper] target arch: $TARGET_ARCH"
 echo "[whisper] bundled binary: $OUTPUT_DIR/whisper-cli"
 echo "[whisper] bundled license: $OUTPUT_DIR/LICENSE.whisper.cpp.txt"

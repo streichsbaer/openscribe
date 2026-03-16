@@ -278,13 +278,29 @@ body {
 
 .hero-actions {
   display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
   margin-bottom: 2rem;
 }
 
-.hero-actions a {
+.hero-actions-label {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--scribe-muted);
+}
+
+.hero-downloads {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-downloads a {
   display: inline-flex;
   align-items: center;
   padding: 0.65rem 1.5rem;
@@ -294,34 +310,54 @@ body {
   text-decoration: none;
   border: none;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  min-width: 12rem;
+  justify-content: center;
 }
 
-.hero-actions a:hover {
+.hero-downloads a:hover {
   transform: translateY(-1px);
   border: none;
 }
 
-.hero-actions .btn-primary {
+.hero-downloads .btn-primary {
   background: var(--scribe-amber);
   color: #ffffff;
 }
 
-.hero-actions .btn-primary:hover {
+.hero-downloads .btn-primary:hover {
   background: var(--scribe-amber-hover);
   color: #ffffff;
   box-shadow: 0 4px 14px rgba(217, 119, 6, 0.3);
 }
 
-.hero-actions .btn-secondary {
+.hero-downloads .btn-secondary {
   background: var(--scribe-surface);
   color: var(--scribe-heading);
   border: 1px solid var(--scribe-surface-border) !important;
 }
 
-.hero-actions .btn-secondary:hover {
+.hero-downloads .btn-secondary:hover {
   background: #f1f5f9;
   color: var(--scribe-heading);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.hero-secondary-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-secondary-actions a {
+  color: var(--scribe-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-secondary-actions a:hover {
+  color: var(--scribe-heading);
+  text-decoration: underline;
 }
 
 /* ---- Product screenshot carousel ---- */
@@ -634,11 +670,20 @@ body.hero-lightbox-open {
     margin-bottom: 1.3rem;
   }
 
-  .hero-actions a {
+  .hero-downloads {
+    width: 100%;
+  }
+
+  .hero-downloads a {
     padding: 0.7rem 1.6rem;
     font-size: 1rem;
     width: 100%;
     justify-content: center;
+  }
+
+  .hero-secondary-actions {
+    flex-direction: column;
+    gap: 0.55rem;
   }
 
   .hero-screenshot {

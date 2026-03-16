@@ -22,12 +22,13 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
   - `--version <semver>` (for example `0.2.0`)
   - `--build <integer>` (for example `2`)
 - Optional:
-  - `--artifact <zip-path>` to override default release artifact.
+  - `--artifact-arm64 <zip-path>` to override the default arm64 release artifact.
+  - `--artifact-x86_64 <zip-path>` to override the default Intel release artifact.
 
 ## Outputs
 
 - Updated `CFBundleShortVersionString` and `CFBundleVersion` in `AppInfo.plist`.
-- Built notarized release artifacts in `dist/`.
+- Built notarized arm64 and Intel release artifacts in `dist/`.
 - Generated Homebrew cask snippet under `dist/homebrew/openscribe.rb`.
 - Printed next-step commands for commit/tag/release.
 
@@ -40,14 +41,17 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
    - `swift test`
    - `RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests`
    - `zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
-4. Build release app bundle:
-   - `zsh Scripts/build_release_app.sh`
-5. Sign and notarize the app:
-   - `zsh Scripts/sign_and_notarize_app.sh dist/OpenScribe-<version>/OpenScribe.app "Developer ID Application: <Name> (<TEAMID>)" openscribe-notary`
-6. Copy the notarized zip to `dist/OpenScribe-<version>.zip` and `dist/OpenScribe-latest.zip`.
-7. Generate Homebrew cask from the notarized release zip:
+   - On Apple Silicon hosts, add `/usr/bin/arch -x86_64 swift build --arch x86_64` and `/usr/bin/arch -x86_64 swift test --arch x86_64`
+4. Build release app bundles:
+   - `OPENSCRIBE_BUILD_ARCH=arm64 zsh Scripts/build_release_app.sh`
+   - `OPENSCRIBE_BUILD_ARCH=x86_64 zsh Scripts/build_release_app.sh`
+5. Sign and notarize both apps:
+   - `zsh Scripts/sign_and_notarize_app.sh dist/OpenScribe-<version>-arm64/OpenScribe.app "Developer ID Application: <Name> (<TEAMID>)" openscribe-notary`
+   - `zsh Scripts/sign_and_notarize_app.sh dist/OpenScribe-<version>-x86_64/OpenScribe.app "Developer ID Application: <Name> (<TEAMID>)" openscribe-notary`
+6. Copy the notarized zips to `dist/OpenScribe-<version>-arm64.zip`, `dist/OpenScribe-<version>-x86_64.zip`, `dist/OpenScribe-latest-arm64.zip`, and `dist/OpenScribe-latest-x86_64.zip`.
+7. Generate Homebrew cask from the notarized release zips:
    - `zsh Scripts/generate_homebrew_cask.sh ...`
 8. Draft short user-facing release notes from `site-docs/ops/release-notes-template.md`.
    - Use one opening sentence, `Highlights`, and optional `Notes`.
    - Do not include verification commands or an asset list in the published body.
-9. Commit, tag, and publish GitHub release with the notarized zip assets and the drafted notes file.
+9. Commit, tag, and publish GitHub release with both notarized zip assets, both latest aliases, and the drafted notes file.

@@ -6,7 +6,8 @@ cd "$ROOT_DIR"
 
 VERSION=""
 BUILD=""
-ARTIFACT_OVERRIDE=""
+ARTIFACT_ARM64_OVERRIDE=""
+ARTIFACT_X86_64_OVERRIDE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -18,8 +19,12 @@ while [[ $# -gt 0 ]]; do
       BUILD="$2"
       shift 2
       ;;
-    --artifact)
-      ARTIFACT_OVERRIDE="$2"
+    --artifact-arm64)
+      ARTIFACT_ARM64_OVERRIDE="$2"
+      shift 2
+      ;;
+    --artifact-x86_64)
+      ARTIFACT_X86_64_OVERRIDE="$2"
       shift 2
       ;;
     *)
@@ -30,7 +35,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$VERSION" || -z "$BUILD" ]]; then
-  echo "Usage: $0 --version <semver> --build <integer> [--artifact <zip-path>]" >&2
+  echo "Usage: $0 --version <semver> --build <integer> [--artifact-arm64 <zip-path>] [--artifact-x86_64 <zip-path>]" >&2
   exit 1
 fi
 
@@ -63,15 +68,29 @@ swift build
 swift test
 RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
+if [[ "$(uname -m)" == "arm64" ]]; then
+  /usr/bin/arch -x86_64 swift build --arch x86_64
+  /usr/bin/arch -x86_64 swift test --arch x86_64
+fi
 
-echo "[release] build artifact"
-zsh Scripts/build_release_app.sh
+echo "[release] build artifacts"
+OPENSCRIBE_BUILD_ARCH=arm64 zsh Scripts/build_release_app.sh
+OPENSCRIBE_BUILD_ARCH=x86_64 zsh Scripts/build_release_app.sh
 
-APP_PATH="dist/OpenScribe-$VERSION/OpenScribe.app"
-ARTIFACT_PATH="dist/OpenScribe-$VERSION.zip"
-NOTARIZED_PATH="dist/OpenScribe-$VERSION/OpenScribe-notarized.zip"
-if [[ -n "$ARTIFACT_OVERRIDE" ]]; then
-  ARTIFACT_PATH="$ARTIFACT_OVERRIDE"
+APP_PATH_ARM64="dist/OpenScribe-$VERSION-arm64/OpenScribe.app"
+APP_PATH_X86_64="dist/OpenScribe-$VERSION-x86_64/OpenScribe.app"
+ARTIFACT_PATH_ARM64="dist/OpenScribe-$VERSION-arm64.zip"
+ARTIFACT_PATH_X86_64="dist/OpenScribe-$VERSION-x86_64.zip"
+NOTARIZED_PATH_ARM64="dist/OpenScribe-$VERSION-arm64/OpenScribe-notarized.zip"
+NOTARIZED_PATH_X86_64="dist/OpenScribe-$VERSION-x86_64/OpenScribe-notarized.zip"
+
+if [[ -n "$ARTIFACT_ARM64_OVERRIDE" || -n "$ARTIFACT_X86_64_OVERRIDE" ]]; then
+  if [[ -z "$ARTIFACT_ARM64_OVERRIDE" || -z "$ARTIFACT_X86_64_OVERRIDE" ]]; then
+    echo "Provide both --artifact-arm64 and --artifact-x86_64 when overriding release artifacts." >&2
+    exit 1
+  fi
+  ARTIFACT_PATH_ARM64="$ARTIFACT_ARM64_OVERRIDE"
+  ARTIFACT_PATH_X86_64="$ARTIFACT_X86_64_OVERRIDE"
 else
   SIGNING_IDENTITY="${OPENSCRIBE_SIGNING_IDENTITY:-}"
   NOTARY_PROFILE="${OPENSCRIBE_NOTARY_PROFILE:-openscribe-notary}"
@@ -79,23 +98,35 @@ else
     echo "Set OPENSCRIBE_SIGNING_IDENTITY to the Developer ID Application identity before running release cut." >&2
     exit 1
   fi
-  echo "[release] sign and notarize artifact"
+  echo "[release] sign and notarize arm64 artifact"
   zsh Scripts/sign_and_notarize_app.sh \
-    "$APP_PATH" \
+    "$APP_PATH_ARM64" \
     "$SIGNING_IDENTITY" \
     "$NOTARY_PROFILE"
-  cp "$NOTARIZED_PATH" "$ARTIFACT_PATH"
+  echo "[release] sign and notarize x86_64 artifact"
+  zsh Scripts/sign_and_notarize_app.sh \
+    "$APP_PATH_X86_64" \
+    "$SIGNING_IDENTITY" \
+    "$NOTARY_PROFILE"
+  cp "$NOTARIZED_PATH_ARM64" "$ARTIFACT_PATH_ARM64"
+  cp "$NOTARIZED_PATH_X86_64" "$ARTIFACT_PATH_X86_64"
 fi
 
-if [[ ! -f "$ARTIFACT_PATH" ]]; then
-  echo "Release artifact not found: $ARTIFACT_PATH" >&2
+if [[ ! -f "$ARTIFACT_PATH_ARM64" ]]; then
+  echo "Release artifact not found: $ARTIFACT_PATH_ARM64" >&2
   exit 1
 fi
 
-cp "$ARTIFACT_PATH" "dist/OpenScribe-latest.zip"
+if [[ ! -f "$ARTIFACT_PATH_X86_64" ]]; then
+  echo "Release artifact not found: $ARTIFACT_PATH_X86_64" >&2
+  exit 1
+fi
+
+cp "$ARTIFACT_PATH_ARM64" "dist/OpenScribe-latest-arm64.zip"
+cp "$ARTIFACT_PATH_X86_64" "dist/OpenScribe-latest-x86_64.zip"
 
 mkdir -p dist/homebrew
-zsh Scripts/generate_homebrew_cask.sh "$ARTIFACT_PATH" "v$VERSION" "dist/homebrew/openscribe.rb"
+zsh Scripts/generate_homebrew_cask.sh "$ARTIFACT_PATH_ARM64" "$ARTIFACT_PATH_X86_64" "v$VERSION" "dist/homebrew/openscribe.rb"
 
 echo "[release] draft release notes"
 echo "  mkdir -p artifacts/release-notes"
@@ -115,10 +146,11 @@ echo "  - Prepare release artifact and metadata for OpenScribe v$VERSION."
 echo ""
 echo "  What"
 echo "  - Updated app version/build in AppInfo.plist."
+echo "  - Prepared arm64 and x86_64 release assets."
 echo ""
 echo "  Instruction"
 echo "  - Cut release v$VERSION."
 echo "  EOF"
 echo "  git tag v$VERSION"
 echo "  git push origin main --tags"
-echo "  gh release create v$VERSION $ARTIFACT_PATH dist/OpenScribe-latest.zip --title 'OpenScribe $VERSION' --notes-file artifacts/release-notes/v$VERSION.md"
+echo "  gh release create v$VERSION $ARTIFACT_PATH_ARM64 $ARTIFACT_PATH_X86_64 dist/OpenScribe-latest-arm64.zip dist/OpenScribe-latest-x86_64.zip --title 'OpenScribe $VERSION' --notes-file artifacts/release-notes/v$VERSION.md"

@@ -2,7 +2,10 @@
 
 OpenScribe is a native macOS menu bar dictation app for fast speech-to-text with optional polish.
 
-Download the latest stable version from the [latest GitHub release](https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest.zip).
+Download the latest stable version:
+
+- Apple Silicon Mac: <https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-arm64.zip>
+- Intel Mac: <https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-x86_64.zip>
 
 Install with Homebrew:
 
@@ -14,7 +17,8 @@ brew install --cask streichsbaer/tap/openscribe
 
 - Getting Started: <https://openscribe.dev/guides/getting-started/>
 - Docs site: <https://openscribe.dev/>
-- Latest stable download: <https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest.zip>
+- Latest stable Apple Silicon Mac download: <https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-arm64.zip>
+- Latest stable Intel Mac download: <https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-x86_64.zip>
 - Homebrew cask: `brew install --cask streichsbaer/tap/openscribe`
 - Latest stable release page: <https://github.com/streichsbaer/openscribe/releases/latest>
 - Product spec: <https://openscribe.dev/product/spec/>
@@ -23,7 +27,6 @@ brew install --cask streichsbaer/tap/openscribe
 
 ## Compatibility
 
-- Apple Silicon Mac
 - macOS 15 Sequoia or later
 
 ## Build from Source

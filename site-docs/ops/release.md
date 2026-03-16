@@ -61,44 +61,56 @@ security find-identity -v -p codesigning
 xcrun notarytool history --keychain-profile openscribe-notary
 ```
 
-## Build release app bundle
+## Build release app bundles
 
 ```bash
-zsh Scripts/build_release_app.sh
+OPENSCRIBE_BUILD_ARCH=arm64 zsh Scripts/build_release_app.sh
+OPENSCRIBE_BUILD_ARCH=x86_64 zsh Scripts/build_release_app.sh
 ```
 
 Outputs:
 
-- `dist/OpenScribe-<version>/OpenScribe.app`
-- `dist/OpenScribe-<version>.zip`
+- `dist/OpenScribe-<version>-arm64/OpenScribe.app`
+- `dist/OpenScribe-<version>-arm64.zip`
+- `dist/OpenScribe-<version>-x86_64/OpenScribe.app`
+- `dist/OpenScribe-<version>-x86_64.zip`
 
 Notes:
 
 - This step creates a local build artifact for verification and notarization input.
 - The zip from this step is not the direct-download release asset.
-- Release builds bundle a pinned Apple Silicon `whisper-cli` inside `OpenScribe.app`.
+- Release builds bundle an architecture-matched `whisper-cli` inside `OpenScribe.app`.
+- On Apple Silicon Macs with Rosetta installed, the `x86_64` build and unit test pass can run locally under `/usr/bin/arch -x86_64`.
 - Local whisper models are still downloaded on demand after install.
 
-## Sign and notarize release app
+## Sign and notarize release apps
 
 Direct-download releases must be signed with `Developer ID Application`, notarized, and stapled before upload.
 
 ```bash
 zsh Scripts/sign_and_notarize_app.sh \
-  dist/OpenScribe-<version>/OpenScribe.app \
+  dist/OpenScribe-<version>-arm64/OpenScribe.app \
+  "Developer ID Application: <Name> (<TEAMID>)" \
+  openscribe-notary
+
+zsh Scripts/sign_and_notarize_app.sh \
+  dist/OpenScribe-<version>-x86_64/OpenScribe.app \
   "Developer ID Application: <Name> (<TEAMID>)" \
   openscribe-notary
 ```
 
-Outputs:
+Outputs for each architecture:
 
-- `dist/OpenScribe-<version>/OpenScribe-signed.zip`
-- `dist/OpenScribe-<version>/OpenScribe-notarized.zip`
+- `dist/OpenScribe-<version>-arm64/OpenScribe-signed.zip`
+- `dist/OpenScribe-<version>-arm64/OpenScribe-notarized.zip`
+- `dist/OpenScribe-<version>-x86_64/OpenScribe-signed.zip`
+- `dist/OpenScribe-<version>-x86_64/OpenScribe-notarized.zip`
 
 Validation:
 
 ```bash
-spctl --assess --type execute --verbose=4 dist/OpenScribe-<version>/OpenScribe.app
+spctl --assess --type execute --verbose=4 dist/OpenScribe-<version>-arm64/OpenScribe.app
+spctl --assess --type execute --verbose=4 dist/OpenScribe-<version>-x86_64/OpenScribe.app
 ```
 
 ## Tag and publish
@@ -110,18 +122,23 @@ git push origin v<version>
 
 Create GitHub Release from that tag and upload:
 
-- `dist/OpenScribe-<version>.zip`
-- `dist/OpenScribe-latest.zip`
+- `dist/OpenScribe-<version>-arm64.zip`
+- `dist/OpenScribe-<version>-x86_64.zip`
+- `dist/OpenScribe-latest-arm64.zip`
+- `dist/OpenScribe-latest-x86_64.zip`
 
-The docs landing page and README currently depend on this stable release asset name:
+The docs landing page, install guide, and README currently depend on these stable release asset names:
 
-- `OpenScribe-latest.zip`
+- `OpenScribe-latest-arm64.zip`
+- `OpenScribe-latest-x86_64.zip`
 
 Before upload, copy the notarized zip to the public asset names:
 
 ```bash
-cp dist/OpenScribe-<version>/OpenScribe-notarized.zip dist/OpenScribe-<version>.zip
-cp dist/OpenScribe-<version>/OpenScribe-notarized.zip dist/OpenScribe-latest.zip
+cp dist/OpenScribe-<version>-arm64/OpenScribe-notarized.zip dist/OpenScribe-<version>-arm64.zip
+cp dist/OpenScribe-<version>-x86_64/OpenScribe-notarized.zip dist/OpenScribe-<version>-x86_64.zip
+cp dist/OpenScribe-<version>-arm64/OpenScribe-notarized.zip dist/OpenScribe-latest-arm64.zip
+cp dist/OpenScribe-<version>-x86_64/OpenScribe-notarized.zip dist/OpenScribe-latest-x86_64.zip
 ```
 
 ## Release notes
@@ -155,11 +172,12 @@ Guidelines:
 
 OpenScribe ships via the sibling tap repo at `../homebrew-tap`.
 
-After publishing the GitHub release, regenerate the tap cask from the notarized release zip:
+After publishing the GitHub release, regenerate the tap cask from the notarized release zips:
 
 ```bash
 zsh Scripts/generate_homebrew_cask.sh \
-  dist/OpenScribe-<version>.zip \
+  dist/OpenScribe-<version>-arm64.zip \
+  dist/OpenScribe-<version>-x86_64.zip \
   v<version> \
   ../homebrew-tap/Casks/openscribe.rb
 ```
@@ -179,6 +197,11 @@ brew untap streichsbaer/tap || true
 brew tap streichsbaer/tap
 brew install --cask streichsbaer/tap/openscribe
 ```
+
+Notes:
+
+- On Apple Silicon, Homebrew should install the `arm64` asset.
+- When native Intel hardware is not available, validate the `x86_64` release zip with Rosetta build and test coverage locally and rely on Homebrew cask structure plus checksums for the Intel path.
 
 ## Related
 

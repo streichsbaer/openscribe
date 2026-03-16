@@ -11,6 +11,20 @@ RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 ```
 
+## Intel build and test on Apple Silicon
+
+When release or packaging work touches Intel support, use Rosetta on an Apple Silicon Mac to add `x86_64` build and test coverage:
+
+```bash
+/usr/bin/arch -x86_64 swift build --arch x86_64
+/usr/bin/arch -x86_64 swift test --arch x86_64
+```
+
+Notes:
+
+- This is strong routine coverage for compilation and unit tests.
+- Full Intel UI smoke remains a native Intel hardware check for now.
+
 Maintainer-only runbooks for docs verification and marketing screenshots live in `docs/ops/` and are not part of the published docs site.
 
 ## Smoke artifacts

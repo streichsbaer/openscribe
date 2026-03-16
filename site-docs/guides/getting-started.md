@@ -2,7 +2,12 @@
 
 ## Install OpenScribe
 
-Download the latest stable release from [GitHub Releases](https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest.zip) and drag `OpenScribe.app` to your Applications folder.
+Download the latest stable release for your Mac and drag `OpenScribe.app` to your Applications folder.
+
+- [Apple Silicon Mac download](https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-arm64.zip)
+- [Intel Mac download](https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-x86_64.zip)
+
+Not sure which Mac you have? Open Apple menu > About This Mac and look for Apple Silicon or Intel.
 
 ### Install with Homebrew
 

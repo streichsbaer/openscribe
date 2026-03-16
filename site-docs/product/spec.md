@@ -6,7 +6,7 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 
 ## Target
 
-- Native Apple Silicon macOS app.
+- Native macOS app.
 - Menubar-only utility app.
 
 ## Core flow

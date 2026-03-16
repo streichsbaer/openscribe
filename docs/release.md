@@ -10,4 +10,4 @@ Use that page for:
 - GitHub Release publishing
 - Homebrew cask updates
 
-Current release builds bundle a pinned Apple Silicon `whisper-cli` inside `OpenScribe.app`.
+Current release builds bundle an architecture-matched `whisper-cli` inside `OpenScribe.app`.

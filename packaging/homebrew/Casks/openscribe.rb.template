@@ -1,14 +1,16 @@
 cask "openscribe" do
-  version "__VERSION__"
-  sha256 "__SHA256__"
+  arch arm: "arm64", intel: "x86_64"
 
-  url "https://github.com/streichsbaer/openscribe/releases/download/v#{version}/OpenScribe-#{version}.zip",
+  version "__VERSION__"
+  sha256 arm:   "__SHA256_ARM__",
+         intel: "__SHA256_INTEL__"
+
+  url "https://github.com/streichsbaer/openscribe/releases/download/v#{version}/OpenScribe-#{version}-#{arch}.zip",
       verified: "github.com/streichsbaer/openscribe/"
   name "OpenScribe"
   desc "Menubar dictation app"
   homepage "https://openscribe.dev/"
 
-  depends_on arch: :arm64
   depends_on macos: ">= :sequoia"
 
   app "OpenScribe.app"
