@@ -1525,7 +1525,7 @@ private struct BrandLink: View {
 
 private enum BrandIconLoader {
     static func image(named name: String) -> NSImage? {
-        if let url = Bundle.module.url(forResource: name, withExtension: "svg"),
+        if let url = OpenScribeResourceLocator.url(forResource: name, withExtension: "svg"),
            let image = NSImage(contentsOf: url) {
             image.isTemplate = true
             return image

@@ -11,6 +11,14 @@ RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 ```
 
+Use the packaged app smoke path when you need release-shape runtime coverage for bundle and resource lookup issues:
+
+```bash
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --app dist/OpenScribe-<version>-arm64/OpenScribe.app \
+  --out artifacts/ui-smoke/release-arm64
+```
+
 ## Intel build and test on Apple Silicon
 
 When release or packaging work touches Intel support, use Rosetta on an Apple Silicon Mac to add `x86_64` build and test coverage:
@@ -24,6 +32,7 @@ Notes:
 
 - This is strong routine coverage for compilation and unit tests.
 - Full Intel UI smoke remains a native Intel hardware check for now.
+- Packaged `x86_64` app smoke can still run under Rosetta on Apple Silicon when the Intel app bundle has already been built.
 
 Maintainer-only runbooks for docs verification and marketing screenshots live in `docs/ops/` and are not part of the published docs site.
 
@@ -80,3 +89,15 @@ zsh Scripts/generate_audio_fixtures.sh
 4. Confirm `audio.m4a`, `session.json`, `raw.txt`, and `polished.md` exist.
 5. Confirm copy latest works.
 6. For UI changes, confirm the changed surface still works in a compact laptop-sized window and a larger window.
+
+For bundle and packaging-sensitive UI changes, also run packaged app smoke for each built release app:
+
+```bash
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --app dist/OpenScribe-<version>-arm64/OpenScribe.app \
+  --out artifacts/ui-smoke/release-arm64
+
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --app dist/OpenScribe-<version>-x86_64/OpenScribe.app \
+  --out artifacts/ui-smoke/release-x86_64
+```

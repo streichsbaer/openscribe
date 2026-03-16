@@ -45,13 +45,16 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
 4. Build release app bundles:
    - `OPENSCRIBE_BUILD_ARCH=arm64 zsh Scripts/build_release_app.sh`
    - `OPENSCRIBE_BUILD_ARCH=x86_64 zsh Scripts/build_release_app.sh`
-5. Sign and notarize both apps:
+5. Run packaged app smoke against both release app bundles:
+   - `zsh .agents/skills/ui-smoke/scripts/run.sh --app dist/OpenScribe-<version>-arm64/OpenScribe.app --out artifacts/ui-smoke/release-arm64`
+   - `zsh .agents/skills/ui-smoke/scripts/run.sh --app dist/OpenScribe-<version>-x86_64/OpenScribe.app --out artifacts/ui-smoke/release-x86_64`
+6. Sign and notarize both apps:
    - `zsh Scripts/sign_and_notarize_app.sh dist/OpenScribe-<version>-arm64/OpenScribe.app "Developer ID Application: <Name> (<TEAMID>)" openscribe-notary`
    - `zsh Scripts/sign_and_notarize_app.sh dist/OpenScribe-<version>-x86_64/OpenScribe.app "Developer ID Application: <Name> (<TEAMID>)" openscribe-notary`
-6. Copy the notarized zips to `dist/OpenScribe-<version>-arm64.zip`, `dist/OpenScribe-<version>-x86_64.zip`, `dist/OpenScribe-latest-arm64.zip`, and `dist/OpenScribe-latest-x86_64.zip`.
-7. Generate Homebrew cask from the notarized release zips:
+7. Copy the notarized zips to `dist/OpenScribe-<version>-arm64.zip`, `dist/OpenScribe-<version>-x86_64.zip`, `dist/OpenScribe-latest-arm64.zip`, and `dist/OpenScribe-latest-x86_64.zip`.
+8. Generate Homebrew cask from the notarized release zips:
    - `zsh Scripts/generate_homebrew_cask.sh ...`
-8. Draft short user-facing release notes from `site-docs/ops/release-notes-template.md`.
+9. Draft short user-facing release notes from `site-docs/ops/release-notes-template.md`.
    - Use one opening sentence, `Highlights`, and optional `Notes`.
    - Do not include verification commands or an asset list in the published body.
-9. Commit, tag, and publish GitHub release with both notarized zip assets, both latest aliases, and the drafted notes file.
+10. Commit, tag, and publish GitHub release with both notarized zip assets, both latest aliases, and the drafted notes file.

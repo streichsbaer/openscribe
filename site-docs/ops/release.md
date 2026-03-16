@@ -83,6 +83,26 @@ Notes:
 - On Apple Silicon Macs with Rosetta installed, the `x86_64` build and unit test pass can run locally under `/usr/bin/arch -x86_64`.
 - Local whisper models are still downloaded on demand after install.
 
+## Smoke packaged release apps
+
+Run the smoke harness against each built `.app` bundle before signing and notarization. This catches bundle-layout and resource lookup regressions that do not appear under `swift run`.
+
+```bash
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --app dist/OpenScribe-<version>-arm64/OpenScribe.app \
+  --out artifacts/ui-smoke/release-arm64
+
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --app dist/OpenScribe-<version>-x86_64/OpenScribe.app \
+  --out artifacts/ui-smoke/release-x86_64
+```
+
+Notes:
+
+- This mode launches `OpenScribe.app/Contents/MacOS/OpenScribe` directly while preserving the real app bundle layout.
+- Use it to verify settings, popover, menubar icons, and packaging-sensitive paths such as bundled resources.
+- On Apple Silicon with Rosetta installed, the packaged Intel app can be smoke tested locally.
+
 ## Sign and notarize release apps
 
 Direct-download releases must be signed with `Developer ID Application`, notarized, and stapled before upload.

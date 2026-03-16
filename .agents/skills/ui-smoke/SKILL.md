@@ -14,6 +14,7 @@ Run autonomous UI smoke checks for OpenScribe with reproducible artifacts.
 ## Inputs
 
 - Optional output directory via `--out <dir>`.
+- Optional packaged app path via `--app <path-to-app>`.
 
 ## Run
 
@@ -27,6 +28,14 @@ Custom output path from current `pwd`:
 
 ```bash
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
+```
+
+Packaged app smoke from current `pwd`:
+
+```bash
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --app dist/OpenScribe-0.2.3-arm64/OpenScribe.app \
+  --out artifacts/ui-smoke/release-arm64
 ```
 
 ## Outputs
@@ -87,6 +96,13 @@ When `--out` is set:
 6. Script validates screenshot artifacts and writes markdown report
 7. Review screenshots manually to confirm visual correctness.
 8. For faster manual QA, open screenshots with the image viewer tool in parallel batches instead of one at a time.
+
+When `--app` is set:
+
+1. Skip `swift build` and `swift test`
+2. Launch the packaged app executable from `<App>.app/Contents/MacOS/<App>`
+3. Reuse the same internal screenshot and status capture flow against the bundled app layout
+4. Use this mode for release-shape verification of resource, bundle, and packaging regressions
 
 ## Notes
 

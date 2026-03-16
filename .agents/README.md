@@ -23,6 +23,7 @@ Run skill scripts directly from repo root (`pwd=/path/to/OpenScribe`).
 ```bash
 zsh .agents/skills/ui-smoke/scripts/run.sh
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
+zsh .agents/skills/ui-smoke/scripts/run.sh --app dist/OpenScribe-0.2.3-arm64/OpenScribe.app --out artifacts/ui-smoke/release-arm64
 zsh .agents/skills/release/scripts/cut.sh --version 0.1.1 --build 2
 ```
 

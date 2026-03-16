@@ -6,12 +6,15 @@ ROOT_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 cd "$ROOT_DIR"
 
 OUT_DIR=""
+APP_PATH=""
 
 usage() {
   cat <<USAGE
-Usage: zsh .agents/skills/ui-smoke/scripts/run.sh [--out <dir>]
+Usage: zsh .agents/skills/ui-smoke/scripts/run.sh [--out <dir>] [--app <path-to-app>]
 
 Defaults:
+  --app omitted  -> launch via swift run OpenScribe
+  --app set      -> launch the packaged app at <path-to-app>/Contents/MacOS/<AppName>
   --out omitted  -> artifacts/ui-smoke/<timestamp> under repo root
   --out relative -> resolved from invocation working directory (pwd)
 USAGE
@@ -32,6 +35,15 @@ while [[ $# -gt 0 ]]; do
       OUT_DIR="$2"
       shift 2
       ;;
+    --app)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --app" >&2
+        usage >&2
+        exit 1
+      fi
+      APP_PATH="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown arg: $1" >&2
       usage >&2
@@ -45,6 +57,10 @@ if [[ -z "$OUT_DIR" ]]; then
   OUT_DIR="$ROOT_DIR/artifacts/ui-smoke/$stamp"
 elif [[ "$OUT_DIR" != /* ]]; then
   OUT_DIR="$START_PWD/$OUT_DIR"
+fi
+
+if [[ -n "$APP_PATH" && "$APP_PATH" != /* ]]; then
+  APP_PATH="$START_PWD/$APP_PATH"
 fi
 
 mkdir -p "$OUT_DIR"
@@ -82,18 +98,48 @@ done
 
 echo "[ui-smoke] output: $OUT_DIR"
 
-echo "[ui-smoke] swift build"
-if swift build >"$OUT_DIR/build.log" 2>&1; then
-  build_status="pass"
-else
-  build_status="fail"
+launch_mode="swift-run"
+launch_target="swift run OpenScribe"
+app_executable=""
+launch_prefix=()
+timeout_seconds=45
+
+if [[ -n "$APP_PATH" ]]; then
+  app_name="$(basename "$APP_PATH" .app)"
+  app_executable="$APP_PATH/Contents/MacOS/$app_name"
+  launch_mode="packaged-app"
+  launch_target="$app_executable"
 fi
 
-echo "[ui-smoke] swift test"
-if swift test >"$OUT_DIR/test.log" 2>&1; then
-  test_status="pass"
+if [[ "$launch_mode" == "swift-run" ]]; then
+  echo "[ui-smoke] swift build"
+  if swift build >"$OUT_DIR/build.log" 2>&1; then
+    build_status="pass"
+  else
+    build_status="fail"
+  fi
+
+  echo "[ui-smoke] swift test"
+  if swift test >"$OUT_DIR/test.log" 2>&1; then
+    test_status="pass"
+  else
+    test_status="fail"
+  fi
 else
-  test_status="fail"
+  build_status="skipped"
+  test_status="skipped"
+  : >"$OUT_DIR/build.log"
+  : >"$OUT_DIR/test.log"
+  if [[ ! -d "$APP_PATH" ]]; then
+    echo "Missing app bundle at $APP_PATH" >"$OUT_DIR/run.log"
+    echo "[ui-smoke] missing app bundle: $APP_PATH" >&2
+    exit 1
+  fi
+  if [[ ! -x "$app_executable" ]]; then
+    echo "Missing app executable at $app_executable" >"$OUT_DIR/run.log"
+    echo "[ui-smoke] missing app executable: $app_executable" >&2
+    exit 1
+  fi
 fi
 
 existing_pids="$(pgrep -x OpenScribe || true)"
@@ -131,9 +177,20 @@ hotkey_dispatch_status="missing"
 tab_click_dispatch_status="missing"
 
 echo "[ui-smoke] launch app (internal capture mode)"
-if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" swift run OpenScribe >"$OUT_DIR/run.log" 2>&1 & then
+if [[ "$launch_mode" == "swift-run" ]]; then
+  launch_command=(swift run OpenScribe)
+else
+  executable_description="$(file "$app_executable" 2>/dev/null || true)"
+  if [[ "$(uname -m)" == "arm64" && "$executable_description" == *"x86_64"* && "$executable_description" != *"arm64"* ]]; then
+    launch_prefix=(/usr/bin/arch -x86_64)
+    launch_target="/usr/bin/arch -x86_64 $app_executable"
+    timeout_seconds=90
+  fi
+  launch_command=("${launch_prefix[@]}" "$app_executable")
+fi
+
+if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" "${launch_command[@]}" >"$OUT_DIR/run.log" 2>&1 & then
   app_pid=$!
-  timeout_seconds=45
   elapsed=0
   expected_files=(
     "$OUT_DIR/openscribe-window.png"
@@ -318,10 +375,14 @@ fi
 
 overall_status=0
 if [[ "$build_status" != "pass" ]]; then
-  overall_status=1
+  if [[ "$build_status" != "skipped" ]]; then
+    overall_status=1
+  fi
 fi
 if [[ "$test_status" != "pass" ]]; then
-  overall_status=1
+  if [[ "$test_status" != "skipped" ]]; then
+    overall_status=1
+  fi
 fi
 if [[ "$app_launch_status" != "pass" ]]; then
   overall_status=1
@@ -376,6 +437,8 @@ cat > "$OUT_DIR/report.md" <<REPORT
 # UI Smoke Report
 
 - Timestamp: $(date -u +"%Y-%m-%d %H:%M UTC")
+- Smoke mode: $launch_mode
+- Launch target: $launch_target
 - Build: $build_status
 - Tests: $test_status
 - App launch: $app_launch_status
