@@ -13,6 +13,13 @@
 - Do not add migration code, deprecation handling, compatibility shims, fallback paths, or legacy settings upgrades unless the user explicitly requests them.
 - Prefer a single clear path that works now over backward-compatibility logic.
 
+## Completion Standard
+
+- Complete the full requested outcome when the next execution step is available.
+- Do not stop after an intermediate milestone such as local build success, artifact generation, or PR creation when release, publication, merge, or verification steps are still actionable.
+- If an external gate remains, keep driving until the gate is resolved or report the exact blocker, current state, and next command needed.
+- For release and distribution work, verify the published state after the final write operation instead of assuming success from a prior local step.
+
 ## Writing Style
 
 - Do not use em dashes.
