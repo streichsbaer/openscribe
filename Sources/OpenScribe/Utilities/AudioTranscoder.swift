@@ -21,6 +21,16 @@ enum AudioTranscoder {
         )
     }
 
+    static func transcodeToRealtimeWAV(sourceURL: URL, destinationURL: URL) throws {
+        try transcode(
+            sourceURL: sourceURL,
+            destinationURL: destinationURL,
+            fileFormat: "WAVE",
+            dataFormat: "LEI16@24000",
+            bitrate: nil
+        )
+    }
+
     private static func transcode(
         sourceURL: URL,
         destinationURL: URL,

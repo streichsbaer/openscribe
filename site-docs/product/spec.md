@@ -17,9 +17,10 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 4. Audio activity guard validates speech signal before provider calls.
 5. Empty or near-empty recordings skip STT and polish, store empty transcript outputs, and end with a `No audio captured` status.
 6. STT runs via selected provider when speech signal is usable.
-7. If polish is enabled, polish runs via selected LLM provider with `Rules/rules.md`.
-8. If polish is disabled, polished output is passthrough from raw transcript.
-9. Session artifacts are written: `audio.m4a`, `session.json`, `raw.txt`, `polished.md`.
+7. OpenAI Realtime streams interim raw transcript text while recording, then commits the final transcript after stop.
+8. If polish is enabled, polish runs via selected LLM provider with `Rules/rules.md`.
+9. If polish is disabled, polished output is passthrough from raw transcript.
+10. Session artifacts are written: `audio.m4a`, `session.json`, `raw.txt`, `polished.md`.
 
 ## First-run setup assistant
 
@@ -62,6 +63,7 @@ Root path:
 - STT:
   - Local `whisper.cpp`
   - OpenAI Whisper API
+  - OpenAI Realtime API
   - Groq Whisper API
   - OpenRouter (OpenAI-compatible API)
   - Gemini (OpenAI-compatible API)
@@ -77,6 +79,7 @@ User guide: [Providers and Models](../guides/providers.md)
 
 - Popover has three main tabs: `Live`, `History`, `Stats`.
 - Raw transcript is shown in a read-only text panel.
+- OpenAI Realtime can update the raw transcript panel while recording.
 - Polished transcript is shown directly below raw text.
 - No raw or polished tab switcher.
 - Re-Transcribe supports per-session provider and model override with inline search and picker.
@@ -94,7 +97,6 @@ UI behavior contract:
 
 ## Out of scope (V1)
 
-- Streaming transcription.
 - Sync or team dictionaries.
 - Speaker diarization and timestamps.
 

@@ -20,6 +20,11 @@ final class ProviderFactory {
                 throw ProviderError.missingAPIKey("OpenAI")
             }
             return OpenAIWhisperProvider(apiKey: key)
+        case "openai_realtime_transcription":
+            guard let key = apiKeyResolver.resolve(.openAI).value else {
+                throw ProviderError.missingAPIKey("OpenAI")
+            }
+            return OpenAIRealtimeTranscriptionProvider(apiKey: key)
         case "groq_whisper":
             guard let key = apiKeyResolver.resolve(.groq).value else {
                 throw ProviderError.missingAPIKey("Groq")

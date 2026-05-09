@@ -80,6 +80,9 @@ final class AppShell: ObservableObject {
         keyCode: 15, // ANSI R
         modifiers: UInt32(controlKey | optionKey)
     )
+    nonisolated private static let realtimeTranscriptionProviderID = "openai_realtime_transcription"
+    nonisolated private static let realtimeTranscriptionSampleRate: Double = 24_000
+    nonisolated private static let standardTranscriptionSampleRate: Double = 16_000
 
     enum HistoryLoadMoreMode: String, CaseIterable, Identifiable {
         case next10
@@ -192,6 +195,8 @@ final class AppShell: ObservableObject {
     private var transcribeStartedAt: Date?
     private var polishTimer: Timer?
     private var polishStartedAt: Date?
+    private var activeRealtimeTranscriptionSession: OpenAIRealtimeTranscriptionSession?
+    private var activeRealtimeAudioSender: OpenAIRealtimeAudioSender?
 
     init() {
         let resolvedLayout: DirectoryLayout
@@ -735,25 +740,47 @@ final class AppShell: ObservableObject {
             polishedTranscriptModel = ""
             lastError = nil
 
+            let captureSampleRate = Self.captureSampleRate(for: settings)
             var session = try sessionManager.startSession(
                 settings: settings,
-                inputDeviceName: microphoneResolution.device?.name ?? systemDefaultMicrophoneName
+                inputDeviceName: microphoneResolution.device?.name ?? systemDefaultMicrophoneName,
+                sampleRate: captureSampleRate
             )
             try sessionManager.transition(&session, to: .recording, details: "Audio capture started")
             let inputDeviceID = MicrophoneCaptureRouting.inputDeviceIDForCapture(
                 resolution: microphoneResolution,
                 systemDefaultDeviceID: systemDefaultMicrophoneID
             )
+
+            let realtimeSession = try await startRealtimeTranscriptionIfNeeded(settings: settings)
+            let realtimeAudioSender = realtimeSession.map { OpenAIRealtimeAudioSender(session: $0) }
+            let onPCMChunk: (@Sendable (Data) -> Void)?
+            if let realtimeAudioSender {
+                onPCMChunk = { data in
+                    realtimeAudioSender.append(data)
+                }
+            } else {
+                onPCMChunk = nil
+            }
+            activeRealtimeTranscriptionSession = realtimeSession
+            activeRealtimeAudioSender = realtimeAudioSender
             try audioCapture.startRecording(
                 to: session.paths.audioTempURL,
-                inputDeviceID: inputDeviceID
+                inputDeviceID: inputDeviceID,
+                sampleRate: captureSampleRate,
+                onPCMChunk: onPCMChunk
             )
             currentSession = session
             sessionMicrophoneOverrideID = nil
 
             sessionState = .recording
-            statusMessage = microphoneResolution.statusMessage ?? "Recording"
+            statusMessage = microphoneResolution.statusMessage
+                ?? (realtimeSession == nil ? "Recording" : "Recording with realtime transcription")
         } catch {
+            activeRealtimeAudioSender?.cancel()
+            activeRealtimeAudioSender = nil
+            await activeRealtimeTranscriptionSession?.cancel()
+            activeRealtimeTranscriptionSession = nil
             lastError = error.localizedDescription
             statusMessage = "Failed to start recording"
             sessionState = .failed
@@ -802,11 +829,17 @@ final class AppShell: ObservableObject {
             try sessionManager.transition(&session, to: .finalizingAudio, details: "Stopping audio capture")
 
             let audioActivity = audioCapture.stopRecording()
+            let realtimeSession = activeRealtimeTranscriptionSession
+            let realtimeAudioSender = activeRealtimeAudioSender
+            activeRealtimeTranscriptionSession = nil
+            activeRealtimeAudioSender = nil
             try sessionManager.finalizeAudioFile(&session)
             try sessionManager.stopSession(&session)
             session.metadata.audioActivity = audioActivity
 
             if !audioActivity.hasUsableSpeech {
+                realtimeAudioSender?.cancel()
+                await realtimeSession?.cancel()
                 try completeWithoutUsableAudio(session: &session, reason: audioActivity.reason)
                 currentSession = session
                 return
@@ -817,7 +850,16 @@ final class AppShell: ObservableObject {
             beginTranscribeProgressTracking()
             try sessionManager.transition(&session, to: .transcribing, details: "Running transcription")
 
-            let transcript = try await runTranscriptionWithRetry(audioFileURL: session.paths.audioURL, settings: settings)
+            let transcript: TranscriptResult
+            if let realtimeSession {
+                transcript = try await finishRealtimeTranscription(
+                    realtimeSession,
+                    audioSender: realtimeAudioSender,
+                    settings: settings
+                )
+            } else {
+                transcript = try await runTranscriptionWithRetry(audioFileURL: session.paths.audioURL, settings: settings)
+            }
             let transcribeProcessingMs = transcribeElapsedMs()
             endTranscribeProgressTracking()
             rawTranscript = transcript.text
@@ -1373,7 +1415,7 @@ final class AppShell: ObservableObject {
             return fallback
         }
 
-        let filtered = Self.filterModels(fetched, backend: backend, usage: usage)
+        let filtered = Self.filterModels(fetched, providerID: providerID, backend: backend, usage: usage)
         if filtered.isEmpty {
             return fallback
         }
@@ -1387,6 +1429,8 @@ final class AppShell: ObservableObject {
             return ["tiny", "base", "small", "medium"]
         case ("openai_whisper", .transcription):
             return ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
+        case ("openai_realtime_transcription", .transcription):
+            return ["gpt-realtime-whisper"]
         case ("groq_whisper", .transcription):
             return ["whisper-large-v3", "whisper-large-v3-turbo"]
         case ("openrouter_transcribe", .transcription):
@@ -1594,7 +1638,7 @@ final class AppShell: ObservableObject {
         switch providerID {
         case "whispercpp":
             return .whispercpp
-        case "openai_whisper", "openai_polish":
+        case "openai_whisper", "openai_realtime_transcription", "openai_polish":
             return .openai
         case "groq_whisper", "groq_polish":
             return .groq
@@ -1611,6 +1655,7 @@ final class AppShell: ObservableObject {
 
     nonisolated static func filterModels(
         _ models: [String],
+        providerID: String,
         backend: ProviderBackend,
         usage: ProviderModelUsage
     ) -> [String] {
@@ -1618,7 +1663,12 @@ final class AppShell: ObservableObject {
         case (.openai, .transcription):
             let filtered = models.filter { id in
                 let value = id.lowercased()
-                return value.contains("transcribe") || value.contains("whisper")
+                if providerID == realtimeTranscriptionProviderID {
+                    return value == "gpt-realtime-whisper" ||
+                        (value.hasPrefix("gpt-realtime-") && value.contains("whisper"))
+                }
+                return (value.contains("transcribe") || value.contains("whisper")) &&
+                    !value.hasPrefix("gpt-realtime-")
             }
             return filtered.sorted()
         case (.openai, .polish):
@@ -1832,6 +1882,69 @@ final class AppShell: ObservableObject {
         try await ProviderRetryPolicy.run {
             try await self.transcriptionPipeline.run(audioFileURL: audioFileURL, settings: settings)
         }
+    }
+
+    private func finishRealtimeTranscription(
+        _ realtimeSession: OpenAIRealtimeTranscriptionSession,
+        audioSender: OpenAIRealtimeAudioSender?,
+        settings: AppSettings
+    ) async throws -> TranscriptResult {
+        let start = Date()
+        let text: String
+        do {
+            try await audioSender?.finishSending()
+            text = try await realtimeSession.finish()
+            guard !text.isEmpty else {
+                throw ProviderError.invalidResponse
+            }
+        } catch {
+            await realtimeSession.cancel()
+            throw error
+        }
+        return TranscriptResult(
+            text: text,
+            providerId: settings.transcriptionProviderID,
+            model: settings.transcriptionModel,
+            latencyMs: Int(Date().timeIntervalSince(start) * 1_000),
+            inputTokens: nil,
+            outputTokens: nil
+        )
+    }
+
+    private func startRealtimeTranscriptionIfNeeded(settings: AppSettings) async throws -> OpenAIRealtimeTranscriptionSession? {
+        guard Self.usesRealtimeTranscription(settings) else {
+            return nil
+        }
+        guard let apiKey = apiKeyResolver.resolve(.openAI).value else {
+            throw ProviderError.missingAPIKey("OpenAI")
+        }
+
+        let language: String?
+        if settings.languageMode.lowercased() == "auto" {
+            language = nil
+        } else {
+            language = settings.languageMode
+        }
+
+        let realtimeSession = OpenAIRealtimeTranscriptionSession(
+            apiKey: apiKey,
+            model: settings.transcriptionModel,
+            language: language,
+            sampleRate: Int(Self.realtimeTranscriptionSampleRate),
+            onPartialTranscript: { [weak self] text in
+                self?.rawTranscript = text
+            }
+        )
+        try await realtimeSession.connect()
+        return realtimeSession
+    }
+
+    nonisolated static func usesRealtimeTranscription(_ settings: AppSettings) -> Bool {
+        settings.transcriptionProviderID == realtimeTranscriptionProviderID
+    }
+
+    nonisolated static func captureSampleRate(for settings: AppSettings) -> Double {
+        usesRealtimeTranscription(settings) ? realtimeTranscriptionSampleRate : standardTranscriptionSampleRate
     }
 
     private func runPolishWithRetry(

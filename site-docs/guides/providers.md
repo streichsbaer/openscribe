@@ -24,9 +24,12 @@ If you want cloud transcription, add an API key in Settings > Providers and then
 These providers send your audio over the network and require an API key:
 
 - **OpenAI Whisper API** for broad compatibility and strong accuracy.
+- **OpenAI Realtime** for live raw transcript updates while recording with `gpt-realtime-whisper`.
 - **Groq Whisper API** for fast inference.
 - **OpenRouter** for access to multiple upstream model providers.
 - **Gemini** for Google-hosted models through an OpenAI-compatible interface.
+
+OpenAI Realtime changes when raw text appears, but not when OpenScribe finishes the session. Polish, copy-on-complete, and paste still wait for the final transcript after you stop recording.
 
 ## Turn on polish when you want cleaner output
 
@@ -57,7 +60,7 @@ App updates do not clear those saved keys for the same macOS user account.
 
 Use the model picker in Settings > Transcribe or Settings > Polish to browse what each provider offers. Refresh the provider model list in Settings > Providers when you want the latest options.
 
-For transcription, larger models are usually more accurate and slower. For polish, the right choice depends on how much latency you are willing to trade for better cleanup. If you want the simplest recommended hosted setup, use `whisper-large-v3-turbo` for transcription and `openai/gpt-oss-120b` on Groq for polish.
+For transcription, larger models are usually more accurate and slower. Realtime transcription is a separate OpenAI provider path and uses `gpt-realtime-whisper`. For polish, the right choice depends on how much latency you are willing to trade for better cleanup. If you want the simplest recommended hosted setup, use `whisper-large-v3-turbo` for transcription and `openai/gpt-oss-120b` on Groq for polish.
 
 ## Language
 

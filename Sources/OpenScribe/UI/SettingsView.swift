@@ -150,6 +150,7 @@ struct SettingsView: View {
     private let sttProviders = [
         (id: "whispercpp", label: "Local whisper.cpp"),
         (id: "openai_whisper", label: "OpenAI Speech-to-Text"),
+        (id: "openai_realtime_transcription", label: "OpenAI Realtime"),
         (id: "groq_whisper", label: "Groq Whisper"),
         (id: "openrouter_transcribe", label: "OpenRouter Transcription"),
         (id: "gemini_transcribe", label: "Gemini Transcription")

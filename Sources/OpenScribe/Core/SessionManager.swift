@@ -14,7 +14,11 @@ final class SessionManager {
         self.fileManager = fileManager
     }
 
-    func startSession(settings: AppSettings, inputDeviceName: String?) throws -> SessionContext {
+    func startSession(
+        settings: AppSettings,
+        inputDeviceName: String?,
+        sampleRate: Double = 16_000
+    ) throws -> SessionContext {
         let id = UUID()
         let now = Date()
         let formatter = DateFormatter()
@@ -45,7 +49,7 @@ final class SessionManager {
             stoppedAt: nil,
             durationMs: nil,
             inputDeviceName: inputDeviceName,
-            sampleRate: 16_000,
+            sampleRate: sampleRate,
             channels: 1,
             sttProvider: settings.transcriptionProviderID,
             sttModel: settings.transcriptionModel,

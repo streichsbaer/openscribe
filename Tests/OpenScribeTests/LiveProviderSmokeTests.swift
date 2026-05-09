@@ -77,6 +77,8 @@ final class LiveProviderSmokeTests: XCTestCase {
         switch id {
         case "openai_whisper":
             return OpenAIWhisperProvider(apiKey: try apiKey(for: .openAI))
+        case "openai_realtime_transcription":
+            return OpenAIRealtimeTranscriptionProvider(apiKey: try apiKey(for: .openAI))
         case "groq_whisper":
             return GroqWhisperProvider(apiKey: try apiKey(for: .groq))
         case "openrouter_transcribe":
@@ -106,11 +108,31 @@ final class LiveProviderSmokeTests: XCTestCase {
     }
 
     private func apiKey(for entry: KeychainEntry) throws -> String {
+        let env = ProcessInfo.processInfo.environment
+        if let value = envKey(for: entry).flatMap({ env[$0] })?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !value.isEmpty {
+            return value
+        }
         if let value = keychain.load(entry)?.trimmingCharacters(in: .whitespacesAndNewlines),
            !value.isEmpty {
             return value
         }
         throw ProviderError.missingAPIKey(entry.providerDisplayName)
+    }
+
+    private func envKey(for entry: KeychainEntry) -> String? {
+        switch entry {
+        case .openAI:
+            return "OPENAI_API_KEY"
+        case .groq:
+            return "GROQ_API_KEY"
+        case .openRouter:
+            return "OPENROUTER_API_KEY"
+        case .gemini:
+            return "GEMINI_API_KEY"
+        case .cerebras:
+            return "CEREBRAS_API_KEY"
+        }
     }
 
     private func preview(_ value: String) -> String {

@@ -14,6 +14,7 @@ final class AudioCaptureManager {
     private var wavWriter: WavFileWriter?
     private var converter: AVAudioConverter?
     private var activityAnalyzer: AudioActivityAnalyzer?
+    private var onPCMChunk: (@Sendable (Data) -> Void)?
 
     var onLevelUpdate: ((Float) -> Void)?
 
@@ -35,7 +36,12 @@ final class AudioCaptureManager {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
 
-    func startRecording(to tempURL: URL, inputDeviceID: String?) throws {
+    func startRecording(
+        to tempURL: URL,
+        inputDeviceID: String?,
+        sampleRate: Double = 16_000,
+        onPCMChunk: (@Sendable (Data) -> Void)? = nil
+    ) throws {
         teardownEngine()
 
         if FileManager.default.fileExists(atPath: tempURL.path) {
@@ -51,7 +57,7 @@ final class AudioCaptureManager {
             throw ProviderError.unsupported("The selected microphone returned an invalid input format.")
         }
 
-        guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000, channels: 1, interleaved: true) else {
+        guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: sampleRate, channels: 1, interleaved: true) else {
             throw ProviderError.unsupported("Failed to create output audio format.")
         }
 
@@ -64,6 +70,7 @@ final class AudioCaptureManager {
             sampleRate: Int(targetFormat.sampleRate),
             channels: Int(targetFormat.channelCount)
         )
+        self.onPCMChunk = onPCMChunk
         activityAnalyzer = AudioActivityAnalyzer()
 
         inputNode.removeTap(onBus: 0)
@@ -89,6 +96,7 @@ final class AudioCaptureManager {
         try? wavWriter?.close()
         wavWriter = nil
         converter = nil
+        onPCMChunk = nil
         let assessment = activityAnalyzer?.assess() ?? .noData
         activityAnalyzer = nil
 
@@ -160,7 +168,9 @@ final class AudioCaptureManager {
         }
 
         if outputBuffer.frameLength > 0 {
-            try? wavWriter.append(from: outputBuffer)
+            if let pcmData = try? wavWriter.append(from: outputBuffer) {
+                onPCMChunk?(pcmData)
+            }
         }
     }
 
@@ -217,20 +227,22 @@ private final class WavFileWriter {
         try writeHeader(dataSize: 0)
     }
 
-    func append(from buffer: AVAudioPCMBuffer) throws {
+    @discardableResult
+    func append(from buffer: AVAudioPCMBuffer) throws -> Data {
         let audioBuffer = buffer.audioBufferList.pointee.mBuffers
         guard let dataPointer = audioBuffer.mData else {
-            return
+            return Data()
         }
 
         let byteCount = Int(audioBuffer.mDataByteSize)
         guard byteCount > 0 else {
-            return
+            return Data()
         }
 
         let data = Data(bytes: dataPointer, count: byteCount)
         try handle.write(contentsOf: data)
         dataBytesWritten &+= UInt32(byteCount)
+        return data
     }
 
     func close() throws {

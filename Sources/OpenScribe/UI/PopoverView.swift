@@ -1415,6 +1415,11 @@ struct PopoverView: View {
             models: shell.availableModels(for: "openai_whisper", usage: .transcription)
         ))
         options.append(contentsOf: verifiedOptions(
+            providerID: "openai_realtime_transcription",
+            providerName: "OpenAI Realtime",
+            models: shell.availableModels(for: "openai_realtime_transcription", usage: .transcription)
+        ))
+        options.append(contentsOf: verifiedOptions(
             providerID: "groq_whisper",
             providerName: "Groq",
             models: shell.availableModels(for: "groq_whisper", usage: .transcription)
@@ -1595,6 +1600,8 @@ struct PopoverView: View {
             return "Local whisper.cpp"
         case "openai_whisper":
             return "OpenAI"
+        case "openai_realtime_transcription":
+            return "OpenAI Realtime"
         case "groq_whisper":
             return "Groq"
         case "openrouter_transcribe":
