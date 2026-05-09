@@ -157,6 +157,7 @@ struct AppSettings: Codable, Equatable {
     var polishCustomInstructionEnabled: Bool?
     var polishInstruction: String?
     var appearanceMode: String
+    var showActiveSessionIndicator: Bool?
     var languageMode: String
     var copyOnComplete: Bool
     var startStopHotkey: HotkeySetting
@@ -178,6 +179,7 @@ struct AppSettings: Codable, Equatable {
         polishCustomInstructionEnabled: nil,
         polishInstruction: nil,
         appearanceMode: "system",
+        showActiveSessionIndicator: true,
         languageMode: "auto",
         copyOnComplete: true,
         startStopHotkey: .startStopDefault,
@@ -188,6 +190,10 @@ struct AppSettings: Codable, Equatable {
         openSettingsHotkey: .openSettingsDefault,
         pinnedMicrophone: nil
     )
+
+    var activeSessionIndicatorEnabled: Bool {
+        showActiveSessionIndicator ?? true
+    }
 }
 
 enum AppearanceMode: String, CaseIterable, Codable, Equatable {

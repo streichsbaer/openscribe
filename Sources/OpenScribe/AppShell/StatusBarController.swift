@@ -1427,6 +1427,10 @@ final class StatusBarController: NSObject {
     }
 
     private var shouldShowActiveIndicator: Bool {
+        guard shell.settings.activeSessionIndicatorEnabled else {
+            return false
+        }
+
         switch currentSessionState {
         case .recording, .finalizingAudio, .transcribing, .polishing:
             return true

@@ -61,6 +61,34 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.settings.transcriptionCustomInstructionEnabled, true)
     }
 
+    func testPersistsDisabledActiveSessionIndicator() throws {
+        let layout = try makeTempLayout()
+        let store = SettingsStore(layout: layout)
+
+        store.update {
+            $0.showActiveSessionIndicator = false
+        }
+
+        let reloaded = SettingsStore(layout: layout)
+        XCTAssertEqual(reloaded.settings.showActiveSessionIndicator, false)
+        XCTAssertFalse(reloaded.settings.activeSessionIndicatorEnabled)
+    }
+
+    func testMissingActiveSessionIndicatorSettingDefaultsToEnabled() throws {
+        let layout = try makeTempLayout()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(AppSettings.default)
+        var settingsJSON = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        settingsJSON.removeValue(forKey: "showActiveSessionIndicator")
+        let legacyData = try JSONSerialization.data(withJSONObject: settingsJSON, options: [.prettyPrinted, .sortedKeys])
+        try legacyData.write(to: layout.settingsFile)
+
+        let reloaded = SettingsStore(layout: layout)
+        XCTAssertNil(reloaded.settings.showActiveSessionIndicator)
+        XCTAssertTrue(reloaded.settings.activeSessionIndicatorEnabled)
+    }
+
     private func makeTempLayout() throws -> DirectoryLayout {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("OpenScribeSettingsTests-\(UUID().uuidString)", isDirectory: true)

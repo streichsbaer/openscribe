@@ -380,6 +380,18 @@ struct SettingsView: View {
                     .labelsHidden()
                 }
 
+                settingRow("Show session indicator") {
+                    Toggle("", isOn: Binding(
+                        get: { shell.settings.activeSessionIndicatorEnabled },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.showActiveSessionIndicator = newValue
+                            }
+                        }
+                    ))
+                    .labelsHidden()
+                }
+
                 settingRow("Auto-paste on completion") {
                     Toggle("", isOn: $shell.autoPasteOnComplete)
                         .labelsHidden()
