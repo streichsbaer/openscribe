@@ -46,6 +46,36 @@ final class OpenAIRealtimeTranscriptionProviderTests: XCTestCase {
             Data([0x03])
         ])
     }
+
+    func testRealtimeAudioSenderBuffersChunksUntilReady() async throws {
+        let recorder = RealtimeAudioSendRecorder()
+        let gate = RealtimeAudioSendGate()
+        let sender = OpenAIRealtimeAudioSender(
+            onReady: {
+                await gate.waitUntilOpened()
+            },
+            onSend: { data in
+                await recorder.append(data)
+            }
+        )
+
+        sender.append(Data([0x01]))
+        sender.append(Data([0x02]))
+        try await Task.sleep(nanoseconds: 20_000_000)
+        let chunksBeforeReady = await recorder.chunks
+        XCTAssertEqual(chunksBeforeReady, [])
+
+        await gate.open()
+        sender.append(Data([0x03]))
+        try await sender.finishSending()
+
+        let chunks = await recorder.chunks
+        XCTAssertEqual(chunks, [
+            Data([0x01]),
+            Data([0x02]),
+            Data([0x03])
+        ])
+    }
 }
 
 private actor RealtimeAudioSendRecorder {
@@ -53,5 +83,28 @@ private actor RealtimeAudioSendRecorder {
 
     func append(_ data: Data) {
         chunks.append(data)
+    }
+}
+
+private actor RealtimeAudioSendGate {
+    private var isOpen = false
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func waitUntilOpened() async {
+        if isOpen {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func open() {
+        isOpen = true
+        let pending = continuations
+        continuations = []
+        for continuation in pending {
+            continuation.resume()
+        }
     }
 }

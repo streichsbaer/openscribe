@@ -248,12 +248,24 @@ final class OpenAIRealtimeAudioSender: @unchecked Sendable {
     private let task: Task<Void, Error>
 
     convenience init(session: OpenAIRealtimeTranscriptionSession) {
-        self.init { data in
+        self.init(onReady: {}, onSend: { data in
             try await session.appendAudio(data)
-        }
+        })
     }
 
-    init(onSend: @escaping @Sendable (Data) async throws -> Void) {
+    convenience init(
+        session: OpenAIRealtimeTranscriptionSession,
+        connect: @escaping @Sendable () async throws -> Void
+    ) {
+        self.init(onReady: connect, onSend: { data in
+            try await session.appendAudio(data)
+        })
+    }
+
+    init(
+        onReady: @escaping @Sendable () async throws -> Void = {},
+        onSend: @escaping @Sendable (Data) async throws -> Void
+    ) {
         var streamContinuation: AsyncStream<Data>.Continuation?
         let stream = AsyncStream<Data> { continuation in
             streamContinuation = continuation
@@ -264,6 +276,7 @@ final class OpenAIRealtimeAudioSender: @unchecked Sendable {
 
         self.continuation = streamContinuation
         self.task = Task {
+            try await onReady()
             for await data in stream {
                 try await onSend(data)
             }

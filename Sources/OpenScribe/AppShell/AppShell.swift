@@ -752,8 +752,12 @@ final class AppShell: ObservableObject {
                 systemDefaultDeviceID: systemDefaultMicrophoneID
             )
 
-            let realtimeSession = try await startRealtimeTranscriptionIfNeeded(settings: settings)
-            let realtimeAudioSender = realtimeSession.map { OpenAIRealtimeAudioSender(session: $0) }
+            let realtimeSession = try makeRealtimeTranscriptionSessionIfNeeded(settings: settings)
+            let realtimeAudioSender = realtimeSession.map { realtimeSession in
+                OpenAIRealtimeAudioSender(session: realtimeSession) {
+                    try await realtimeSession.connect()
+                }
+            }
             let onPCMChunk: (@Sendable (Data) -> Void)?
             if let realtimeAudioSender {
                 onPCMChunk = { data in
@@ -1911,7 +1915,7 @@ final class AppShell: ObservableObject {
         )
     }
 
-    private func startRealtimeTranscriptionIfNeeded(settings: AppSettings) async throws -> OpenAIRealtimeTranscriptionSession? {
+    private func makeRealtimeTranscriptionSessionIfNeeded(settings: AppSettings) throws -> OpenAIRealtimeTranscriptionSession? {
         guard Self.usesRealtimeTranscription(settings) else {
             return nil
         }
@@ -1935,7 +1939,6 @@ final class AppShell: ObservableObject {
                 self?.rawTranscript = text
             }
         )
-        try await realtimeSession.connect()
         return realtimeSession
     }
 
