@@ -7,6 +7,9 @@ final class StatusBarController: NSObject {
     private static let popoverVerticalMargin: CGFloat = 64
     private static let popoverMaxHeightFraction: CGFloat = 0.88
     private static let popoverMinHeight: CGFloat = 420
+    private static let activeIndicatorSize = NSSize(width: 40, height: 40)
+    private static let activeIndicatorIconSize = NSSize(width: 28, height: 28)
+    private static let activeIndicatorBottomInset: CGFloat = 68
     // Popover uses a single live size -- no compact/expanded modes.
     private enum MicIconState {
         case idle
@@ -61,6 +64,8 @@ final class StatusBarController: NSObject {
     private let popover = NSPopover()
     private let shell: AppShell
     private let settingsWindowController: SettingsWindowController
+    private var activeIndicatorPanel: NSPanel?
+    private var activeIndicatorImageView: NSImageView?
     private var cancellables = Set<AnyCancellable>()
     private var blinkTimer: Timer?
     private var blinkPhase = false
@@ -110,6 +115,7 @@ final class StatusBarController: NSObject {
         currentAppearanceMode = AppearanceMode(rawValue: shell.settings.appearanceMode) ?? .system
         configureStatusItem()
         configurePopover()
+        configureActiveIndicator()
         applyAppearanceSettings()
         bindShellState()
         startBlinkTimer()
@@ -1235,6 +1241,7 @@ final class StatusBarController: NSObject {
 
     private func updateIconAppearance() {
         setStatusIcon(for: iconState, blinkPhase: blinkPhase)
+        updateActiveIndicatorAppearance()
     }
 
     private func setStatusIcon(for state: MicIconState, blinkPhase: Bool) {
@@ -1253,8 +1260,11 @@ final class StatusBarController: NSObject {
         button.title = ""
     }
 
-    private func drawStatusIcon(for state: MicIconState, blinkPhase: Bool) -> NSImage? {
-        let size = NSSize(width: 18, height: 18)
+    private func drawStatusIcon(
+        for state: MicIconState,
+        blinkPhase: Bool,
+        size: NSSize = NSSize(width: 18, height: 18)
+    ) -> NSImage? {
         let image = NSImage(size: size)
         image.lockFocus()
         defer { image.unlockFocus() }
@@ -1344,6 +1354,100 @@ final class StatusBarController: NSObject {
         return image
     }
 
+    private func configureActiveIndicator() {
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: Self.activeIndicatorSize),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.hidesOnDeactivate = false
+        panel.ignoresMouseEvents = true
+        panel.isReleasedWhenClosed = false
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.alphaValue = 0
+
+        let contentView = NSView(frame: NSRect(origin: .zero, size: Self.activeIndicatorSize))
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.clear.cgColor
+
+        let imageView = NSImageView()
+        imageView.imageAlignment = .alignCenter
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(imageView)
+
+        NSLayoutConstraint.activate([
+            imageView.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
+            imageView.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            imageView.widthAnchor.constraint(equalToConstant: Self.activeIndicatorIconSize.width),
+            imageView.heightAnchor.constraint(equalToConstant: Self.activeIndicatorIconSize.height)
+        ])
+
+        panel.contentView = contentView
+        activeIndicatorPanel = panel
+        activeIndicatorImageView = imageView
+    }
+
+    private func updateActiveIndicatorAppearance() {
+        guard let panel = activeIndicatorPanel,
+              let imageView = activeIndicatorImageView else {
+            return
+        }
+
+        guard shouldShowActiveIndicator else {
+            if panel.isVisible {
+                panel.alphaValue = 0
+                panel.orderOut(nil)
+            }
+            return
+        }
+
+        imageView.image = drawStatusIcon(
+            for: iconState,
+            blinkPhase: blinkPhase,
+            size: Self.activeIndicatorIconSize
+        )
+        positionActiveIndicator(panel)
+
+        if !panel.isVisible {
+            panel.alphaValue = 0
+            panel.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.12
+                panel.animator().alphaValue = 1
+            }
+        } else {
+            panel.alphaValue = 1
+        }
+    }
+
+    private var shouldShowActiveIndicator: Bool {
+        switch currentSessionState {
+        case .recording, .finalizingAudio, .transcribing, .polishing:
+            return true
+        case .idle, .completed, .failed:
+            return false
+        }
+    }
+
+    private func positionActiveIndicator(_ panel: NSPanel) {
+        guard let screen = statusItem.button?.window?.screen ?? NSScreen.main ?? NSScreen.screens.first else {
+            return
+        }
+
+        let visibleFrame = screen.visibleFrame
+        let origin = NSPoint(
+            x: visibleFrame.midX - (Self.activeIndicatorSize.width / 2),
+            y: visibleFrame.minY + Self.activeIndicatorBottomInset
+        )
+        panel.setFrameOrigin(origin)
+    }
+
     private func iconBaseColor(for state: MicIconState, blinkPhase: Bool) -> NSColor {
         switch state {
         case .idle:
@@ -1403,6 +1507,8 @@ final class StatusBarController: NSObject {
         statusItem.button?.appearance = appearance
         popover.appearance = appearance
         popover.contentViewController?.view.appearance = appearance
+        activeIndicatorPanel?.appearance = appearance
+        activeIndicatorPanel?.contentView?.appearance = appearance
     }
 
     private func nsAppearance(for mode: AppearanceMode) -> NSAppearance? {
