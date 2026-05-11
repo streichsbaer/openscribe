@@ -1,5 +1,5 @@
 name: Work Request
-about: Propose a feature, improvement, or docs change with acceptance criteria.
+description: Propose a feature, improvement, or docs change with acceptance criteria.
 title: "[Work]: "
 labels:
   - type/feature
