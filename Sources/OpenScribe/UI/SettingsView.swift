@@ -1636,13 +1636,14 @@ private struct FilterableModelSelector: View {
 }
 
 struct HotkeyEditor: View {
+    @EnvironmentObject private var shell: AppShell
+
     let title: String
     @Binding var hotkey: HotkeySetting
 
     @State private var isRecording = false
     @State private var keyMonitor: Any?
     @State private var recordingHint = "Click Record Shortcut, then press a key combination."
-    private let modifierOnlyKeyCodes: Set<UInt32> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1708,13 +1709,15 @@ struct HotkeyEditor: View {
     private func startRecording() {
         stopRecording(resetHint: false)
         isRecording = true
-        recordingHint = "Press your shortcut. Esc cancels. At least one modifier is required."
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+        shell.beginHotkeyRecordingCapture()
+        recordingHint = "Press your shortcut. Esc cancels. Use a non-modifier key plus at least one modifier."
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
             handleRecording(event)
         }
     }
 
     private func stopRecording(resetHint: Bool = true) {
+        let wasRecording = isRecording
         isRecording = false
         if resetHint {
             recordingHint = "Click Record Shortcut, then press a key combination."
@@ -1722,6 +1725,9 @@ struct HotkeyEditor: View {
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
+        }
+        if wasRecording {
+            shell.endHotkeyRecordingCapture()
         }
     }
 
@@ -1732,26 +1738,24 @@ struct HotkeyEditor: View {
 
         let keyCode = UInt32(event.keyCode)
 
-        if keyCode == 53 {
+        let modifiers = carbonModifiers(from: event.modifierFlags)
+        switch HotkeyCaptureValidator.validate(keyCode: keyCode, modifiers: modifiers) {
+        case .cancel:
             stopRecording()
             return nil
-        }
-
-        if modifierOnlyKeyCodes.contains(keyCode) {
+        case .modifierOnly:
+            recordingHint = "Shortcut must include a non-modifier key, such as Space, A, or F1."
             return nil
-        }
-
-        let modifiers = carbonModifiers(from: event.modifierFlags)
-        guard modifiers != 0 else {
+        case .missingModifier:
             NSSound.beep()
             recordingHint = "Shortcut must include a modifier key."
             return nil
+        case .save(let capturedHotkey):
+            hotkey = capturedHotkey
+            recordingHint = "Saved shortcut: \(HotkeyDisplay.string(for: hotkey))."
+            stopRecording(resetHint: false)
+            return nil
         }
-
-        hotkey = HotkeySetting(keyCode: keyCode, modifiers: modifiers).normalizedForCarbonHotkey()
-        recordingHint = "Saved shortcut: \(HotkeyDisplay.string(for: hotkey))."
-        stopRecording(resetHint: false)
-        return nil
     }
 
     private func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {

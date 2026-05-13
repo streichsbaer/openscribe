@@ -197,6 +197,7 @@ final class AppShell: ObservableObject {
     private var polishStartedAt: Date?
     private var activeRealtimeTranscriptionSession: OpenAIRealtimeTranscriptionSession?
     private var activeRealtimeAudioSender: OpenAIRealtimeAudioSender?
+    private var hotkeyCaptureDepth = 0
 
     init() {
         let resolvedLayout: DirectoryLayout
@@ -391,6 +392,22 @@ final class AppShell: ObservableObject {
         settingsStore.update(mutate)
         registerHotkeys()
         applyAppearanceMode()
+    }
+
+    func beginHotkeyRecordingCapture() {
+        hotkeyCaptureDepth += 1
+        hotkeyManager.unregisterAll()
+    }
+
+    func endHotkeyRecordingCapture() {
+        guard hotkeyCaptureDepth > 0 else {
+            return
+        }
+
+        hotkeyCaptureDepth -= 1
+        if hotkeyCaptureDepth == 0 {
+            registerHotkeys()
+        }
     }
 
     func applyInitialAppearanceModeAfterLaunch() {
@@ -1542,6 +1559,11 @@ final class AppShell: ObservableObject {
     }
 
     private func registerHotkeys() {
+        guard hotkeyCaptureDepth == 0 else {
+            hotkeyManager.unregisterAll()
+            return
+        }
+
         do {
             try validateUniqueHotkeys()
 

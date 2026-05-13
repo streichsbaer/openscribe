@@ -87,6 +87,15 @@ final class HotkeyManager {
         actions.removeValue(forKey: action)
     }
 
+    func unregisterAll() {
+        for (_, ref) in hotkeyRefs {
+            UnregisterEventHotKey(ref)
+        }
+
+        hotkeyRefs.removeAll()
+        actions.removeAll()
+    }
+
     private func installHandlerIfNeeded() {
         guard handlerRef == nil else {
             return
