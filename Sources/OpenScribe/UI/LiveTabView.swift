@@ -849,6 +849,7 @@ struct WaveformBars: View {
 }
 
 /// The waveform while recording; it reads the meter directly so only it redraws on each level.
+/// Older levels fade toward the left, so the live edge on the right reads as the newest sound.
 struct LiveWaveform: View {
     @EnvironmentObject private var meter: AudioMeterState
 
@@ -858,7 +859,8 @@ struct LiveWaveform: View {
             barCount: AudioMeterState.liveLevelCount,
             maxHeight: 56,
             color: { index, count in
-                index >= count - 10 ? PopoverPalette.record : Color.primary.opacity(0.78)
+                let age = Double(index) / Double(max(count - 1, 1))
+                return Color.primary.opacity(0.18 + 0.72 * age * age)
             }
         )
     }
