@@ -670,6 +670,9 @@ final class AppShell: ObservableObject {
             settings.copyOnComplete = true
         }
         statusMessage = "Local setup applied"
+        if !modelManager.isInstalled(modelID: modelID) {
+            installLocalModel(modelID)
+        }
     }
 
     func updatePopoverSize(selectedTab: PopoverTabSelection) {
@@ -1263,7 +1266,7 @@ final class AppShell: ObservableObject {
         let vocabularyModelID = ModelDownloadManager.parakeetVocabularyModelID
         if !vocabulary.isEmpty,
            !modelManager.isInstalled(modelID: vocabularyModelID),
-           modelManager.activeDownloadModelID == nil {
+           !modelManager.isDownloading(modelID: vocabularyModelID) {
             installLocalModel(vocabularyModelID)
         }
         let configuration = ParakeetEngine.Configuration(

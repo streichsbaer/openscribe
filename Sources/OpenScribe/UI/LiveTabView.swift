@@ -125,10 +125,11 @@ struct LiveTabView: View {
             HStack(spacing: 8) {
                 microphoneMenu
                 Spacer(minLength: 8)
-                Text(captureHint)
-                    .font(.system(size: 12))
-                    .foregroundStyle(shell.permissionState == .authorized ? PopoverPalette.muted : Color.orange)
-                    .lineLimit(1)
+                LiveCaptureHint(
+                    manager: shell.modelManager,
+                    text: captureHint,
+                    isWarning: shell.permissionState != .authorized
+                )
             }
         }
         .padding(16)
