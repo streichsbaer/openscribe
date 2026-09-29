@@ -870,10 +870,10 @@ struct SettingsView: View {
             }
 
             settingsCard("POPOVER TABS") {
-                Text("Live tab: Ctrl + Option + L")
+                Text("Live tab: \(HotkeyDisplay.string(for: AppShell.showLiveTabHotkey))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("History tab: Ctrl + Option + H")
+                Text("History tab: \(HotkeyDisplay.string(for: AppShell.showHistoryTabHotkey))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

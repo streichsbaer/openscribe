@@ -14,7 +14,7 @@ Usage: zsh .agents/skills/ui-smoke/scripts/run.sh [--out <dir>] [--app <path-to-
 
 Defaults:
   --app omitted  -> launch via swift run OpenScribe
-  --app set      -> launch the packaged app at <path-to-app>/Contents/MacOS/<AppName>
+  --app set      -> launch the packaged app at <path-to-app>/Contents/MacOS/<CFBundleExecutable>
   --out omitted  -> artifacts/ui-smoke/<timestamp> under repo root
   --out relative -> resolved from invocation working directory (pwd)
 USAGE
@@ -105,7 +105,7 @@ launch_prefix=()
 timeout_seconds=120
 
 if [[ -n "$APP_PATH" ]]; then
-  app_name="$(basename "$APP_PATH" .app)"
+  app_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
   app_executable="$APP_PATH/Contents/MacOS/$app_name"
   launch_mode="packaged-app"
   launch_target="$app_executable"
@@ -142,13 +142,26 @@ else
   fi
 fi
 
-existing_pids="$(pgrep -x OpenScribe || true)"
+# A side-by-side build (Scripts/build_side_by_side_app.sh) has its own hotkeys and data, so only its own
+# executable is stopped and the installed OpenScribe keeps running.
+side_by_side="false"
+if [[ -n "$APP_PATH" ]] && /usr/libexec/PlistBuddy -c 'Print :OpenScribeSideBySide' "$APP_PATH/Contents/Info.plist" >/dev/null 2>&1; then
+  side_by_side="true"
+fi
+smoke_target_pids() {
+  if [[ "$side_by_side" == "true" ]]; then
+    pgrep -f -- "$app_executable" || true
+  else
+    pgrep -x OpenScribe || true
+  fi
+}
+existing_pids="$(smoke_target_pids)"
 if [[ -n "$existing_pids" ]]; then
   echo "[ui-smoke] stopping existing OpenScribe process(es): $existing_pids"
   kill $existing_pids >/dev/null 2>&1 || true
   sleep 1
 
-  remaining_pids="$(pgrep -x OpenScribe || true)"
+  remaining_pids="$(smoke_target_pids)"
   if [[ -n "$remaining_pids" ]]; then
     echo "[ui-smoke] force stopping stubborn OpenScribe process(es): $remaining_pids"
     kill -9 $remaining_pids >/dev/null 2>&1 || true

@@ -106,34 +106,38 @@ struct HotkeySetting: Codable, Equatable, Hashable {
     private static let commaKeyCode: UInt32 = 43
     static let carbonFunctionMask: UInt32 = UInt32(kEventKeyModifierFnMask)
 
+    /// Modifiers for the Control-Option shortcut family. The side-by-side build adds Command
+    /// so it can run next to the installed app without hotkey collisions.
+    static let shortcutModifiers: UInt32 = UInt32(controlKey | optionKey) | (AppVariant.isSideBySide ? UInt32(cmdKey) : 0)
+
     static let startStopDefault = HotkeySetting(
         keyCode: spaceKeyCode,
-        modifiers: carbonFunctionMask
+        modifiers: carbonFunctionMask | (AppVariant.isSideBySide ? UInt32(shiftKey) : 0)
     )
 
     static let copyDefault = HotkeySetting(
         keyCode: pKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let copyRawDefault = HotkeySetting(
         keyCode: tKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let pasteDefault = HotkeySetting(
         keyCode: vKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let togglePopoverDefault = HotkeySetting(
         keyCode: oKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let openSettingsDefault = HotkeySetting(
         keyCode: commaKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     func normalizedForCarbonHotkey() -> HotkeySetting {
@@ -244,8 +248,14 @@ enum ProviderError: Error, LocalizedError {
     }
 }
 
+/// `OpenScribe Dev.app` from `Scripts/build_side_by_side_app.sh` sets `OpenScribeSideBySide` in its
+/// Info.plist to run next to the installed app with its own data folder and hotkeys.
+enum AppVariant {
+    static let isSideBySide = Bundle.main.object(forInfoDictionaryKey: "OpenScribeSideBySide") as? Bool == true
+}
+
 enum AppDirectories {
-    static let appSupportName = "OpenScribe"
+    static let appSupportName = AppVariant.isSideBySide ? "OpenScribe Dev" : "OpenScribe"
 }
 
 enum KeychainEntry: String {

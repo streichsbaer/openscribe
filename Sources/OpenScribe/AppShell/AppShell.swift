@@ -17,21 +17,21 @@ final class AppShell: ObservableObject {
     private static let livePopoverSize = CGSize(width: 540, height: 620)
     private static let historyPopoverSize = CGSize(width: 620, height: 700)
     private static let statsPopoverSize = CGSize(width: 620, height: 700)
-    private static let showLiveTabHotkey = HotkeySetting(
+    static let showLiveTabHotkey = HotkeySetting(
         keyCode: 37, // ANSI L
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
-    private static let showHistoryTabHotkey = HotkeySetting(
+    static let showHistoryTabHotkey = HotkeySetting(
         keyCode: 4, // ANSI H
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
-    private static let showStatsTabHotkey = HotkeySetting(
+    static let showStatsTabHotkey = HotkeySetting(
         keyCode: 1, // ANSI S
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
-    private static let openRulesTabHotkey = HotkeySetting(
+    static let openRulesTabHotkey = HotkeySetting(
         keyCode: 15, // ANSI R
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
     nonisolated private static let realtimeTranscriptionProviderID = "openai_realtime_transcription"
     nonisolated private static let realtimeTranscriptionSampleRate: Double = 24_000
