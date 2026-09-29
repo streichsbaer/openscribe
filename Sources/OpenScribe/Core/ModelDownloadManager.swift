@@ -43,6 +43,13 @@ final class ModelDownloadManager: ObservableObject {
                 downloadURL: Self.downloadURL(for: "medium"),
                 expectedSizeBytes: 1_533_763_059,
                 sha256: "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208"
+            ),
+            ModelAsset(
+                id: "large-v3-turbo",
+                displayName: "large-v3-turbo",
+                downloadURL: Self.downloadURL(for: "large-v3-turbo"),
+                expectedSizeBytes: 1_624_555_275,
+                sha256: "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
             )
         ]
     }

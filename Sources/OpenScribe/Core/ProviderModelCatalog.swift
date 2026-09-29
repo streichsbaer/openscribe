@@ -51,7 +51,7 @@ enum ProviderModelCatalog {
     static func fallbackModels(for providerID: String, usage: ProviderModelUsage) -> [String] {
         switch (providerID, usage) {
         case ("whispercpp", .transcription):
-            return ["tiny", "base", "small", "medium"]
+            return ["tiny", "base", "small", "medium", "large-v3-turbo"]
         case ("openai_whisper", .transcription):
             return ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]
         case ("openai_realtime_transcription", .transcription):

@@ -67,7 +67,8 @@ enum SetupAssistantChecklist {
         .init(id: "tiny", title: "tiny", detail: "Smallest local download. Fastest, with the lowest accuracy."),
         .init(id: "base", title: "base", detail: "Fastest local start. Smaller download, lower accuracy."),
         .init(id: "small", title: "small", detail: "Recommended local balance. Better accuracy without the largest download."),
-        .init(id: "medium", title: "medium", detail: "Best local accuracy here. Larger download and slower processing.")
+        .init(id: "medium", title: "medium", detail: "Larger download. Slower and less accurate than large-v3-turbo."),
+        .init(id: "large-v3-turbo", title: "large-v3-turbo", detail: "Best Whisper accuracy, the same model Groq runs. 1.6 GB download.")
     ]
 
     static func items(
