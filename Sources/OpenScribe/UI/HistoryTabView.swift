@@ -335,13 +335,6 @@ struct HistoryTabView: View {
             .buttonStyle(PopoverButtonStyle(kind: .primary))
             .disabled(entry.previewText.isEmpty)
 
-            Button("Paste") {
-                shell.pasteIntoPreviousApp(shell.historyTranscriptText(entry))
-            }
-            .buttonStyle(PopoverButtonStyle())
-            .disabled(entry.previewText.isEmpty)
-            .instantHint("Paste this text into the app you were in", hoverHint: $hoverHint)
-
             Menu {
                 Button("Open in Live") {
                     if shell.openHistorySession(entry) {
