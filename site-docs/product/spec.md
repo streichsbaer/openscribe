@@ -91,19 +91,24 @@ User guide: [Providers and Models](../guides/providers.md)
 
 ## Transcript UI
 
-- Popover has three main tabs: `Live`, `History`, `Stats`.
-- Raw transcript is shown in a read-only text panel.
-- OpenAI Realtime can update the raw transcript panel while recording.
-- Polished transcript is shown directly below raw text.
-- No raw or polished tab switcher.
-- Re-Transcribe supports per-session provider and model override with inline search and picker.
-- Re-Polish supports per-session provider and model override with inline search and picker.
-- Recording, transcribing, and polishing elapsed time is shown in the header state chip.
-- Loading text remains inside transcript text panels to keep popover height stable.
-- History starts with 10 sessions and supports load modes: `next 10`, `next 25`, `next 50`, `whole`.
-- History rows include direct actions for open session, play audio, reveal in Finder, and delete.
-- History supports bulk selection with bulk delete.
-- Stats includes aggregate overview, latest run metrics, and current session details.
+- Popover has three main tabs: `Live`, `History`, `Stats`, all at one size (`540 x 680`).
+- Blue marks work done on this Mac and orange marks work done in the cloud, in light and dark mode.
+- Live shows the record button with a live waveform, the timer, and the microphone picker.
+- Live shows the route of the current session: the transcription engine, polish (or a `Polish off` pill that opens Polish settings), and delivery, with timings once done.
+- Live states in one sentence what leaves the Mac, for example `Stayed on this Mac. Nothing was sent anywhere.`
+- With polish off, Live shows one transcript. With polish on, it switches between `Polished`, `Raw`, and `Changes`, a word-level comparison.
+- Words the vocabulary corrected are highlighted, with a note of what was heard and what it became.
+- OpenAI Realtime can update the raw transcript while recording.
+- Transcribe again and Polish again support a per-session provider and model override with inline search.
+- Model downloads show progress in Live, the setup assistant, and Settings.
+- History groups sessions by day and shows each time with its recording length.
+- History marks only exceptions: a cloud badge when audio or text left the Mac, and failed sessions with a Retry action.
+- The selected History session offers play, copy, open in Live, transcribe again, reveal in Finder, select several, and move to Trash.
+- History starts with 10 sessions and loads 25 more on request.
+- Stats shows words, speaking time, and pace for the last 7 days, 30 days, or all time, with a chart.
+- Stats shows a year of activity as a heatmap with the current and longest streak.
+- Stats shows where words went: sessions that stayed on this Mac, sent text to a polish provider, or sent audio to a cloud transcription provider.
+- Stats counts each session once, with its latest transcription, so retries do not add words twice.
 
 UI behavior contract:
 

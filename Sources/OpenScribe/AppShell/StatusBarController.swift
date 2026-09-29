@@ -105,6 +105,11 @@ final class StatusBarController: NSObject {
         shell.updatePopoverSizeHandler = { [weak self] size in
             self?.updatePopoverSize(size)
         }
+        shell.openSettingsTabHandler = { [weak self] tab in
+            guard let self else { return }
+            self.settingsWindowController.selectTab(tab)
+            self.settingsWindowController.show()
+        }
         currentAppearanceMode = AppearanceMode(rawValue: shell.settings.appearanceMode) ?? .system
         configureStatusItem()
         configurePopover()
@@ -524,6 +529,27 @@ final class StatusBarController: NSObject {
                 debugLines.append("popoverHotkeyLiveCapture=fail")
             }
 
+            if let newest = shell.historySessions.first(where: { $0.state == .completed && !$0.hadNoSpeech && !$0.previewText.isEmpty }),
+               shell.openHistorySession(newest) {
+                shell.statusMessage = "Ready"
+                for (suffix, appearanceName) in [("", NSAppearance.Name.aqua), ("-dark", NSAppearance.Name.darkAqua)] {
+                    let appearance = NSAppearance(named: appearanceName)
+                    popover.appearance = appearance
+                    popover.contentViewController?.view.appearance = appearance
+                    for (tab, name) in [(PopoverTabSelection.live, "live"), (.history, "history"), (.stats, "stats")] {
+                        shell.selectPopoverTab(tab)
+                        try? await Task.sleep(nanoseconds: 900_000_000)
+                        let sessionView = popover.contentViewController?.view.window?.contentView
+                            ?? popover.contentViewController?.view
+                        let url = outputDirectory.appendingPathComponent("popover-session-\(name)\(suffix).png")
+                        debugLines.append("popoverSessionCapture[\(name)\(suffix)]=\(captureViewSnapshot(sessionView, to: url) ? "pass" : "fail")")
+                    }
+                }
+                applyAppearanceSettings()
+            } else {
+                debugLines.append("popoverSessionCapture=skipped-no-session")
+            }
+
             let sampleText = "Smoke sample: transcript content should remain scrollable and never overlap controls."
             shell.rawTranscript = sampleText + " Raw."
             shell.polishedTranscript = sampleText + " Polished."
@@ -550,6 +576,19 @@ final class StatusBarController: NSObject {
                 liveExpandedContentCaptureStatus = "fail"
                 debugLines.append("popoverLiveContentCapture=fail")
             }
+
+            let darkAppearance = NSAppearance(named: .darkAqua)
+            popover.appearance = darkAppearance
+            popover.contentViewController?.view.appearance = darkAppearance
+            for (tab, name) in [(PopoverTabSelection.live, "live"), (.history, "history"), (.stats, "stats")] {
+                shell.selectPopoverTab(tab)
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let darkView = popover.contentViewController?.view.window?.contentView
+                    ?? popover.contentViewController?.view
+                let darkURL = outputDirectory.appendingPathComponent("openscribe-window-dark-\(name).png")
+                debugLines.append("popoverDarkCapture[\(name)]=\(captureViewSnapshot(darkView, to: darkURL) ? "pass" : "fail")")
+            }
+            applyAppearanceSettings()
         } else {
             hotkeyCaptureFailures = 3
             historyLayoutParityStatus = "fail"

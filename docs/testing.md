@@ -34,6 +34,22 @@ zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 
 Settings screenshots are the docs refresh candidates and should be captured on the built-in Retina display when available in both light and dark appearances. Popover smoke screenshots remain regression-only artifacts. The published docs reuse curated assets in `site-docs/images/ui/`.
 
+## Docs Screenshot Refresh
+
+Docs screenshots use demo data so no personal transcripts appear on the site.
+
+```bash
+python3 Scripts/make_demo_data.py artifacts/demo-data \
+  --models-from "$HOME/Library/Application Support/OpenScribe/Models"
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --out artifacts/ui-smoke/docs-refresh \
+  --data-dir artifacts/demo-data
+```
+
+With `--data-dir`, smoke mode reads that folder instead of Application Support and also writes `popover-session-{live,history,stats}{,-dark}.png` with the newest demo session open.
+Copy those to `site-docs/images/ui/openscribe-{live,history,stats}{,-dark}.png` and the `settings-*.png` files to `site-docs/images/ui/`.
+The `--models-from` link is optional. It makes the Data tab show installed models.
+
 The smoke script exits non-zero if required artifacts are missing.
 
 ## Fixture Audio Tests

@@ -38,6 +38,17 @@ zsh .agents/skills/ui-smoke/scripts/run.sh \
   --out artifacts/ui-smoke/release-arm64
 ```
 
+Docs screenshot run with demo data from current `pwd`:
+
+```bash
+python3 Scripts/make_demo_data.py artifacts/demo-data
+zsh .agents/skills/ui-smoke/scripts/run.sh \
+  --out artifacts/ui-smoke/docs-refresh \
+  --data-dir artifacts/demo-data
+```
+
+`--data-dir` points smoke mode at that data folder and adds the `popover-session-*` captures. See `docs/testing.md` for the full docs refresh.
+
 ## Outputs
 
 - `build.log`
@@ -53,6 +64,8 @@ zsh .agents/skills/ui-smoke/scripts/run.sh \
 - `openscribe-window-hotkey-stats.png`
 - `openscribe-window-hotkey-live.png`
 - `openscribe-window-live-expanded-content.png`
+- `openscribe-window-dark-{live,history,stats}.png`
+- `popover-session-{live,history,stats}{,-dark}.png` (with `--data-dir` only)
 - `settings-window.png`
 - `settings-window-dark.png`
 - `settings-general.png`

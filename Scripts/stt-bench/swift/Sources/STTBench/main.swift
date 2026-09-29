@@ -96,7 +96,7 @@ func runEngine(_ config: Config) async throws {
             var state = TdtDecoderState.make(decoderLayers: layers)
             let result = try await asr.transcribe(samples, decoderState: &state)
             guard let booster, let timings = result.tokenTimings else { return result.text }
-            return await booster.rescore(text: result.text, tokenTimings: timings, samples: samples)
+            return await booster.rescore(text: result.text, tokenTimings: timings, samples: samples).text
         }
     } else if config.engine == "apple-speechtranscriber" {
         let locale = Locale(identifier: "en_US")

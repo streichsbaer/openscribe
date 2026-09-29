@@ -2,7 +2,7 @@
 
 Every OpenScribe session follows the same path: record, transcribe, polish. Once you know that loop, the app becomes easy to read because the menu bar icon and the Live tab are always telling you where the current session is.
 
-![Live tab showing raw and polished output](/images/ui/openscribe-live.png){ .guide-shot data-light-src="/images/ui/openscribe-live.png" data-dark-src="/images/ui/openscribe-live-dark.png" }
+![Live tab after a recording](/images/ui/openscribe-live.png){ .guide-shot data-light-src="/images/ui/openscribe-live.png" data-dark-src="/images/ui/openscribe-live-dark.png" }
 
 ## 1. Record first
 
@@ -28,7 +28,7 @@ If the recording has no usable speech signal, OpenScribe skips transcription and
 
 If polish is enabled, OpenScribe sends the raw transcript to a language model that cleans up grammar, formatting, and structure. The polish step also uses your custom rules from `Rules/rules.md`, so you can steer tone, spelling, and formatting.
 
-The polished text appears below the raw transcript in the Live tab when the step finishes.
+The polished text appears in the Live tab when the step finishes. Switch to Raw to see the original, or to Changes to see what polish changed word by word.
 
 If polish is disabled, the polished output is a direct copy of the raw transcript.
 
@@ -42,7 +42,7 @@ The menu bar icon reflects the current pipeline state:
 - **Transcribing**: speech-to-text is running.
 - **Polishing**: the language model is cleaning up the transcript.
 
-The Live tab header also shows elapsed time for the current stage.
+The popover header shows the current stage, and the route in the Live tab shows how long each step took and whether it ran on this Mac or in the cloud.
 
 ## After the pipeline completes
 

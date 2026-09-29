@@ -301,28 +301,32 @@ struct SetupAssistantView: View {
                 .disabled(!isUnlocked || isGroqInputEmpty)
             }
         case "groq.setup":
-            actionGroup {
-                Button("Apply Groq setup") {
-                    shell.applyGroqSetup()
+            if !item.isComplete {
+                actionGroup {
+                    Button("Apply Groq setup") {
+                        shell.applyGroqSetup()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isUnlocked)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!isUnlocked)
             }
         case "local.setup":
-            actionGroup {
-                Button("Apply local setup") {
-                    shell.applyLocalOnlySetup(modelID: state.selectedLocalModel)
+            if !item.isComplete {
+                actionGroup {
+                    Button("Apply local setup") {
+                        shell.applyLocalOnlySetup(modelID: state.selectedLocalModel)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isUnlocked)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!isUnlocked)
             }
         case "local.model":
-            actionGroup {
-                Button("Download model") {
-                    shell.installLocalModel(state.selectedLocalModel)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!isUnlocked)
+            ModelDownloadButton(
+                manager: shell.modelManager,
+                modelID: state.selectedLocalModel,
+                isEnabled: isUnlocked
+            ) {
+                shell.installLocalModel(state.selectedLocalModel)
             }
         case "groq.recording", "local.recording":
             actionGroup {

@@ -4,7 +4,7 @@ OpenScribe stores its working files locally on your Mac. Nothing is synced anywh
 
 ## Find what you need from the app
 
-If you want to revisit a past session, start in the History tab. Each row can replay the recording, re-run processing, or reveal the session folder in Finder.
+If you want to revisit a past session, start in the History tab. Select a session to replay or copy it, or use its menu to transcribe it again or reveal the session folder in Finder.
 
 ![History tab with session list](/images/ui/openscribe-history.png){ .guide-shot data-light-src="/images/ui/openscribe-history.png" data-dark-src="/images/ui/openscribe-history-dark.png" }
 

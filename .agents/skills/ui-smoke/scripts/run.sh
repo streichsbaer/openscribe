@@ -7,16 +7,18 @@ cd "$ROOT_DIR"
 
 OUT_DIR=""
 APP_PATH=""
+DATA_DIR=""
 
 usage() {
   cat <<USAGE
-Usage: zsh .agents/skills/ui-smoke/scripts/run.sh [--out <dir>] [--app <path-to-app>]
+Usage: zsh .agents/skills/ui-smoke/scripts/run.sh [--out <dir>] [--app <path-to-app>] [--data-dir <dir>]
 
 Defaults:
   --app omitted  -> launch via swift run OpenScribe
   --app set      -> launch the packaged app at <path-to-app>/Contents/MacOS/<CFBundleExecutable>
   --out omitted  -> artifacts/ui-smoke/<timestamp> under repo root
   --out relative -> resolved from invocation working directory (pwd)
+  --data-dir     -> use this app data folder instead of the real one, for example demo data
 USAGE
 }
 
@@ -44,6 +46,15 @@ while [[ $# -gt 0 ]]; do
       APP_PATH="$2"
       shift 2
       ;;
+    --data-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --data-dir" >&2
+        usage >&2
+        exit 1
+      fi
+      DATA_DIR="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown arg: $1" >&2
       usage >&2
@@ -63,10 +74,14 @@ if [[ -n "$APP_PATH" && "$APP_PATH" != /* ]]; then
   APP_PATH="$START_PWD/$APP_PATH"
 fi
 
+if [[ -n "$DATA_DIR" && "$DATA_DIR" != /* ]]; then
+  DATA_DIR="$START_PWD/$DATA_DIR"
+fi
+
 mkdir -p "$OUT_DIR"
 appearance_modes=(system light dark)
 icon_states=(idle recording-working recording-paused recording-no-audio transcribing polishing)
-settings_tabs=(general transcribe polish providers hotkeys rules data about)
+settings_tabs=(general transcribe polish providers hotkeys rules vocabulary data about)
 settings_variant_suffixes=("" "-dark")
 rm -f "$OUT_DIR"/build.log \
       "$OUT_DIR"/test.log \
@@ -204,7 +219,7 @@ else
   launch_command=("${launch_prefix[@]}" "$app_executable")
 fi
 
-if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" "${launch_command[@]}" >"$OUT_DIR/run.log" 2>&1 & then
+if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" OPENSCRIBE_UI_SMOKE_DATA_DIR="$DATA_DIR" "${launch_command[@]}" >"$OUT_DIR/run.log" 2>&1 & then
   app_pid=$!
   elapsed=0
   expected_files=(

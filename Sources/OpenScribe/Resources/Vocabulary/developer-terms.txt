@@ -8,7 +8,6 @@ gitignore: git ignore, get ignore
 rebase: re base
 cherry-pick: cherry pick
 monorepo: mono repo
-README: read me
 GitHub Actions
 pull request
 
@@ -34,7 +33,6 @@ VS Code: v s code
 Xcode: x code
 SwiftUI: swift ui
 Claude Code: cloud code, clawed code
-sudo: sue doo, pseudo
 chmod: c mod, ch mod
 cron
 regex: rej ex, reg ex
@@ -63,7 +61,7 @@ webhook: web hook
 Tailscale: tail scale
 Cloudflare: cloud flare
 Vercel: ver sell
-Supabase: soupa base, super base
+Supabase: soupa base
 Vite: veet
 TypeScript
 Grafana

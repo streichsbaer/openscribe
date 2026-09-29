@@ -37,6 +37,7 @@ struct TranscriptResult: Codable, Sendable {
     let latencyMs: Int
     let inputTokens: Int?
     let outputTokens: Int?
+    var vocabularyFixes: [VocabularyFix] = []
 }
 
 struct PolishResult: Codable, Sendable {
@@ -68,6 +69,7 @@ struct SessionMetadata: Codable {
     var polishModel: String
     var languageMode: String
     var audioActivity: AudioActivityAssessment?
+    var vocabularyFixes: [VocabularyFix]?
     var state: SessionState
     var stateTransitions: [SessionStateTransition]
     var lastError: String?

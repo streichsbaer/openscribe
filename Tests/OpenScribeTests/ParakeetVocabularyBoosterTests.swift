@@ -16,6 +16,24 @@ final class ParakeetVocabularyBoosterTests: XCTestCase {
         XCTAssertEqual(result, "I think now we can do stuff like cron, zsh, Tmux, mise, etc.")
     }
 
+    func testFixesReportWhatWasHeardAndSkipCasingOnlyChanges() {
+        let text = "Run mies install in the tea mux session, then Tmux again."
+        let fixes = ParakeetVocabularyBooster.fixes(
+            for: [
+                replacement("mies", in: text, term: "mise"),
+                replacement("tea mux", in: text, term: "tmux"),
+                replacement("Tmux", in: text, term: "tmux"),
+                replacement("mies", in: text, term: "mise")
+            ],
+            in: text
+        )
+
+        XCTAssertEqual(fixes, [
+            VocabularyFix(heard: "mies", term: "mise"),
+            VocabularyFix(heard: "tea mux", term: "tmux")
+        ])
+    }
+
     func testSentenceStartCapitalizesLowercaseTerm() {
         let text = "It works. Crone runs nightly. Crone"
         let first = replacement("Crone runs", in: text, term: "cron runs")

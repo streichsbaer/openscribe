@@ -1047,7 +1047,7 @@ struct SettingsView: View {
     private var vocabularyEngineSummary: String {
         let modelID = ModelDownloadManager.parakeetVocabularyModelID
         let boostModel: String
-        if shell.modelManager.activeDownloadModelID == modelID {
+        if shell.modelManager.isDownloading(modelID: modelID) {
             boostModel = "Its 100 MB vocabulary model is downloading."
         } else if shell.modelManager.isInstalled(modelID: modelID) {
             boostModel = "Its vocabulary model is installed."
@@ -1068,9 +1068,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if let active = shell.modelManager.activeDownloadModelID {
-                    ProgressView("Downloading \(shell.displayName(forModel: active))", value: shell.modelManager.progress)
-                }
+                ModelDownloadProgressView(manager: shell.modelManager)
 
                 ForEach(modelCatalog, id: \ModelAsset.id) { (asset: ModelAsset) in
                     let isInstalled = shell.modelManager.isInstalled(modelID: asset.id)
@@ -1097,13 +1095,13 @@ struct SettingsView: View {
                                 pendingLocalModelAction = .delete(modelID: asset.id, name: asset.displayName, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.bordered)
-                            .disabled(shell.modelManager.activeDownloadModelID != nil)
+                            .disabled(shell.modelManager.isDownloading(modelID: asset.id))
                         } else {
                             Button("Download") {
                                 pendingLocalModelAction = .download(modelID: asset.id, name: asset.displayName, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.borderedProminent)
-                            .disabled(shell.modelManager.activeDownloadModelID != nil)
+                            .disabled(shell.modelManager.isDownloading(modelID: asset.id))
                         }
                     }
                 }

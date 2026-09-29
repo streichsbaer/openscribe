@@ -10,6 +10,13 @@ struct SessionHistoryEntry: Identifiable, Equatable {
     let polishProvider: String
     let polishModel: String
     let previewText: String
+    let durationMs: Int?
+    let hadNoSpeech: Bool
+    let lastError: String?
+
+    var polishRan: Bool {
+        polishProvider != "disabled" && !polishProvider.isEmpty && state == .completed && !hadNoSpeech
+    }
 }
 
 struct SessionHistoryPage: Equatable {

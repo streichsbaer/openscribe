@@ -14,9 +14,9 @@ final class AppShell: ObservableObject {
     private static let setupAssistantDoNotShowAgainKey = "setupAssistant.doNotShowAgain"
     private static let setupAssistantTrackKey = "setupAssistant.track"
     private static let historyDefaultInitialLoad = 10
-    private static let livePopoverSize = CGSize(width: 540, height: 620)
-    private static let historyPopoverSize = CGSize(width: 620, height: 700)
-    private static let statsPopoverSize = CGSize(width: 620, height: 700)
+    /// One size for every tab, so switching tabs never resizes the popover.
+    static let popoverSize = CGSize(width: 540, height: 680)
+    static let waveformBarCount = 48
     static let showLiveTabHotkey = HotkeySetting(
         keyCode: 37, // ANSI L
         modifiers: HotkeySetting.shortcutModifiers
@@ -107,6 +107,13 @@ final class AppShell: ObservableObject {
     @Published private(set) var historyHasMoreSessions: Bool = false
     @Published private(set) var historyIsLoading: Bool = false
     @Published private(set) var statsSummary: StatsSummary = .empty
+    @Published private(set) var statsRangeSummaries: [StatsRange: StatsRangeSummary] = [:]
+    /// Words the vocabulary corrected in the current raw transcript.
+    @Published private(set) var rawTranscriptVocabularyFixes: [VocabularyFix] = []
+    @Published private(set) var lastTranscriptionDurationMs: Int?
+    @Published private(set) var lastPolishDurationMs: Int?
+    /// Loudness bars of the current session's recording, from 0 to 1.
+    @Published private(set) var sessionWaveform: [Float] = []
     @Published private(set) var providerModelsByBackend: [String: [String]] = [:]
     @Published private(set) var providerConnectivityByBackend: [String: ProviderConnectivityStatus] = [:]
     @Published var setupAssistantPreferredTrack: SetupAssistantTrack {
@@ -125,6 +132,7 @@ final class AppShell: ObservableObject {
     var togglePopoverHandler: (() -> Void)?
     var showPopoverHandler: (() -> Void)?
     var updatePopoverSizeHandler: ((CGSize) -> Void)?
+    var openSettingsTabHandler: ((SettingsTab) -> Void)?
     var openSetupAssistantHandler: (() -> Void)?
 
     let layout: DirectoryLayout
@@ -206,7 +214,7 @@ final class AppShell: ObservableObject {
 
         audioCapture.onActivityUpdate = { [audioMeter] snapshot in
             Task { @MainActor in
-                audioMeter.snapshot = snapshot
+                audioMeter.record(snapshot)
             }
         }
         microphoneCatalog.onSnapshotChange = { [weak self] snapshot in
@@ -661,6 +669,9 @@ final class AppShell: ObservableObject {
             settings.copyOnComplete = true
         }
         statusMessage = "Local setup applied"
+        if !modelManager.isInstalled(modelID: modelID) {
+            installLocalModel(modelID)
+        }
     }
 
     func updatePopoverSize(selectedTab: PopoverTabSelection) {
@@ -682,15 +693,6 @@ final class AppShell: ObservableObject {
 
     func preferredPopoverSizeForCurrentState() -> CGSize {
         preferredPopoverSize(selectedTab: selectedPopoverTab)
-    }
-
-    func updateRawTranscriptFromEditor(_ text: String) {
-        rawTranscript = text
-        guard var session = currentSession else {
-            return
-        }
-        try? sessionManager.writeRaw(text, for: &session)
-        currentSession = session
     }
 
     func startRecording() async {
@@ -730,6 +732,11 @@ final class AppShell: ObservableObject {
             polishedTranscriptProviderID = ""
             polishedTranscriptModel = ""
             lastError = nil
+            rawTranscriptVocabularyFixes = []
+            lastTranscriptionDurationMs = nil
+            lastPolishDurationMs = nil
+            sessionWaveform = []
+            audioMeter.beginRecording()
 
             let captureSampleRate = Self.captureSampleRate(for: settings)
             var session = try sessionManager.startSession(
@@ -843,6 +850,7 @@ final class AppShell: ObservableObject {
                 throw error
             }
             let audioActivity = captureResult.assessment
+            sessionWaveform = AudioEnvelope.bars(from: audioMeter.recordingLevels, count: Self.waveformBarCount)
             try await sessionManager.finalizeAudioFile(&session)
             try sessionManager.stopSession(&session)
             session.metadata.audioActivity = audioActivity
@@ -893,6 +901,8 @@ final class AppShell: ObservableObject {
             rawTranscript = transcript.text
             rawTranscriptProviderID = transcript.providerId
             rawTranscriptModel = transcript.model
+            rawTranscriptVocabularyFixes = transcript.vocabularyFixes
+            session.metadata.vocabularyFixes = transcript.vocabularyFixes.isEmpty ? nil : transcript.vocabularyFixes
             try sessionManager.writeRaw(transcript.text, for: &session)
             recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text, processingDurationMs: transcribeProcessingMs)
 
@@ -1079,6 +1089,8 @@ final class AppShell: ObservableObject {
                 self.rawTranscript = transcript.text
                 self.rawTranscriptProviderID = transcript.providerId
                 self.rawTranscriptModel = transcript.model
+                self.rawTranscriptVocabularyFixes = transcript.vocabularyFixes
+                session.metadata.vocabularyFixes = transcript.vocabularyFixes.isEmpty ? nil : transcript.vocabularyFixes
                 try self.sessionManager.writeRaw(transcript.text, for: &session)
                 didWriteFreshRawTranscript = true
                 self.recordTranscriptionStats(session: session, transcript: transcript, rawText: transcript.text, processingDurationMs: transcribeProcessingMs)
@@ -1253,7 +1265,7 @@ final class AppShell: ObservableObject {
         let vocabularyModelID = ModelDownloadManager.parakeetVocabularyModelID
         if !vocabulary.isEmpty,
            !modelManager.isInstalled(modelID: vocabularyModelID),
-           modelManager.activeDownloadModelID == nil {
+           !modelManager.isDownloading(modelID: vocabularyModelID) {
             installLocalModel(vocabularyModelID)
         }
         let configuration = ParakeetEngine.Configuration(
@@ -1316,6 +1328,11 @@ final class AppShell: ObservableObject {
         rawTranscriptModel = rawTranscript.isEmpty ? "" : loaded.metadata.sttModel
         polishedTranscriptProviderID = polishedTranscript.isEmpty ? "" : loaded.metadata.polishProvider
         polishedTranscriptModel = polishedTranscript.isEmpty ? "" : loaded.metadata.polishModel
+        rawTranscriptVocabularyFixes = loaded.metadata.vocabularyFixes ?? []
+        let durations = statsStore.processingDurations(for: loaded.id)
+        lastTranscriptionDurationMs = durations.transcriptionMs
+        lastPolishDurationMs = durations.polishMs
+        loadSessionWaveform(for: loaded)
 
         if !polishedTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             latestPolishedTranscript = polishedTranscript
@@ -1388,10 +1405,6 @@ final class AppShell: ObservableObject {
         historyHasMoreSessions
     }
 
-    var historyLoadMoreModes: [HistoryLoadMoreMode] {
-        HistoryLoadMoreMode.allCases
-    }
-
     func refreshHistorySessions(preserveLoadedCount: Bool = false) {
         historyIsLoading = true
         let targetLimit: Int
@@ -1408,6 +1421,44 @@ final class AppShell: ObservableObject {
 
     func refreshStatsSummary() {
         statsSummary = statsStore.loadSummary()
+        statsRangeSummaries = statsStore.loadRangeSummaries()
+    }
+
+    private func loadSessionWaveform(for session: SessionContext) {
+        sessionWaveform = []
+        let url = session.paths.audioURL
+        let sessionID = session.id
+        Task { @MainActor [weak self] in
+            let bars = await AudioEnvelope.load(url: url, count: Self.waveformBarCount)
+            guard let self, self.currentSession?.id == sessionID else { return }
+            self.sessionWaveform = bars
+        }
+    }
+
+    func openSettingsTab(_ tab: SettingsTab) {
+        openSettingsTabHandler?(tab)
+    }
+
+    func copyText(_ text: String, message: String) {
+        let candidate = normalizedClipboardText(text)
+        guard !candidate.isEmpty else {
+            statusMessage = "Nothing to copy yet"
+            return
+        }
+        Clipboard.copy(text: candidate)
+        statusMessage = message
+    }
+
+    func historyTranscriptText(_ entry: SessionHistoryEntry) -> String {
+        sessionManager.loadTranscriptText(for: entry.folderURL) ?? ""
+    }
+
+    func retryHistorySession(_ entry: SessionHistoryEntry) {
+        guard openHistorySession(entry) else {
+            return
+        }
+        selectPopoverTab(.live)
+        retryTranscription()
     }
 
     func showLiveTabFromHotkey() {
@@ -1482,12 +1533,8 @@ final class AppShell: ObservableObject {
 
     private func preferredPopoverSize(selectedTab: PopoverTabSelection) -> CGSize {
         switch selectedTab {
-        case .live:
-            return Self.livePopoverSize
-        case .history:
-            return Self.historyPopoverSize
-        case .stats:
-            return Self.statsPopoverSize
+        case .live, .history, .stats:
+            return Self.popoverSize
         }
     }
 
@@ -2105,6 +2152,7 @@ final class AppShell: ObservableObject {
         rawText: String,
         processingDurationMs: Int? = nil
     ) {
+        lastTranscriptionDurationMs = processingDurationMs
         let rawWordCount = wordCount(in: rawText)
         let recordingDurationMs = sessionRecordingDurationMs(session)
         let audioSeconds = Double(recordingDurationMs ?? 0) / 1_000.0
@@ -2145,6 +2193,7 @@ final class AppShell: ObservableObject {
         polishedText: String,
         processingDurationMs: Int? = nil
     ) {
+        lastPolishDurationMs = processingDurationMs
         let rawWordCount = wordCount(in: rawText)
         let polishedWordCount = wordCount(in: polishedText)
         let deltaWords = polishedWordCount - rawWordCount

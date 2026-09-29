@@ -51,19 +51,19 @@ Open the popover to see the current run and browse recent sessions.
 
 ### Live tab
 
-The Live tab shows the active pipeline state, the current raw transcript, and the polished output when polish is enabled. You can also re-run transcription or polish here.
+The Live tab records and shows the current session. The top card holds the record button, a live waveform, the timer, and the microphone picker. The route below it shows each step and where it ran: blue means on this Mac, orange means the cloud, and one sentence says what left the Mac. The transcript card shows your text with vocabulary fixes highlighted. With polish on, switch between Polished, Raw, and Changes. Use Transcribe again or Polish again to rerun a step with another model.
 
 ![Live tab](/images/ui/openscribe-live.png){ .guide-shot data-light-src="/images/ui/openscribe-live.png" data-dark-src="/images/ui/openscribe-live-dark.png" }
 
 ### History tab
 
-The History tab lists previous sessions and gives you quick actions to replay audio, re-run processing, or reveal the session folder in Finder.
+The History tab groups past sessions by day. Select a session to play it, copy it, or open the menu to open it in Live, transcribe it again, reveal it in Finder, select several, or move it to the Trash. A cloud badge marks sessions that sent audio or text to the cloud, and failed sessions offer Retry.
 
 ![History tab](/images/ui/openscribe-history.png){ .guide-shot data-light-src="/images/ui/openscribe-history.png" data-dark-src="/images/ui/openscribe-history-dark.png" }
 
 ### Stats tab
 
-The Stats tab shows usage totals, recent activity, and longer-term patterns in how you use OpenScribe.
+The Stats tab shows how much you dictated in the last 7 days, 30 days, or all time, with speaking time and pace. Activity shows a year of dictation days with your streak, and Where your words went counts sessions that stayed on this Mac or used the cloud. More details lists all-time totals and the models you use most.
 
 ![Stats tab](/images/ui/openscribe-stats.png){ .guide-shot data-light-src="/images/ui/openscribe-stats.png" data-dark-src="/images/ui/openscribe-stats-dark.png" }
 

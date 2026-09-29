@@ -46,18 +46,15 @@ This applies to:
 ### History Pagination
 
 - Initial load is fixed to 10 sessions.
-- Load more options are fixed: `next 10`, `next 25`, `next 50`, `whole`.
+- `Show more` loads the next 25 sessions.
 
 ## Sizing Policy
 
-Popover size is deterministic by state.
+Popover size is fixed for every tab and state.
 
-### Requested Sizes
+### Requested Size
 
-- Live compact: `540 x 700`
-- Live expanded: `620 x 980`
-- History: `620 x 700`
-- Stats: `620 x 700`
+- Live, History, and Stats: `540 x 680` (`AppShell.popoverSize`)
 
 ### Screen-Aware Height Cap
 
@@ -77,10 +74,9 @@ Popover width is not scaled by screen cap.
 
 ### Live
 
-- Live content is rendered inside a vertical `ScrollView`.
-- Transcript panel heights are fixed per mode to avoid jumpy empty-to-filled reflow:
-  - Compact: `110`
-  - Expanded: `220`
+- The capture and route cards keep a fixed height.
+- The transcript card fills the remaining height and scrolls its text.
+- Empty, loading, and filled transcripts use the same card height, so the layout does not jump.
 
 ### History
 

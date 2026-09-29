@@ -1,144 +1,48 @@
 import SwiftUI
 
+/// A year of activity, one square per day, in five ink tones. Today is outlined.
 struct ActivityHeatmapView: View {
     let dailyWordCounts: [Date: Int]
-    let dailySessionCounts: [Date: Int]
-    @Binding var hoverHint: String?
 
-    private static let cellSize: CGFloat = 8
-    private static let cellSpacing: CGFloat = 2
-    private static let cellRadius: CGFloat = 2
-    private static let dayLabelWidth: CGFloat = 24
-    private static let dayLabelGap: CGFloat = 4
     private static let weekCount = 52
-    private static let daysPerWeek = 7
+    private static let cellHeight: CGFloat = 7
+    private static let spacing: CGFloat = 2
 
     private let calendar = Calendar.current
     private let today: Date
-    private let grid: [[HeatmapDay?]]
-    private let tiers: HeatmapTiers
-    private let monthLabels: [MonthLabel]
+    private let firstDay: Date
+    private let thresholds: [Int]
 
-    init(
-        dailyWordCounts: [Date: Int],
-        dailySessionCounts: [Date: Int],
-        hoverHint: Binding<String?>
-    ) {
+    init(dailyWordCounts: [Date: Int], now: Date = Date()) {
         self.dailyWordCounts = dailyWordCounts
-        self.dailySessionCounts = dailySessionCounts
-        self._hoverHint = hoverHint
-
-        let cal = Calendar.current
-        let now = Date()
-        let todayStart = cal.startOfDay(for: now)
-        self.today = todayStart
-
-        let todayWeekday = cal.component(.weekday, from: todayStart) - 1
-        let gridEnd = cal.date(byAdding: .day, value: 6 - todayWeekday, to: todayStart)!
-        let gridStart = cal.date(byAdding: .day, value: -(Self.weekCount * Self.daysPerWeek - 1), to: gridEnd)!
-
-        var columns: [[HeatmapDay?]] = []
-        var cursor = gridStart
-        for weekIndex in 0..<Self.weekCount {
-            var column: [HeatmapDay?] = []
-            for dayOfWeek in 0..<Self.daysPerWeek {
-                let day = cal.startOfDay(for: cursor)
-                if day > todayStart {
-                    column.append(nil)
-                } else {
-                    let wordCount = dailyWordCounts[day] ?? 0
-                    let sessionCount = dailySessionCounts[day] ?? 0
-                    column.append(HeatmapDay(
-                        id: day,
-                        wordCount: wordCount,
-                        sessionCount: sessionCount,
-                        weekIndex: weekIndex,
-                        dayOfWeek: dayOfWeek
-                    ))
-                }
-                cursor = cal.date(byAdding: .day, value: 1, to: cursor)!
-            }
-            columns.append(column)
-        }
-        self.grid = columns
-
-        let nonZeroCounts = dailyWordCounts.values.filter { $0 > 0 }.sorted()
-        self.tiers = HeatmapTiers(sortedNonZeroCounts: nonZeroCounts)
-
-        var labels: [MonthLabel] = []
-        var lastLabelWeek = -4
-        for weekIndex in 0..<columns.count {
-            guard let firstDay = columns[weekIndex].first(where: { $0 != nil })??.id else {
-                continue
-            }
-            let month = cal.component(.month, from: firstDay)
-            let day = cal.component(.day, from: firstDay)
-            if day <= 7 && (weekIndex - lastLabelWeek) >= 3 {
-                let abbreviation = cal.shortMonthSymbols[month - 1]
-                labels.append(MonthLabel(
-                    id: "\(weekIndex)-\(month)",
-                    abbreviation: abbreviation,
-                    weekIndex: weekIndex
-                ))
-                lastLabelWeek = weekIndex
-            }
-        }
-        self.monthLabels = labels
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        self.today = today
+        let weekday = calendar.component(.weekday, from: today) - 1
+        let lastColumnStart = calendar.date(byAdding: .day, value: -weekday, to: today) ?? today
+        self.firstDay = calendar.date(byAdding: .day, value: -7 * (Self.weekCount - 1), to: lastColumnStart) ?? today
+        self.thresholds = Self.levelThresholds(dailyWordCounts.values.filter { $0 > 0 }.sorted())
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            monthLabelRow
-            HStack(alignment: .top, spacing: Self.dayLabelGap) {
-                dayLabelsColumn
-                gridView
-            }
-            legendRow
+        VStack(alignment: .leading, spacing: 6) {
+            monthLabels
+            grid
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(activeDayCount) active days in the last year")
     }
 
-    private var monthLabelRow: some View {
-        GeometryReader { _ in
-            ZStack(alignment: .leading) {
-                ForEach(monthLabels) { label in
-                    Text(label.abbreviation)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
-                        .offset(x: Self.dayLabelWidth + Self.dayLabelGap
-                                + CGFloat(label.weekIndex) * (Self.cellSize + Self.cellSpacing))
-                }
-            }
-        }
-        .frame(height: 12)
+    var activeDayCount: Int {
+        dailyWordCounts.filter { $0.key >= firstDay && $0.key <= today && $0.value > 0 }.count
     }
 
-    private var dayLabelsColumn: some View {
-        VStack(spacing: Self.cellSpacing) {
-            ForEach(0..<Self.daysPerWeek, id: \.self) { dayOfWeek in
-                Group {
-                    if dayOfWeek == 1 {
-                        Text("Mon")
-                    } else if dayOfWeek == 3 {
-                        Text("Wed")
-                    } else if dayOfWeek == 5 {
-                        Text("Fri")
-                    } else {
-                        Text("")
-                    }
-                }
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-                .frame(width: Self.dayLabelWidth, height: Self.cellSize, alignment: .trailing)
-            }
-        }
-    }
-
-    private var gridView: some View {
-        HStack(spacing: Self.cellSpacing) {
-            ForEach(0..<grid.count, id: \.self) { weekIndex in
-                VStack(spacing: Self.cellSpacing) {
-                    ForEach(0..<Self.daysPerWeek, id: \.self) { dayOfWeek in
-                        cellView(weekIndex: weekIndex, dayOfWeek: dayOfWeek)
+    private var grid: some View {
+        HStack(alignment: .top, spacing: Self.spacing) {
+            ForEach(0..<Self.weekCount, id: \.self) { week in
+                VStack(spacing: Self.spacing) {
+                    ForEach(0..<7, id: \.self) { dayOfWeek in
+                        cell(for: date(week: week, day: dayOfWeek))
                     }
                 }
             }
@@ -146,99 +50,92 @@ struct ActivityHeatmapView: View {
     }
 
     @ViewBuilder
-    private func cellView(weekIndex: Int, dayOfWeek: Int) -> some View {
-        if let day = grid[weekIndex][dayOfWeek] {
-            let tier = tiers.tier(for: day.wordCount)
-            let hint = hintText(for: day)
-            RoundedRectangle(cornerRadius: Self.cellRadius)
-                .fill(colorForTier(tier))
-                .frame(width: Self.cellSize, height: Self.cellSize)
-                .onHover { isHovering in
-                    if isHovering {
-                        hoverHint = hint
-                    } else if hoverHint == hint {
-                        hoverHint = nil
-                    }
-                }
-        } else {
+    private func cell(for date: Date) -> some View {
+        if date > today {
             Color.clear
-                .frame(width: Self.cellSize, height: Self.cellSize)
-        }
-    }
-
-    private var legendRow: some View {
-        HStack(spacing: 4) {
-            Spacer()
-            Text("Less")
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-            ForEach(0..<5, id: \.self) { tier in
-                RoundedRectangle(cornerRadius: Self.cellRadius)
-                    .fill(colorForTier(tier))
-                    .frame(width: Self.cellSize, height: Self.cellSize)
-            }
-            Text("More")
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func colorForTier(_ tier: Int) -> Color {
-        switch tier {
-        case 1: return Color(red: 143.0 / 255, green: 186.0 / 255, blue: 245.0 / 255)
-        case 2: return Color(red: 84.0 / 255, green: 141.0 / 255, blue: 227.0 / 255)
-        case 3: return Color(red: 46.0 / 255, green: 102.0 / 255, blue: 199.0 / 255)
-        case 4: return Color(red: 26.0 / 255, green: 69.0 / 255, blue: 161.0 / 255)
-        default: return Color.primary.opacity(0.04)
-        }
-    }
-
-    private func hintText(for day: HeatmapDay) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-        let dateString = formatter.string(from: day.id)
-        if day.wordCount == 0 {
-            return "No activity on \(dateString)"
-        }
-        let sessions = day.sessionCount == 1 ? "1 session" : "\(day.sessionCount) sessions"
-        return "\(day.wordCount) words, \(sessions) on \(dateString)"
-    }
-}
-
-struct HeatmapDay: Identifiable {
-    let id: Date
-    let wordCount: Int
-    let sessionCount: Int
-    let weekIndex: Int
-    let dayOfWeek: Int
-}
-
-struct HeatmapTiers {
-    let thresholds: [Int]
-
-    init(sortedNonZeroCounts: [Int]) {
-        let count = sortedNonZeroCounts.count
-        if count == 0 {
-            thresholds = [0, 0, 0]
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.cellHeight)
         } else {
-            let p25 = sortedNonZeroCounts[count / 4]
-            let p50 = sortedNonZeroCounts[count / 2]
-            let p75 = sortedNonZeroCounts[count * 3 / 4]
-            thresholds = [p25, p50, p75]
+            let words = dailyWordCounts[date] ?? 0
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(Self.fill(level: level(for: words)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .strokeBorder(Color.primary, lineWidth: date == today ? 1.5 : 0)
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.cellHeight)
+                .help(tooltip(date: date, words: words))
         }
     }
 
-    func tier(for wordCount: Int) -> Int {
-        guard wordCount > 0 else { return 0 }
-        if wordCount > thresholds[2] { return 4 }
-        if wordCount > thresholds[1] { return 3 }
-        if wordCount > thresholds[0] { return 2 }
-        return 1
+    private var monthLabels: some View {
+        HStack(alignment: .top, spacing: Self.spacing) {
+            ForEach(0..<Self.weekCount, id: \.self) { week in
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 13)
+                    .overlay(alignment: .leading) {
+                        if let label = monthLabel(forWeek: week) {
+                            Text(label)
+                                .font(.system(size: 11))
+                                .foregroundStyle(PopoverPalette.muted)
+                                .fixedSize()
+                        }
+                    }
+            }
+        }
     }
-}
 
-struct MonthLabel: Identifiable {
-    let id: String
-    let abbreviation: String
-    let weekIndex: Int
+    private func monthLabel(forWeek week: Int) -> String? {
+        let start = date(week: week, day: 0)
+        guard calendar.component(.day, from: start) <= 7, week <= Self.weekCount - 4 else {
+            return nil
+        }
+        let previous = (max(0, week - 3)..<week).contains { calendar.component(.day, from: date(week: $0, day: 0)) <= 7 }
+        guard !previous else { return nil }
+        return calendar.shortMonthSymbols[calendar.component(.month, from: start) - 1]
+    }
+
+    private func date(week: Int, day: Int) -> Date {
+        calendar.date(byAdding: .day, value: week * 7 + day, to: firstDay) ?? firstDay
+    }
+
+    private func level(for words: Int) -> Int {
+        guard words > 0 else { return 0 }
+        return 1 + thresholds.filter { words > $0 }.count
+    }
+
+    private func tooltip(date: Date, words: Int) -> String {
+        let day = Self.dateFormatter.string(from: date)
+        return words == 0 ? "No dictation on \(day)" : "\(PopoverFormat.number(words)) words on \(day)"
+    }
+
+    static func fill(level: Int) -> Color {
+        switch level {
+        case 0:
+            return PopoverPalette.subtle
+        case 1:
+            return Color.primary.opacity(0.22)
+        case 2:
+            return Color.primary.opacity(0.42)
+        case 3:
+            return Color.primary.opacity(0.64)
+        default:
+            return Color.primary.opacity(0.9)
+        }
+    }
+
+    /// Splits active days into four even groups by word count.
+    private static func levelThresholds(_ sorted: [Int]) -> [Int] {
+        guard !sorted.isEmpty else { return [] }
+        return [0.25, 0.5, 0.75].map { sorted[min(sorted.count - 1, Int(Double(sorted.count) * $0))] }
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
 }

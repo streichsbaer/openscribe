@@ -6,8 +6,17 @@ final class ModelDownloadManager: ObservableObject {
     static let parakeetUltraModelID = "parakeet-ultra"
     static let parakeetVocabularyModelID = "parakeet-vocabulary"
 
-    @Published var activeDownloadModelID: String?
-    @Published var progress: Double = 0
+    /// Progress from 0 to 1 for each model that is downloading right now.
+    @Published private(set) var downloadProgress: [String: Double] = [:]
+    private var inFlight: [String: Task<URL, Error>] = [:]
+
+    var isDownloading: Bool {
+        !downloadProgress.isEmpty
+    }
+
+    func isDownloading(modelID: String) -> Bool {
+        downloadProgress[modelID] != nil
+    }
 
     let catalog: [ModelAsset]
 
@@ -122,23 +131,32 @@ final class ModelDownloadManager: ObservableObject {
 
     /// Downloads every file into a staging folder, verifies size and SHA256, then moves the
     /// finished model into place. A model path only exists once it is complete.
+    /// A second request for a model that is already downloading waits for the same download.
     @MainActor
     func ensureInstalled(modelID: String) async throws -> URL {
         let destination = localPath(for: modelID)
         if fileManager.fileExists(atPath: destination.path) {
             return destination
         }
+        if let running = inFlight[modelID] {
+            return try await running.value
+        }
+        let task = Task { @MainActor in
+            try await self.download(modelID: modelID, to: destination)
+        }
+        inFlight[modelID] = task
+        defer { inFlight[modelID] = nil }
+        return try await task.value
+    }
 
+    @MainActor
+    private func download(modelID: String, to destination: URL) async throws -> URL {
         guard let asset = asset(for: modelID) else {
             throw ProviderError.missingModel(modelID)
         }
 
-        activeDownloadModelID = modelID
-        progress = 0
-        defer {
-            activeDownloadModelID = nil
-            progress = 0
-        }
+        downloadProgress[modelID] = 0
+        defer { downloadProgress[modelID] = nil }
 
         let staging = destination.deletingLastPathComponent()
             .appendingPathComponent(".\(modelID)-\(UUID().uuidString).download", isDirectory: true)
@@ -161,7 +179,8 @@ final class ModelDownloadManager: ObservableObject {
             let completed = completedBytes
             let progressDelegate = DownloadProgressDelegate { [weak self] value in
                 Task { @MainActor [weak self] in
-                    self?.progress = (Double(completed) + value * Double(file.sizeBytes)) / totalBytes
+                    guard let self, self.downloadProgress[modelID] != nil else { return }
+                    self.downloadProgress[modelID] = (Double(completed) + value * Double(file.sizeBytes)) / totalBytes
                 }
             }
             let request = URLRequest(
@@ -173,7 +192,7 @@ final class ModelDownloadManager: ObservableObject {
             try fileManager.moveItem(at: downloadedURL, to: target)
             try await Self.validateOffMain(file: file, modelID: modelID, at: target)
             completedBytes += file.sizeBytes
-            progress = Double(completedBytes) / totalBytes
+            downloadProgress[modelID] = Double(completedBytes) / totalBytes
         }
 
         if fileManager.fileExists(atPath: destination.path) {

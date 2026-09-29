@@ -6,6 +6,12 @@ struct VocabularyEntry: Codable, Equatable, Hashable, Sendable {
     let aliases: [String]
 }
 
+/// A word the vocabulary corrected: what the engine heard and the listed term it became.
+struct VocabularyFix: Codable, Equatable, Hashable, Sendable {
+    let heard: String
+    let term: String
+}
+
 /// Vocabulary text format: one term per line, sounds-like spellings after a colon separated by
 /// commas, `#` starts a comment. Example: `gitignore: git ignore, get ignore`.
 enum VocabularyParser {
