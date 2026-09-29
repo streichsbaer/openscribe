@@ -16,7 +16,7 @@ All tab changes route through one state entry point.
 
 ## Sizing policy
 
-Requested sizes are deterministic by tab or state.
+Every tab uses one size, `540 x 680`, so switching tabs never resizes the popover.
 Final height is capped by active display visible frame.
 
 ## Verification

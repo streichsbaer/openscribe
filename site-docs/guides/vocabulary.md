@@ -27,7 +27,7 @@ Tailscale
 
 1. Dictate as usual and note what OpenScribe wrote instead of the term, for example `Crone` for `cron`.
 2. Add the term with that spelling in Settings > Vocabulary: `cron: crone`. Save.
-3. Open the popover and use Re-Transcribe on the same session to check the result without dictating again.
+3. Open the popover and use Transcribe again on the same session to check the result without dictating again. The vocabulary note under the transcript shows each word it corrected.
 
 The most reliable sounds-like spellings are the exact words OpenScribe wrote. Short terms of five letters or fewer are only corrected when the transcript matches the term or one of its spellings closely, which keeps everyday words like "Tom" or "Miss" from turning into `TOML` or `mise`. Longer, distinctive terms such as `Kubernetes` usually work without extra spellings.
 

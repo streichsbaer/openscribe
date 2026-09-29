@@ -30,7 +30,7 @@ On a fresh install, OpenScribe opens a setup assistant in Settings and recommend
 3. Press `Fn + Space` again to stop.
 4. Click the menu bar icon to open the popover and see your transcript.
 
-The raw transcript appears first. If polish is enabled, the polished version appears below it in the same view.
+Your transcript appears in the Live tab. If polish is enabled, switch between the polished and raw text there.
 
 ![Live tab after a recording](/images/ui/openscribe-live.png){ .guide-shot data-light-src="/images/ui/openscribe-live.png" data-dark-src="/images/ui/openscribe-live-dark.png" }
 
