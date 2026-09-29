@@ -1584,24 +1584,28 @@ struct PopoverView: View {
     }
 
     private func localTranscriptionOptions() -> [RetryModelOption] {
-        let installedModels = shell.modelManager.catalog
-            .map(\.id)
-            .filter { shell.modelManager.isInstalled(modelID: $0) }
-            .sorted()
-
-        let models = installedModels.isEmpty ? [shell.settings.transcriptionModel] : installedModels
-        return models.map { model in
-            RetryModelOption(
-                id: "whispercpp|\(model)",
-                title: "Local whisper.cpp / \(model)",
-                providerID: "whispercpp",
-                model: model
+        let manager = shell.modelManager
+        var assets = manager.catalog.filter { manager.isInstalled(modelID: $0.id) }
+        if assets.isEmpty,
+           let current = manager.asset(for: shell.settings.transcriptionModel)
+            ?? manager.asset(for: ModelDownloadManager.parakeetUltraModelID) {
+            assets = [current]
+        }
+        return assets.map { asset in
+            let providerID = asset.kind.providerID
+            return RetryModelOption(
+                id: "\(providerID)|\(asset.id)",
+                title: "\(providerDisplayName(for: providerID)) / \(asset.displayName)",
+                providerID: providerID,
+                model: asset.id
             )
         }
     }
 
     private func providerDisplayName(for providerID: String) -> String {
         switch providerID {
+        case "parakeet":
+            return "Local Parakeet"
         case "whispercpp":
             return "Local whisper.cpp"
         case "openai_whisper":

@@ -20,13 +20,14 @@ enum SetupAssistantTrack: String, CaseIterable, Identifiable {
         case .recommended:
             return "Fast Groq transcription and polish with one API key."
         case .local:
-            return "Keep transcription on your Mac with a local whisper.cpp model."
+            return "Keep transcription on your Mac with a local model."
         }
     }
 }
 
 struct SetupAssistantLocalModelOption: Identifiable, Equatable {
     let id: String
+    let providerID: String
     let title: String
     let detail: String
 }
@@ -61,15 +62,30 @@ enum SetupAssistantChecklist {
     static let recommendedTranscriptionModel = "whisper-large-v3-turbo"
     static let recommendedPolishProviderID = "groq_polish"
     static let recommendedPolishModel = "openai/gpt-oss-120b"
-    static let defaultLocalModelID = "small"
+    static let defaultLocalModelID = ModelDownloadManager.parakeetUltraModelID
 
     static let localModelOptions: [SetupAssistantLocalModelOption] = [
-        .init(id: "tiny", title: "tiny", detail: "Smallest local download. Fastest, with the lowest accuracy."),
-        .init(id: "base", title: "base", detail: "Fastest local start. Smaller download, lower accuracy."),
-        .init(id: "small", title: "small", detail: "Recommended local balance. Better accuracy without the largest download."),
-        .init(id: "medium", title: "medium", detail: "Larger download. Slower and less accurate than large-v3-turbo."),
-        .init(id: "large-v3-turbo", title: "large-v3-turbo", detail: "Best Whisper accuracy, the same model Groq runs. 1.6 GB download.")
+        .init(
+            id: ModelDownloadManager.parakeetUltraModelID,
+            providerID: "parakeet",
+            title: "Parakeet Ultra",
+            detail: "Recommended. Most accurate and fastest local option, 25 European languages. 600 MB download."
+        ),
+        .init(
+            id: "large-v3-turbo",
+            providerID: "whispercpp",
+            title: "Whisper large-v3-turbo",
+            detail: "Best Whisper accuracy and 99 languages, the same model Groq runs. 1.6 GB download."
+        ),
+        .init(id: "medium", providerID: "whispercpp", title: "Whisper medium", detail: "Larger download. Slower and less accurate than large-v3-turbo."),
+        .init(id: "small", providerID: "whispercpp", title: "Whisper small", detail: "Balanced Whisper size and accuracy."),
+        .init(id: "base", providerID: "whispercpp", title: "Whisper base", detail: "Small Whisper download, lower accuracy."),
+        .init(id: "tiny", providerID: "whispercpp", title: "Whisper tiny", detail: "Smallest Whisper download, lowest accuracy.")
     ]
+
+    static func localOption(for modelID: String) -> SetupAssistantLocalModelOption {
+        localModelOptions.first { $0.id == modelID } ?? localModelOptions[0]
+    }
 
     static func items(
         for track: SetupAssistantTrack,
@@ -109,7 +125,7 @@ enum SetupAssistantChecklist {
                 polishProvider == recommendedPolishProviderID &&
                 polishModel == recommendedPolishModel
         case .local:
-            return sttProvider == "whispercpp" &&
+            return sttProvider == localOption(for: selectedLocalModel).providerID &&
                 sttModel == selectedLocalModel &&
                 polishProvider == "disabled" &&
                 polishModel == "passthrough"
@@ -183,6 +199,13 @@ enum SetupAssistantChecklist {
         ]
     }
 
+    static func localSetupMatches(_ context: SetupAssistantChecklistContext) -> Bool {
+        context.transcriptionProviderID == localOption(for: context.selectedLocalModel).providerID &&
+            context.transcriptionModel == context.selectedLocalModel &&
+            context.languageMode == "auto" &&
+            !context.polishEnabled
+    }
+
     private static func localItems(
         context: SetupAssistantChecklistContext
     ) -> [SetupAssistantChecklistItem] {
@@ -190,20 +213,14 @@ enum SetupAssistantChecklist {
             .init(
                 id: "local.setup",
                 title: "Local transcription is selected",
-                detail: context.transcriptionProviderID == "whispercpp" &&
-                    context.transcriptionModel == context.selectedLocalModel &&
-                    context.languageMode == "auto" &&
-                    !context.polishEnabled
-                    ? "Local whisper.cpp is active with polish off."
-                    : "Use local whisper.cpp, keep language auto, and keep polish off for a local-only path.",
-                isComplete: context.transcriptionProviderID == "whispercpp" &&
-                    context.transcriptionModel == context.selectedLocalModel &&
-                    context.languageMode == "auto" &&
-                    !context.polishEnabled
+                detail: localSetupMatches(context)
+                    ? "\(localOption(for: context.selectedLocalModel).title) is active with polish off."
+                    : "Use \(localOption(for: context.selectedLocalModel).title), keep language auto, and keep polish off for a local-only path.",
+                isComplete: localSetupMatches(context)
             ),
             .init(
                 id: "local.model",
-                title: "\(context.selectedLocalModel) model downloaded",
+                title: "\(localOption(for: context.selectedLocalModel).title) downloaded",
                 detail: context.localModelInstalled
                     ? "The selected local model is installed on this Mac."
                     : "Download the selected local model before the test recording.",

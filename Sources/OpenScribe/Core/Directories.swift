@@ -8,6 +8,9 @@ struct DirectoryLayout {
     let models: URL
     let config: URL
 
+    var whisperModels: URL { models.appendingPathComponent("whisper", isDirectory: true) }
+    var parakeetModels: URL { models.appendingPathComponent("parakeet", isDirectory: true) }
+
     let rulesFile: URL
     let rulesHistory: URL
     let statsEventsFile: URL
@@ -25,7 +28,7 @@ struct DirectoryLayout {
         let recordings = appSupport.appendingPathComponent("Recordings", isDirectory: true)
         let rules = appSupport.appendingPathComponent("Rules", isDirectory: true)
         let stats = appSupport.appendingPathComponent("Stats", isDirectory: true)
-        let models = appSupport.appendingPathComponent("Models/whisper", isDirectory: true)
+        let models = appSupport.appendingPathComponent("Models", isDirectory: true)
         let config = appSupport.appendingPathComponent("Config", isDirectory: true)
 
         let layout = DirectoryLayout(
@@ -46,7 +49,7 @@ struct DirectoryLayout {
     }
 
     func ensureExists(fileManager: FileManager = .default) throws {
-        try [appSupport, recordings, rules, stats, models, config].forEach {
+        try [appSupport, recordings, rules, stats, models, whisperModels, parakeetModels, config].forEach {
             try fileManager.createDirectory(at: $0, withIntermediateDirectories: true)
         }
     }

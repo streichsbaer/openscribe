@@ -20,6 +20,26 @@
       "tags": ["commands", "raw"],
       "raw_contains": ["new paragraph", "bullet point", "second item"],
       "raw_not_contains": []
+    },
+    {
+      "id": "basic_en_smoke_parakeet",
+      "audio": "basic_en_smoke.wav",
+      "provider": "parakeet",
+      "model": "parakeet-ultra",
+      "language": "auto",
+      "tags": ["smoke", "raw"],
+      "raw_contains": ["open scribe", "smoke test"],
+      "raw_not_contains": []
+    },
+    {
+      "id": "commands_markdown_parakeet",
+      "audio": "commands_markdown.wav",
+      "provider": "parakeet",
+      "model": "parakeet-ultra",
+      "language": "auto",
+      "tags": ["commands", "raw"],
+      "raw_contains": ["new paragraph", "bullet point", "second item"],
+      "raw_not_contains": []
     }
   ]
 }

@@ -28,7 +28,7 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 - On a fresh install with no session history, OpenScribe opens a setup assistant in Settings on first launch.
 - The assistant offers two paths: `Best setup` and `Local only`.
 - `Best setup` guides Groq key entry, verification, Groq Whisper on `whisper-large-v3-turbo`, and Groq polish on `openai/gpt-oss-120b`.
-- `Local only` guides local `whisper.cpp` model choice, model download, and a local test recording.
+- `Local only` guides local model choice (Parakeet Ultra recommended, or a `whisper.cpp` model), model download, and a local test recording.
 - Users can skip the assistant, hide it from future first launches, or reopen it later from Settings or the menu bar.
 
 ## Defaults
@@ -43,8 +43,8 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 - Rules hotkey: `Ctrl + Option + R` opens Settings on the Rules tab.
 - Paste hotkey behavior: copy latest polished transcript then paste via synthetic `Cmd + V` only when Accessibility permission is granted.
 - If hotkey registration fails, app shows a blocking warning and requires manual change.
-- Default STT provider: local `whisper.cpp`.
-- Default local model: `base`.
+- Default STT provider: local Parakeet.
+- Default local model: `Parakeet Ultra`, running on the GPU. The Neural Engine is a setting.
 - Default polish: disabled.
 - Default polish provider and model: `OpenAI / gpt-5-nano`.
 - Language: `auto`.
@@ -62,7 +62,8 @@ Root path:
 ## Providers
 
 - STT:
-  - Local `whisper.cpp`
+  - Local Parakeet (Parakeet Ultra on Core ML through FluidAudio)
+  - Local `whisper.cpp` (Metal GPU on Apple Silicon)
   - OpenAI Whisper API
   - OpenAI Realtime API
   - Groq Whisper API

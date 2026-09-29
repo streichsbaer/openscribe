@@ -4,17 +4,24 @@ import Foundation
 final class ProviderFactory {
     private let apiKeyResolver: APIKeyResolver
     private let modelManager: ModelDownloadManager
+    let parakeetEngine = ParakeetEngine()
 
     init(keychain: KeychainStore, modelManager: ModelDownloadManager) {
         self.apiKeyResolver = APIKeyResolver(keychain: keychain)
         self.modelManager = modelManager
     }
 
-    func transcriptionProvider(id: String) throws -> any TranscriptionProvider {
+    func transcriptionProvider(id: String, settings: AppSettings) throws -> any TranscriptionProvider {
         switch id {
         case "whispercpp":
             let binary = try resolveWhisperBinary()
             return WhisperCppProvider(binaryURL: binary, modelManager: modelManager)
+        case "parakeet":
+            return ParakeetProvider(
+                engine: parakeetEngine,
+                modelManager: modelManager,
+                usesNeuralEngine: settings.parakeetUsesNeuralEngine ?? false
+            )
         case "openai_whisper":
             guard let key = apiKeyResolver.resolve(.openAI).value else {
                 throw ProviderError.missingAPIKey("OpenAI")

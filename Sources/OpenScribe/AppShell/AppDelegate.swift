@@ -17,11 +17,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             statusBarController?.showSetupAssistantOnLaunch()
         }
 
-        if shell.settings.transcriptionProviderID == "whispercpp",
+        if ProviderModelCatalog.isLocalTranscriptionProvider(shell.settings.transcriptionProviderID),
            !shell.shouldDeferDefaultModelDownloadForSetupAssistant,
            !uiSmokeModeEnabled {
             shell.downloadDefaultModelIfNeeded()
         }
+        shell.prewarmLocalEngine()
 
         if uiSmokeModeEnabled {
             statusBarController?.runUISmokeCaptureIfConfigured()

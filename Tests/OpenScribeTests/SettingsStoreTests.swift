@@ -124,7 +124,7 @@ final class SettingsStoreTests: XCTestCase {
             recordings: root.appendingPathComponent("Recordings", isDirectory: true),
             rules: root.appendingPathComponent("Rules", isDirectory: true),
             stats: root.appendingPathComponent("Stats", isDirectory: true),
-            models: root.appendingPathComponent("Models/whisper", isDirectory: true),
+            models: root.appendingPathComponent("Models", isDirectory: true),
             config: root.appendingPathComponent("Config", isDirectory: true),
             rulesFile: root.appendingPathComponent("Rules/rules.md"),
             rulesHistory: root.appendingPathComponent("Rules/rules.history.jsonl"),

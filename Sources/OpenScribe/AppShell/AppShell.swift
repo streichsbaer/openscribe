@@ -361,6 +361,7 @@ final class AppShell: ObservableObject {
         lastError = nil
         registerHotkeys()
         applyAppearanceMode()
+        prewarmLocalEngine()
     }
 
     func beginHotkeyRecordingCapture() {
@@ -649,8 +650,9 @@ final class AppShell: ObservableObject {
     }
 
     func applyLocalOnlySetup(modelID: String) {
+        let providerID = SetupAssistantChecklist.localOption(for: modelID).providerID
         updateSettings { settings in
-            settings.transcriptionProviderID = "whispercpp"
+            settings.transcriptionProviderID = providerID
             settings.transcriptionModel = modelID
             settings.languageMode = "auto"
             settings.polishEnabled = false
@@ -1175,7 +1177,8 @@ final class AppShell: ObservableObject {
             guard let self else { return }
             do {
                 _ = try await self.modelManager.ensureInstalled(modelID: self.settings.transcriptionModel)
-                self.statusMessage = "Model \(self.settings.transcriptionModel) installed"
+                self.statusMessage = "Model \(self.displayName(forModel: self.settings.transcriptionModel)) installed"
+                self.prewarmLocalEngine()
             } catch {
                 self.lastError = error.localizedDescription
                 self.statusMessage = "Failed to download model"
@@ -1183,12 +1186,13 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func installWhisperModel(_ modelID: String) {
+    func installLocalModel(_ modelID: String) {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 _ = try await self.modelManager.ensureInstalled(modelID: modelID)
-                self.statusMessage = "Model \(modelID) installed"
+                self.statusMessage = "Model \(self.displayName(forModel: modelID)) installed"
+                self.prewarmLocalEngine()
             } catch {
                 self.lastError = error.localizedDescription
                 self.statusMessage = "Failed to download model"
@@ -1196,14 +1200,40 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func removeWhisperModel(_ modelID: String) {
+    func removeLocalModel(_ modelID: String) {
         do {
+            if modelManager.asset(for: modelID)?.kind == .parakeet {
+                let engine = providerFactory.parakeetEngine
+                Task { await engine.unload() }
+            }
             try modelManager.remove(modelID: modelID)
             objectWillChange.send()
-            statusMessage = "Model \(modelID) removed"
+            statusMessage = "Model \(displayName(forModel: modelID)) removed"
         } catch {
             lastError = error.localizedDescription
             statusMessage = "Failed to remove model"
+        }
+    }
+
+    func displayName(forModel modelID: String) -> String {
+        modelManager.asset(for: modelID)?.displayName ?? modelID
+    }
+
+    /// Loads the selected Parakeet model in the background so the first dictation does not wait
+    /// for Core ML, and releases it when another provider is selected.
+    func prewarmLocalEngine() {
+        let engine = providerFactory.parakeetEngine
+        guard settings.transcriptionProviderID == "parakeet",
+              modelManager.isInstalled(modelID: settings.transcriptionModel) else {
+            Task { await engine.unload() }
+            return
+        }
+        let configuration = ParakeetEngine.Configuration(
+            modelDirectory: modelManager.localPath(for: settings.transcriptionModel),
+            usesNeuralEngine: settings.parakeetUsesNeuralEngine ?? false
+        )
+        Task.detached(priority: .utility) {
+            try? await engine.prepare(configuration: configuration)
         }
     }
 
@@ -1643,6 +1673,8 @@ final class AppShell: ObservableObject {
 
     private func backend(for providerID: String) -> ProviderBackend? {
         switch providerID {
+        case "parakeet":
+            return .parakeet
         case "whispercpp":
             return .whispercpp
         case "openai_whisper", "openai_realtime_transcription", "openai_polish":
@@ -1676,8 +1708,10 @@ final class AppShell: ObservableObject {
 
     private func fetchModels(for backend: ProviderBackend) async throws -> [String] {
         switch backend {
+        case .parakeet:
+            return modelManager.transcriptionModels(providerID: "parakeet").map(\.id)
         case .whispercpp:
-            return modelManager.catalog.map(\.id).sorted()
+            return modelManager.transcriptionModels(providerID: "whispercpp").map(\.id).sorted()
         case .openai:
             let key = apiKeyResolver.resolve(.openAI).value
             guard let key else { throw ProviderError.missingAPIKey("OpenAI") }
@@ -1942,7 +1976,7 @@ final class AppShell: ObservableObject {
     }
 
     private func ensureLocalModelInstalledIfNeeded(using settings: AppSettings) async throws {
-        guard settings.transcriptionProviderID == "whispercpp" else {
+        guard ProviderModelCatalog.isLocalTranscriptionProvider(settings.transcriptionProviderID) else {
             return
         }
         let modelID = settings.transcriptionModel
@@ -1950,7 +1984,7 @@ final class AppShell: ObservableObject {
             return
         }
 
-        statusMessage = "Downloading local model \(modelID)..."
+        statusMessage = "Downloading local model \(displayName(forModel: modelID))..."
         _ = try await modelManager.ensureInstalled(modelID: modelID)
     }
 

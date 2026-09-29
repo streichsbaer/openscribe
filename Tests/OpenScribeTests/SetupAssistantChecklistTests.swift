@@ -108,6 +108,65 @@ final class SetupAssistantChecklistTests: XCTestCase {
         XCTAssertEqual(SetupAssistantChecklist.items(for: .local, context: context).count, 6)
     }
 
+    func testLocalSetupDefaultsToParakeetUltra() {
+        let option = SetupAssistantChecklist.localOption(for: SetupAssistantChecklist.defaultLocalModelID)
+        XCTAssertEqual(option.id, ModelDownloadManager.parakeetUltraModelID)
+        XCTAssertEqual(option.providerID, "parakeet")
+
+        let context = SetupAssistantChecklistContext(
+            accessibilityPermissionGranted: true,
+            autoPasteEnabled: true,
+            hasSuccessfulRecording: true,
+            latestOutputAvailable: true,
+            testFieldContainsOutput: true,
+            groqKeySaved: false,
+            groqVerified: false,
+            transcriptionProviderID: "parakeet",
+            transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
+            polishEnabled: false,
+            polishProviderID: "openai_polish",
+            polishModel: "gpt-5-nano",
+            languageMode: "auto",
+            selectedLocalModel: ModelDownloadManager.parakeetUltraModelID,
+            localModelInstalled: true
+        )
+
+        XCTAssertTrue(SetupAssistantChecklist.isComplete(for: .local, context: context))
+    }
+
+    func testLocalSetupRequiresTheProviderThatOwnsTheSelectedModel() {
+        let context = SetupAssistantChecklistContext(
+            accessibilityPermissionGranted: true,
+            autoPasteEnabled: true,
+            hasSuccessfulRecording: true,
+            latestOutputAvailable: true,
+            testFieldContainsOutput: true,
+            groqKeySaved: false,
+            groqVerified: false,
+            transcriptionProviderID: "whispercpp",
+            transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
+            polishEnabled: false,
+            polishProviderID: "openai_polish",
+            polishModel: "gpt-5-nano",
+            languageMode: "auto",
+            selectedLocalModel: ModelDownloadManager.parakeetUltraModelID,
+            localModelInstalled: true
+        )
+
+        XCTAssertFalse(SetupAssistantChecklist.localSetupMatches(context))
+        XCTAssertFalse(SetupAssistantChecklist.isComplete(for: .local, context: context))
+        XCTAssertTrue(
+            SetupAssistantChecklist.sessionMatchesTrack(
+                sttProvider: "parakeet",
+                sttModel: ModelDownloadManager.parakeetUltraModelID,
+                polishProvider: "disabled",
+                polishModel: "passthrough",
+                track: .local,
+                selectedLocalModel: ModelDownloadManager.parakeetUltraModelID
+            )
+        )
+    }
+
     func testLocalSetupRequiresAccessibilityAndAutoPasteForCompletion() {
         let context = SetupAssistantChecklistContext(
             accessibilityPermissionGranted: false,

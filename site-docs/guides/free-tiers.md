@@ -59,7 +59,7 @@ OpenRouter and Gemini are useful as alternative experiment paths. The main recom
 
 ## What about the local model?
 
-OpenScribe still supports local `whisper.cpp`, and it is useful when you specifically want local-only processing. It is not the recommended path for this guide because Groq gives a faster and stronger first-time experience.
+OpenScribe transcribes locally with Parakeet by default. It needs no API key and is fast on Apple Silicon. This guide covers the cloud path, which adds Groq transcription and Groq polish. You can also combine local Parakeet transcription with Groq polish.
 
 ## What about OpenAI?
 

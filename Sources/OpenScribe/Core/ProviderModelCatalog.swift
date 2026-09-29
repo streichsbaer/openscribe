@@ -6,6 +6,7 @@ enum ProviderModelUsage {
 }
 
 enum ProviderBackend: String {
+    case parakeet
     case whispercpp
     case openai
     case groq
@@ -15,6 +16,8 @@ enum ProviderBackend: String {
 
     var displayName: String {
         switch self {
+        case .parakeet:
+            return "Local Parakeet"
         case .whispercpp:
             return "Local whisper.cpp"
         case .openai:
@@ -48,8 +51,17 @@ struct ProviderConnectivityStatus: Equatable {
 }
 
 enum ProviderModelCatalog {
+    /// Transcription providers that run on this Mac with downloaded models.
+    static let localTranscriptionProviderIDs: Set<String> = ["parakeet", "whispercpp"]
+
+    static func isLocalTranscriptionProvider(_ providerID: String) -> Bool {
+        localTranscriptionProviderIDs.contains(providerID)
+    }
+
     static func fallbackModels(for providerID: String, usage: ProviderModelUsage) -> [String] {
         switch (providerID, usage) {
+        case ("parakeet", .transcription):
+            return [ModelDownloadManager.parakeetUltraModelID]
         case ("whispercpp", .transcription):
             return ["tiny", "base", "small", "medium", "large-v3-turbo"]
         case ("openai_whisper", .transcription):
@@ -73,7 +85,7 @@ enum ProviderModelCatalog {
         case ("cerebras_polish", .polish):
             return ["gpt-oss-120b"]
         case (_, .transcription):
-            return ["base"]
+            return [ModelDownloadManager.parakeetUltraModelID]
         case (_, .polish):
             return ["gpt-5-nano"]
         }
@@ -116,7 +128,7 @@ enum ProviderModelCatalog {
             return models.filter { $0.lowercased().contains("whisper") }.sorted()
         case (.groq, .polish):
             return models.filter { !$0.lowercased().contains("whisper") }.sorted()
-        case (.whispercpp, _), (.openrouter, _), (.gemini, _), (.cerebras, _):
+        case (.parakeet, _), (.whispercpp, _), (.openrouter, _), (.gemini, _), (.cerebras, _):
             return models.sorted()
         }
     }

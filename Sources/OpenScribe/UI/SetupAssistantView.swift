@@ -49,8 +49,7 @@ struct SetupAssistantView: View {
     }
 
     private var localModelOption: SetupAssistantLocalModelOption {
-        SetupAssistantChecklist.localModelOptions.first(where: { $0.id == state.selectedLocalModel })
-            ?? SetupAssistantChecklist.localModelOptions[0]
+        SetupAssistantChecklist.localOption(for: state.selectedLocalModel)
     }
 
     private var isGroqInputEmpty: Bool {
@@ -71,10 +70,7 @@ struct SetupAssistantView: View {
                 checklistContext.accessibilityPermissionGranted &&
                 checklistContext.autoPasteEnabled
         case .local:
-            return checklistContext.transcriptionProviderID == "whispercpp" &&
-                checklistContext.transcriptionModel == state.selectedLocalModel &&
-                checklistContext.languageMode == "auto" &&
-                !checklistContext.polishEnabled &&
+            return SetupAssistantChecklist.localSetupMatches(checklistContext) &&
                 checklistContext.localModelInstalled &&
                 checklistContext.accessibilityPermissionGranted &&
                 checklistContext.autoPasteEnabled
@@ -319,7 +315,7 @@ struct SetupAssistantView: View {
         case "local.model":
             actionGroup {
                 Button("Download model") {
-                    shell.installWhisperModel(state.selectedLocalModel)
+                    shell.installLocalModel(state.selectedLocalModel)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!isUnlocked)

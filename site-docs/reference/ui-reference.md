@@ -95,6 +95,7 @@ You can open Settings from the right-click menu, with `Cmd + ,` when OpenScribe 
 
 - Transcription provider selection.
 - Full-width transcription model browser.
+- Run on the Neural Engine toggle when Local Parakeet is selected.
 - Language mode.
 - Optional custom transcription instruction.
 
@@ -127,7 +128,7 @@ You can open Settings from the right-click menu, with `Cmd + ,` when OpenScribe 
 
 ### Data
 
-- Install and delete local transcription models.
+- Install and delete local models for Parakeet and whisper.cpp.
 - View model disk usage.
 - Open the App Support folder.
 - Move App Support data to Trash.

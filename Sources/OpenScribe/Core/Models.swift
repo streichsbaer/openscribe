@@ -153,6 +153,7 @@ struct PinnedMicrophone: Codable, Equatable {
 struct AppSettings: Codable, Equatable {
     var transcriptionProviderID: String
     var transcriptionModel: String
+    var parakeetUsesNeuralEngine: Bool?
     var transcriptionCustomInstructionEnabled: Bool?
     var transcriptionInstruction: String?
     var polishEnabled: Bool
@@ -173,8 +174,9 @@ struct AppSettings: Codable, Equatable {
     var pinnedMicrophone: PinnedMicrophone?
 
     static let `default` = AppSettings(
-        transcriptionProviderID: "whispercpp",
-        transcriptionModel: "base",
+        transcriptionProviderID: "parakeet",
+        transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
+        parakeetUsesNeuralEngine: nil,
         transcriptionCustomInstructionEnabled: nil,
         transcriptionInstruction: nil,
         polishEnabled: false,
@@ -217,12 +219,39 @@ enum AppearanceMode: String, CaseIterable, Codable, Equatable {
     }
 }
 
+enum ModelAssetKind: String, Codable, Sendable {
+    /// A single ggml file for whisper.cpp.
+    case whisper
+    /// A Core ML folder for the Parakeet engine.
+    case parakeet
+
+    var providerID: String {
+        self == .whisper ? "whispercpp" : "parakeet"
+    }
+}
+
+struct ModelAssetFile: Codable, Equatable, Sendable {
+    let path: String
+    let sizeBytes: Int64
+    let sha256: String
+}
+
 struct ModelAsset: Codable, Equatable, Identifiable, Sendable {
     let id: String
+    let kind: ModelAssetKind
     let displayName: String
-    let downloadURL: URL
-    let expectedSizeBytes: Int64
-    let sha256: String
+    let detail: String
+    /// Hugging Face `resolve/<revision>/` URL; every file path is relative to it.
+    let repositoryURL: URL
+    let files: [ModelAssetFile]
+
+    var expectedSizeBytes: Int64 {
+        files.reduce(0) { $0 + $1.sizeBytes }
+    }
+
+    func downloadURL(for file: ModelAssetFile) -> URL {
+        repositoryURL.appendingPathComponent(file.path)
+    }
 }
 
 enum ProviderError: Error, LocalizedError {

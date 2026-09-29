@@ -75,6 +75,19 @@ cp "$WHISPER_STAGE_DIR/whisper-cli" "$APP_DIR/Contents/Resources/bin/whisper-cli
 cp "$WHISPER_STAGE_DIR"/*.dylib "$APP_DIR/Contents/Resources/bin/"
 cp "$WHISPER_STAGE_DIR/LICENSE.whisper.cpp.txt" "$APP_DIR/Contents/Resources/licenses/whisper.cpp-LICENSE.txt"
 
+# FluidAudio runs Parakeet. Its resource bundle and licenses ship with the app; the Parakeet
+# model weights download at runtime and ship their attribution notice here.
+FLUIDAUDIO_BUNDLE="$BIN_PATH/FluidAudio_FluidAudio.bundle"
+FLUIDAUDIO_CHECKOUT="$ROOT_DIR/.build/checkouts/FluidAudio"
+if [[ ! -d "$FLUIDAUDIO_BUNDLE" || ! -f "$FLUIDAUDIO_CHECKOUT/LICENSE" ]]; then
+  echo "Missing FluidAudio bundle or checkout at $FLUIDAUDIO_BUNDLE / $FLUIDAUDIO_CHECKOUT" >&2
+  exit 1
+fi
+cp -R "$FLUIDAUDIO_BUNDLE" "$APP_DIR/Contents/Resources/"
+cp "$FLUIDAUDIO_CHECKOUT/LICENSE" "$APP_DIR/Contents/Resources/licenses/FluidAudio-LICENSE.txt"
+cp "$FLUIDAUDIO_CHECKOUT/ThirdPartyLicenses/fastcluster-LICENSE.md" "$APP_DIR/Contents/Resources/licenses/fastcluster-LICENSE.md"
+cp "$ROOT_DIR/packaging/licenses/parakeet-models-NOTICE.txt" "$APP_DIR/Contents/Resources/licenses/parakeet-models-NOTICE.txt"
+
 codesign --force --deep --sign - "$APP_DIR"
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
 

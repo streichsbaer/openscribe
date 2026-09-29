@@ -71,8 +71,35 @@ final class FixturePipelineTests: XCTestCase {
         }
 
         let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager)
+        try await assertFixtureCases(whisperCases, provider: provider)
+    }
 
-        for fixtureCase in whisperCases {
+    @MainActor
+    func testParakeetFixtureCases() async throws {
+        guard ProcessInfo.processInfo.environment["RUN_AUDIO_FIXTURE_TESTS"] == "1" else {
+            throw XCTSkip("Set RUN_AUDIO_FIXTURE_TESTS=1 to run offline Parakeet fixture integration tests.")
+        }
+
+        let suite = try loadFixtureSuite()
+        let parakeetCases = suite.cases.filter { $0.provider == "parakeet" }
+        let layout = try DirectoryLayout.resolve()
+        let modelManager = ModelDownloadManager(layout: layout)
+        let missingModels = Set(parakeetCases.map(\.model)).filter { !modelManager.isInstalled(modelID: $0) }
+        if !missingModels.isEmpty {
+            throw XCTSkip("Missing local model(s): \(missingModels.sorted().joined(separator: ", ")).")
+        }
+
+        let provider = ParakeetProvider(
+            engine: ParakeetEngine(),
+            modelManager: modelManager,
+            usesNeuralEngine: false
+        )
+        try await assertFixtureCases(parakeetCases, provider: provider)
+    }
+
+    @MainActor
+    private func assertFixtureCases(_ cases: [FixtureCase], provider: any TranscriptionProvider) async throws {
+        for fixtureCase in cases {
             let audioURL = try fixtureAudioURL(named: fixtureCase.audio)
             let result = try await provider.transcribe(
                 audioFileURL: audioURL,

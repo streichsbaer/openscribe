@@ -148,6 +148,7 @@ struct SettingsView: View {
     private let rulesSavedFeedbackDurationNs: UInt64 = 1_500_000_000
 
     private let sttProviders = [
+        (id: "parakeet", label: "Local Parakeet"),
         (id: "whispercpp", label: "Local whisper.cpp"),
         (id: "openai_whisper", label: "OpenAI Speech-to-Text"),
         (id: "openai_realtime_transcription", label: "OpenAI Realtime"),
@@ -222,14 +223,14 @@ struct SettingsView: View {
             presenting: pendingLocalModelAction
         ) { action in
             switch action {
-            case .download(let modelID, _):
+            case .download(let modelID, _, _):
                 Button("Download") {
-                    shell.installWhisperModel(modelID)
+                    shell.installLocalModel(modelID)
                     pendingLocalModelAction = nil
                 }
-            case .delete(let modelID, _):
+            case .delete(let modelID, _, _):
                 Button("Delete", role: .destructive) {
-                    shell.removeWhisperModel(modelID)
+                    shell.removeLocalModel(modelID)
                     pendingLocalModelAction = nil
                 }
             }
@@ -643,6 +644,20 @@ struct SettingsView: View {
                         settings.transcriptionModel = selected
                     }
                 }
+
+                if shell.settings.transcriptionProviderID == "parakeet" {
+                    Toggle("Run on the Neural Engine", isOn: Binding(
+                        get: { shell.settings.parakeetUsesNeuralEngine == true },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.parakeetUsesNeuralEngine = newValue
+                            }
+                        }
+                    ))
+                    Text("The GPU is fastest. The Neural Engine uses less power and keeps the GPU free.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             settingsCard("INSTRUCTION") {
@@ -948,7 +963,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 if let active = shell.modelManager.activeDownloadModelID {
-                    ProgressView("Downloading \(active)", value: shell.modelManager.progress)
+                    ProgressView("Downloading \(shell.displayName(forModel: active))", value: shell.modelManager.progress)
                 }
 
                 ForEach(modelCatalog, id: \ModelAsset.id) { (asset: ModelAsset) in
@@ -961,6 +976,9 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(asset.displayName)
                                 .font(.subheadline.weight(.semibold))
+                            Text(asset.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             Text(isInstalled ? "Installed · \(formattedFileSize(sizeBytes))" : "Not installed · \(formattedFileSize(sizeBytes))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -970,13 +988,13 @@ struct SettingsView: View {
 
                         if isInstalled {
                             Button("Delete") {
-                                pendingLocalModelAction = .delete(modelID: asset.id, sizeBytes: sizeBytes)
+                                pendingLocalModelAction = .delete(modelID: asset.id, name: asset.displayName, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.bordered)
                             .disabled(shell.modelManager.activeDownloadModelID != nil)
                         } else {
                             Button("Download") {
-                                pendingLocalModelAction = .download(modelID: asset.id, sizeBytes: sizeBytes)
+                                pendingLocalModelAction = .download(modelID: asset.id, name: asset.displayName, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(shell.modelManager.activeDownloadModelID != nil)
@@ -1480,8 +1498,8 @@ struct SettingsView: View {
 }
 
 private enum LocalModelAction: Equatable {
-    case download(modelID: String, sizeBytes: Int64)
-    case delete(modelID: String, sizeBytes: Int64)
+    case download(modelID: String, name: String, sizeBytes: Int64)
+    case delete(modelID: String, name: String, sizeBytes: Int64)
 
     var dialogTitle: String {
         switch self {
@@ -1494,10 +1512,10 @@ private enum LocalModelAction: Equatable {
 
     var dialogMessage: String {
         switch self {
-        case .download(let modelID, let sizeBytes):
-            return "Download model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
-        case .delete(let modelID, let sizeBytes):
-            return "Delete model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
+        case .download(_, let name, let sizeBytes):
+            return "Download model \(name) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
+        case .delete(_, let name, let sizeBytes):
+            return "Delete model \(name) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
         }
     }
 }

@@ -1,0 +1,13 @@
+Parakeet speech models
+
+OpenScribe downloads these models on demand from Hugging Face at pinned revisions and does not modify them.
+
+Parakeet Ultra
+  Files: FluidInference/parakeet-ultra-coreml, a Core ML conversion of moondream/parakeet-ultra,
+  which is a post-trained version of NVIDIA parakeet-tdt-0.6b-v3.
+  https://huggingface.co/FluidInference/parakeet-ultra-coreml
+  https://huggingface.co/moondream/parakeet-ultra
+  https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
