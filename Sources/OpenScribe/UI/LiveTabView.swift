@@ -600,13 +600,6 @@ struct LiveTabView: View {
             .disabled(displayedText.isEmpty)
             .instantHint("Copy this text", hoverHint: $hoverHint)
 
-            Button("Paste") {
-                shell.pasteIntoPreviousApp(displayedText)
-            }
-            .buttonStyle(PopoverButtonStyle())
-            .disabled(displayedText.isEmpty)
-            .instantHint("Paste this text into the app you were in", hoverHint: $hoverHint)
-
             Spacer(minLength: 6)
 
             againControls

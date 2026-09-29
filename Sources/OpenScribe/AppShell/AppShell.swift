@@ -132,7 +132,6 @@ final class AppShell: ObservableObject {
     var togglePopoverHandler: (() -> Void)?
     var showPopoverHandler: (() -> Void)?
     var updatePopoverSizeHandler: ((CGSize) -> Void)?
-    var hidePopoverHandler: (() -> Void)?
     var openSettingsTabHandler: ((SettingsTab) -> Void)?
     var openSetupAssistantHandler: (() -> Void)?
 
@@ -1448,25 +1447,6 @@ final class AppShell: ObservableObject {
         }
         Clipboard.copy(text: candidate)
         statusMessage = message
-    }
-
-    /// Copies the text, hands focus back to the app you were in, and pastes there.
-    func pasteIntoPreviousApp(_ text: String) {
-        let candidate = normalizedClipboardText(text)
-        guard !candidate.isEmpty else {
-            statusMessage = "Nothing to paste yet"
-            return
-        }
-        Clipboard.copy(text: candidate)
-        guard AccessibilityInputInjector.isTrusted(promptIfNeeded: false) else {
-            statusMessage = "Copied. Pasting needs Accessibility permission."
-            return
-        }
-        hidePopoverHandler?()
-        NSApp.hide(nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            self?.statusMessage = AccessibilityInputInjector.triggerPasteShortcut() ? "Pasted" : "Copied"
-        }
     }
 
     func historyTranscriptText(_ entry: SessionHistoryEntry) -> String {
