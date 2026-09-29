@@ -2,6 +2,8 @@
 
 Vocabulary teaches OpenScribe how to spell the words you say that speech models rarely hear: tool names, product names, and project jargon. Say "git ignore" and get `gitignore`, say "mise" and get `mise`.
 
+![Vocabulary settings tab](/images/ui/settings-vocabulary.png){ .guide-shot data-light-src="/images/ui/settings-vocabulary.png" data-dark-src="/images/ui/settings-vocabulary-dark.png" }
+
 ## What ships with OpenScribe
 
 OpenScribe includes a list of common developer terms, such as `worktree`, `gitignore`, `kubectl`, `PostgreSQL`, and `Ollama`. The list updates with each release. You can turn it off in Settings > Vocabulary.

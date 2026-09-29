@@ -132,6 +132,8 @@ You can open Settings from the right-click menu, with `Cmd + ,` when OpenScribe 
 - See how each engine uses the list and whether Parakeet's vocabulary model is installed.
 - Edit your own terms, then save or revert.
 
+![Vocabulary settings tab](/images/ui/settings-vocabulary.png){ .guide-shot data-light-src="/images/ui/settings-vocabulary.png" data-dark-src="/images/ui/settings-vocabulary-dark.png" }
+
 ### Data
 
 - Install and delete local models for Parakeet and whisper.cpp.
