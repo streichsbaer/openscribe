@@ -86,6 +86,8 @@ zsh Scripts/stt-bench/bench.sh clean --all
 
 `clean --all` removes the workspace and every external location marked cleanable. It never touches OpenScribe's own data in `~/Library/Application Support/OpenScribe`.
 
+The side-by-side test app lives in `dist/side-by-side/` and keeps its data in `~/Library/Application Support/OpenScribe Dev` (inventory item `openscribe-dev-data`).
+
 ## Runs
 
 - `2026-09-29-baseline`: first comparison of Whisper, Parakeet, and Apple engines; published report in the run folder. Its scripts are archived with it.

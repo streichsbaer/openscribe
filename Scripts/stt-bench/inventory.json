@@ -167,6 +167,12 @@
       "cleanable": false
     },
     {
+      "id": "openscribe-dev-data",
+      "path": "~/Library/Application Support/OpenScribe Dev",
+      "purpose": "Data of the side-by-side OpenScribe Dev.app from Scripts/build_side_by_side_app.sh: its own settings, recordings, vocabulary, and models. Delete when side-by-side testing is done.",
+      "cleanable": true
+    },
+    {
       "id": "fluidaudio-default-cache",
       "path": "~/Library/Application Support/FluidAudio",
       "purpose": "FluidAudio's default model cache. Filled by the first bench run on 2026-09-29; current runs keep models in the workspace.",
