@@ -17,8 +17,17 @@ Tailscale
 ```
 
 - Lines starting with `#` are comments.
-- Your entries replace a built-in entry with the same term.
-- Save writes the list to disk. Revert discards unsaved edits.
+- Your entries replace a built-in entry with the same term, so repeat any built-in spellings you still want.
+- Save writes the list to disk and applies to your next dictation. Revert discards unsaved edits.
+- Terms are written exactly as listed, with a capital first letter at the start of a sentence. Punctuation around the corrected words stays.
+
+## Fix a misheard term
+
+1. Dictate as usual and note what OpenScribe wrote instead of the term, for example `Crone` for `cron`.
+2. Add the term with that spelling in Settings > Vocabulary: `cron: crone`. Save.
+3. Open the popover and use Re-Transcribe on the same session to check the result without dictating again.
+
+The most reliable sounds-like spellings are the exact words OpenScribe wrote. Short terms of five letters or fewer are only corrected when the transcript matches the term or one of its spellings closely, which keeps everyday words like "Tom" or "Miss" from turning into `TOML` or `mise`. Longer, distinctive terms such as `Kubernetes` usually work without extra spellings.
 
 ## How each engine uses it
 

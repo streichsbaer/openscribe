@@ -74,7 +74,9 @@ struct ParakeetVocabularyBooster {
               !spot.logProbs.isEmpty else {
             return text
         }
-        let output = rescorer.ctcTokenRescore(
+        // FluidAudio decides which words to replace; OpenScribe applies those decisions to the untouched
+        // transcript so punctuation around a replaced word survives and the term keeps its listed casing.
+        let evidence = rescorer.ctcTokenEvaluateCandidates(
             transcript: text,
             tokenTimings: tokenTimings,
             logProbs: spot.logProbs,
@@ -83,6 +85,47 @@ struct ParakeetVocabularyBooster {
             marginSeconds: 0.5,
             minSimilarity: max(sizeConfig.minSimilarity, context.minSimilarity)
         )
-        return output.wasModified ? output.text : text
+        let replacements = evidence.candidates.compactMap { candidate -> Replacement? in
+            guard candidate.legacyOutcome == .applied, let range = candidate.baseTextUTF8Range else {
+                return nil
+            }
+            return Replacement(utf8Range: range, term: candidate.canonicalTerm)
+        }
+        return Self.apply(replacements, to: evidence.baseText)
+    }
+
+    struct Replacement: Equatable {
+        let utf8Range: Range<Int>
+        let term: String
+    }
+
+    /// Replaces each range with its term. Punctuation at the edges of the replaced words stays, and the
+    /// term keeps its listed casing except for a capital first letter at the start of a sentence.
+    static func apply(_ replacements: [Replacement], to text: String) -> String {
+        let bytes = Array(text.utf8)
+        var result = ""
+        var cursor = 0
+        for replacement in replacements.sorted(by: { $0.utf8Range.lowerBound < $1.utf8Range.lowerBound }) {
+            let range = replacement.utf8Range
+            guard range.lowerBound >= cursor, range.upperBound <= bytes.count, !range.isEmpty,
+                  let before = String(bytes: bytes[cursor..<range.lowerBound], encoding: .utf8),
+                  let original = String(bytes: bytes[range], encoding: .utf8) else {
+                continue
+            }
+            let leading = String(original.prefix { !$0.isLetter && !$0.isNumber })
+            let trailing = String(original.reversed().prefix { !$0.isLetter && !$0.isNumber }.reversed())
+            let core = original.dropFirst(leading.count).dropLast(trailing.count)
+
+            var term = replacement.term
+            let startsSentence = (result + before).trimmingCharacters(in: .whitespacesAndNewlines).last
+                .map { ".!?".contains($0) } ?? true
+            if startsSentence, core.first?.isUppercase == true, let first = term.first, first.isLowercase {
+                term = first.uppercased() + term.dropFirst()
+            }
+            result += before + leading + term + trailing
+            cursor = range.upperBound
+        }
+        result += String(bytes: bytes[cursor...], encoding: .utf8) ?? ""
+        return result
     }
 }
