@@ -17,6 +17,16 @@ struct DirectoryLayout {
     let statsEventsFile: URL
     let settingsFile: URL
 
+    /// UI smoke runs can use a separate data folder, for example demo data for docs screenshots.
+    private static var uiSmokeDataDirectory: URL? {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["OPENSCRIBE_UI_SMOKE"] == "1",
+              let path = environment["OPENSCRIBE_UI_SMOKE_DATA_DIR"], !path.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
     static func resolve(fileManager: FileManager = .default) throws -> DirectoryLayout {
         let appSupportRoot = try fileManager.url(
             for: .applicationSupportDirectory,
@@ -25,7 +35,8 @@ struct DirectoryLayout {
             create: true
         )
 
-        let appSupport = appSupportRoot.appendingPathComponent(AppDirectories.appSupportName, isDirectory: true)
+        let appSupport = uiSmokeDataDirectory
+            ?? appSupportRoot.appendingPathComponent(AppDirectories.appSupportName, isDirectory: true)
         let recordings = appSupport.appendingPathComponent("Recordings", isDirectory: true)
         let rules = appSupport.appendingPathComponent("Rules", isDirectory: true)
         let stats = appSupport.appendingPathComponent("Stats", isDirectory: true)
