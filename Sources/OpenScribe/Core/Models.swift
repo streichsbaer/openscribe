@@ -106,34 +106,38 @@ struct HotkeySetting: Codable, Equatable, Hashable {
     private static let commaKeyCode: UInt32 = 43
     static let carbonFunctionMask: UInt32 = UInt32(kEventKeyModifierFnMask)
 
+    /// Modifiers for the Control-Option shortcut family. The side-by-side build adds Command
+    /// so it can run next to the installed app without hotkey collisions.
+    static let shortcutModifiers: UInt32 = UInt32(controlKey | optionKey) | (AppVariant.isSideBySide ? UInt32(cmdKey) : 0)
+
     static let startStopDefault = HotkeySetting(
         keyCode: spaceKeyCode,
-        modifiers: carbonFunctionMask
+        modifiers: carbonFunctionMask | (AppVariant.isSideBySide ? UInt32(shiftKey) : 0)
     )
 
     static let copyDefault = HotkeySetting(
         keyCode: pKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let copyRawDefault = HotkeySetting(
         keyCode: tKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let pasteDefault = HotkeySetting(
         keyCode: vKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let togglePopoverDefault = HotkeySetting(
         keyCode: oKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     static let openSettingsDefault = HotkeySetting(
         keyCode: commaKeyCode,
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: shortcutModifiers
     )
 
     func normalizedForCarbonHotkey() -> HotkeySetting {
@@ -149,6 +153,9 @@ struct PinnedMicrophone: Codable, Equatable {
 struct AppSettings: Codable, Equatable {
     var transcriptionProviderID: String
     var transcriptionModel: String
+    var parakeetUsesNeuralEngine: Bool?
+    var vocabularyEnabled: Bool?
+    var developerVocabularyEnabled: Bool?
     var transcriptionCustomInstructionEnabled: Bool?
     var transcriptionInstruction: String?
     var polishEnabled: Bool
@@ -169,8 +176,11 @@ struct AppSettings: Codable, Equatable {
     var pinnedMicrophone: PinnedMicrophone?
 
     static let `default` = AppSettings(
-        transcriptionProviderID: "whispercpp",
-        transcriptionModel: "base",
+        transcriptionProviderID: "parakeet",
+        transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
+        parakeetUsesNeuralEngine: nil,
+        vocabularyEnabled: nil,
+        developerVocabularyEnabled: nil,
         transcriptionCustomInstructionEnabled: nil,
         transcriptionInstruction: nil,
         polishEnabled: false,
@@ -194,6 +204,14 @@ struct AppSettings: Codable, Equatable {
     var activeSessionIndicatorEnabled: Bool {
         showActiveSessionIndicator ?? true
     }
+
+    var usesVocabulary: Bool {
+        vocabularyEnabled ?? true
+    }
+
+    var usesDeveloperVocabulary: Bool {
+        developerVocabularyEnabled ?? true
+    }
 }
 
 enum AppearanceMode: String, CaseIterable, Codable, Equatable {
@@ -213,12 +231,45 @@ enum AppearanceMode: String, CaseIterable, Codable, Equatable {
     }
 }
 
+enum ModelAssetKind: String, Codable, Sendable {
+    /// A single ggml file for whisper.cpp.
+    case whisper
+    /// A Core ML folder for the Parakeet engine.
+    case parakeet
+    /// The Core ML CTC model Parakeet uses for vocabulary boosting.
+    case parakeetVocabulary
+
+    var providerID: String {
+        self == .whisper ? "whispercpp" : "parakeet"
+    }
+}
+
+struct ModelAssetFile: Codable, Equatable, Sendable {
+    let path: String
+    let sizeBytes: Int64
+    let sha256: String
+}
+
 struct ModelAsset: Codable, Equatable, Identifiable, Sendable {
     let id: String
+    let kind: ModelAssetKind
     let displayName: String
-    let downloadURL: URL
-    let expectedSizeBytes: Int64
-    let sha256: String
+    let detail: String
+    /// Hugging Face `resolve/<revision>/` URL; every file path is relative to it.
+    let repositoryURL: URL
+    let files: [ModelAssetFile]
+
+    var expectedSizeBytes: Int64 {
+        files.reduce(0) { $0 + $1.sizeBytes }
+    }
+
+    var isTranscriptionModel: Bool {
+        kind != .parakeetVocabulary
+    }
+
+    func downloadURL(for file: ModelAssetFile) -> URL {
+        repositoryURL.appendingPathComponent(file.path)
+    }
 }
 
 enum ProviderError: Error, LocalizedError {
@@ -244,8 +295,14 @@ enum ProviderError: Error, LocalizedError {
     }
 }
 
+/// `OpenScribe Dev.app` from `Scripts/build_side_by_side_app.sh` sets `OpenScribeSideBySide` in its
+/// Info.plist to run next to the installed app with its own data folder and hotkeys.
+enum AppVariant {
+    static let isSideBySide = Bundle.main.object(forInfoDictionaryKey: "OpenScribeSideBySide") as? Bool == true
+}
+
 enum AppDirectories {
-    static let appSupportName = "OpenScribe"
+    static let appSupportName = AppVariant.isSideBySide ? "OpenScribe Dev" : "OpenScribe"
 }
 
 enum KeychainEntry: String {

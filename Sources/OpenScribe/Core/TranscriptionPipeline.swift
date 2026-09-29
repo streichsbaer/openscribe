@@ -4,8 +4,12 @@ struct TranscriptionPipeline {
     let providerFactory: ProviderFactory
 
     @MainActor
-    func run(audioFileURL: URL, settings: AppSettings) async throws -> TranscriptResult {
-        let provider = try providerFactory.transcriptionProvider(id: settings.transcriptionProviderID)
+    func run(audioFileURL: URL, settings: AppSettings, vocabulary: [VocabularyEntry]) async throws -> TranscriptResult {
+        let provider = try providerFactory.transcriptionProvider(
+            id: settings.transcriptionProviderID,
+            settings: settings,
+            vocabulary: vocabulary
+        )
 
         let language: String?
         if settings.languageMode.lowercased() == "auto" {

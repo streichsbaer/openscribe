@@ -14,7 +14,7 @@ If you choose OpenAI Realtime as the transcription provider, OpenScribe also str
 
 ## 2. Then transcribe
 
-After recording stops, OpenScribe sends the audio through your selected speech-to-text provider. By default that is whisper.cpp, which runs entirely on your Mac with no network calls.
+After recording stops, OpenScribe sends the audio through your selected speech-to-text provider. By default that is Parakeet, which runs entirely on your Mac with no network calls.
 
 The raw transcript appears in the Live tab as soon as transcription completes. With OpenAI Realtime, the final transcript is committed after recording stops, even if interim text was already visible while you were speaking.
 

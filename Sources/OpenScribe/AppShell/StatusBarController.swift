@@ -1064,7 +1064,12 @@ final class StatusBarController: NSObject {
         }
 
         setStatusIcon(for: .idle, blinkPhase: blinkPhase)
-        button.imagePosition = .imageOnly
+        if AppVariant.isSideBySide {
+            button.title = "Dev"
+            button.imagePosition = .imageLeading
+        } else {
+            button.imagePosition = .imageOnly
+        }
         button.action = #selector(statusItemClicked(_:))
         button.target = self
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])

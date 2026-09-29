@@ -17,21 +17,21 @@ final class AppShell: ObservableObject {
     private static let livePopoverSize = CGSize(width: 540, height: 620)
     private static let historyPopoverSize = CGSize(width: 620, height: 700)
     private static let statsPopoverSize = CGSize(width: 620, height: 700)
-    private static let showLiveTabHotkey = HotkeySetting(
+    static let showLiveTabHotkey = HotkeySetting(
         keyCode: 37, // ANSI L
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
-    private static let showHistoryTabHotkey = HotkeySetting(
+    static let showHistoryTabHotkey = HotkeySetting(
         keyCode: 4, // ANSI H
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
-    private static let showStatsTabHotkey = HotkeySetting(
+    static let showStatsTabHotkey = HotkeySetting(
         keyCode: 1, // ANSI S
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
-    private static let openRulesTabHotkey = HotkeySetting(
+    static let openRulesTabHotkey = HotkeySetting(
         keyCode: 15, // ANSI R
-        modifiers: UInt32(controlKey | optionKey)
+        modifiers: HotkeySetting.shortcutModifiers
     )
     nonisolated private static let realtimeTranscriptionProviderID = "openai_realtime_transcription"
     nonisolated private static let realtimeTranscriptionSampleRate: Double = 24_000
@@ -131,6 +131,7 @@ final class AppShell: ObservableObject {
     let settingsStore: SettingsStore
     let rulesStore: RulesStore
     let modelManager: ModelDownloadManager
+    let vocabularyStore: VocabularyStore
     let audioMeter = AudioMeterState()
 
     private let keychainStore: KeychainStore
@@ -165,6 +166,7 @@ final class AppShell: ObservableObject {
         self.settingsStore = SettingsStore(layout: resolvedLayout)
         self.rulesStore = RulesStore(layout: resolvedLayout)
         self.modelManager = ModelDownloadManager(layout: resolvedLayout)
+        self.vocabularyStore = VocabularyStore(layout: resolvedLayout)
         self.keychainStore = KeychainStore(isEnabled: !Self.uiSmokeModeEnabled)
         self.apiKeyResolver = APIKeyResolver(keychain: keychainStore)
         self.sessionManager = SessionManager(layout: resolvedLayout)
@@ -181,7 +183,7 @@ final class AppShell: ObservableObject {
         self.setupAssistantDoNotShowAgain = userDefaults.bool(forKey: Self.setupAssistantDoNotShowAgainKey)
         self.setupAssistantPreferredTrack = SetupAssistantTrack(
             rawValue: userDefaults.string(forKey: Self.setupAssistantTrackKey) ?? ""
-        ) ?? .recommended
+        ) ?? SetupAssistantTrack.recommended()
         self.autoPasteOnComplete = userDefaults.object(forKey: Self.autoPasteOnCompleteDefaultsKey) as? Bool ?? false
 
         self.rulesDraft = rulesStore.currentRules
@@ -361,6 +363,7 @@ final class AppShell: ObservableObject {
         lastError = nil
         registerHotkeys()
         applyAppearanceMode()
+        prewarmLocalEngine()
     }
 
     func beginHotkeyRecordingCapture() {
@@ -635,22 +638,23 @@ final class AppShell: ObservableObject {
         verifyProvider(for: providerID)
     }
 
-    func applyRecommendedHostedSetup() {
+    func applyGroqSetup() {
         updateSettings { settings in
-            settings.transcriptionProviderID = SetupAssistantChecklist.recommendedTranscriptionProviderID
-            settings.transcriptionModel = SetupAssistantChecklist.recommendedTranscriptionModel
+            settings.transcriptionProviderID = SetupAssistantChecklist.groqTranscriptionProviderID
+            settings.transcriptionModel = SetupAssistantChecklist.groqTranscriptionModel
             settings.languageMode = "auto"
             settings.polishEnabled = true
-            settings.polishProviderID = SetupAssistantChecklist.recommendedPolishProviderID
-            settings.polishModel = SetupAssistantChecklist.recommendedPolishModel
+            settings.polishProviderID = SetupAssistantChecklist.groqPolishProviderID
+            settings.polishModel = SetupAssistantChecklist.groqPolishModel
             settings.copyOnComplete = true
         }
-        statusMessage = "Recommended setup applied"
+        statusMessage = "Groq setup applied"
     }
 
     func applyLocalOnlySetup(modelID: String) {
+        let providerID = SetupAssistantChecklist.localOption(for: modelID).providerID
         updateSettings { settings in
-            settings.transcriptionProviderID = "whispercpp"
+            settings.transcriptionProviderID = providerID
             settings.transcriptionModel = modelID
             settings.languageMode = "auto"
             settings.polishEnabled = false
@@ -1175,7 +1179,8 @@ final class AppShell: ObservableObject {
             guard let self else { return }
             do {
                 _ = try await self.modelManager.ensureInstalled(modelID: self.settings.transcriptionModel)
-                self.statusMessage = "Model \(self.settings.transcriptionModel) installed"
+                self.statusMessage = "Model \(self.displayName(forModel: self.settings.transcriptionModel)) installed"
+                self.prewarmLocalEngine()
             } catch {
                 self.lastError = error.localizedDescription
                 self.statusMessage = "Failed to download model"
@@ -1183,12 +1188,13 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func installWhisperModel(_ modelID: String) {
+    func installLocalModel(_ modelID: String) {
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 _ = try await self.modelManager.ensureInstalled(modelID: modelID)
-                self.statusMessage = "Model \(modelID) installed"
+                self.statusMessage = "Model \(self.displayName(forModel: modelID)) installed"
+                self.prewarmLocalEngine()
             } catch {
                 self.lastError = error.localizedDescription
                 self.statusMessage = "Failed to download model"
@@ -1196,14 +1202,67 @@ final class AppShell: ObservableObject {
         }
     }
 
-    func removeWhisperModel(_ modelID: String) {
+    func removeLocalModel(_ modelID: String) {
         do {
+            if modelManager.asset(for: modelID).map({ $0.kind != .whisper }) == true {
+                let engine = providerFactory.parakeetEngine
+                Task { await engine.unload() }
+            }
             try modelManager.remove(modelID: modelID)
             objectWillChange.send()
-            statusMessage = "Model \(modelID) removed"
+            statusMessage = "Model \(displayName(forModel: modelID)) removed"
         } catch {
             lastError = error.localizedDescription
             statusMessage = "Failed to remove model"
+        }
+    }
+
+    func displayName(forModel modelID: String) -> String {
+        modelManager.asset(for: modelID)?.displayName ?? modelID
+    }
+
+    func activeVocabulary(for settings: AppSettings) -> [VocabularyEntry] {
+        settings.usesVocabulary ? vocabularyStore.entries(includeBuiltIn: settings.usesDeveloperVocabulary) : []
+    }
+
+    @discardableResult
+    func saveVocabulary(_ text: String) -> Bool {
+        do {
+            try vocabularyStore.save(text)
+            statusMessage = "Vocabulary saved"
+            prewarmLocalEngine()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            statusMessage = "Vocabulary could not be saved"
+            return false
+        }
+    }
+
+    /// Loads the selected Parakeet model, and its vocabulary booster, in the background so the first
+    /// dictation does not wait for Core ML. Releases both when another provider is selected. The
+    /// vocabulary model downloads in the background; boosting starts once it is installed.
+    func prewarmLocalEngine() {
+        let engine = providerFactory.parakeetEngine
+        guard settings.transcriptionProviderID == "parakeet",
+              modelManager.isInstalled(modelID: settings.transcriptionModel) else {
+            Task { await engine.unload() }
+            return
+        }
+        let vocabulary = activeVocabulary(for: settings)
+        let vocabularyModelID = ModelDownloadManager.parakeetVocabularyModelID
+        if !vocabulary.isEmpty,
+           !modelManager.isInstalled(modelID: vocabularyModelID),
+           modelManager.activeDownloadModelID == nil {
+            installLocalModel(vocabularyModelID)
+        }
+        let configuration = ParakeetEngine.Configuration(
+            modelDirectory: modelManager.localPath(for: settings.transcriptionModel),
+            usesNeuralEngine: settings.parakeetUsesNeuralEngine ?? false
+        )
+        let boost = ParakeetProvider.boostVocabulary(vocabulary, modelManager: modelManager)
+        Task.detached(priority: .utility) {
+            try? await engine.prepare(configuration: configuration, vocabulary: boost)
         }
     }
 
@@ -1643,6 +1702,8 @@ final class AppShell: ObservableObject {
 
     private func backend(for providerID: String) -> ProviderBackend? {
         switch providerID {
+        case "parakeet":
+            return .parakeet
         case "whispercpp":
             return .whispercpp
         case "openai_whisper", "openai_realtime_transcription", "openai_polish":
@@ -1676,8 +1737,10 @@ final class AppShell: ObservableObject {
 
     private func fetchModels(for backend: ProviderBackend) async throws -> [String] {
         switch backend {
+        case .parakeet:
+            return modelManager.transcriptionModels(providerID: "parakeet").map(\.id)
         case .whispercpp:
-            return modelManager.catalog.map(\.id).sorted()
+            return modelManager.transcriptionModels(providerID: "whispercpp").map(\.id).sorted()
         case .openai:
             let key = apiKeyResolver.resolve(.openAI).value
             guard let key else { throw ProviderError.missingAPIKey("OpenAI") }
@@ -1860,8 +1923,13 @@ final class AppShell: ObservableObject {
         }.value
         defer { preparedAudio.cleanup() }
 
+        let vocabulary = activeVocabulary(for: settings)
         return try await ProviderRetryPolicy.run {
-            try await self.transcriptionPipeline.run(audioFileURL: preparedAudio.fileURL, settings: settings)
+            try await self.transcriptionPipeline.run(
+                audioFileURL: preparedAudio.fileURL,
+                settings: settings,
+                vocabulary: vocabulary
+            )
         }
     }
 
@@ -1932,17 +2000,19 @@ final class AppShell: ObservableObject {
         rulesMarkdown: String,
         settings: AppSettings
     ) async throws -> PolishResult {
-        try await ProviderRetryPolicy.run {
+        let vocabulary = activeVocabulary(for: settings)
+        return try await ProviderRetryPolicy.run {
             try await self.polishPipeline.run(
                 rawText: rawText,
                 rulesMarkdown: rulesMarkdown,
-                settings: settings
+                settings: settings,
+                vocabulary: vocabulary
             )
         }
     }
 
     private func ensureLocalModelInstalledIfNeeded(using settings: AppSettings) async throws {
-        guard settings.transcriptionProviderID == "whispercpp" else {
+        guard ProviderModelCatalog.isLocalTranscriptionProvider(settings.transcriptionProviderID) else {
             return
         }
         let modelID = settings.transcriptionModel
@@ -1950,7 +2020,7 @@ final class AppShell: ObservableObject {
             return
         }
 
-        statusMessage = "Downloading local model \(modelID)..."
+        statusMessage = "Downloading local model \(displayName(forModel: modelID))..."
         _ = try await modelManager.ensureInstalled(modelID: modelID)
     }
 

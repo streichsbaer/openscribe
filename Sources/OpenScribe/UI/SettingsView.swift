@@ -9,6 +9,7 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
     case polish
     case hotkeys
     case rules
+    case vocabulary
     case data
     case about
 
@@ -28,6 +29,8 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return "Hotkeys"
         case .rules:
             return "Rules"
+        case .vocabulary:
+            return "Vocabulary"
         case .data:
             return "Data"
         case .about:
@@ -49,6 +52,8 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return "keyboard"
         case .rules:
             return "doc.text"
+        case .vocabulary:
+            return "character.book.closed"
         case .data:
             return "externaldrive"
         case .about:
@@ -69,6 +74,8 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
         case .hotkeys:
             return 900
         case .rules:
+            return 920
+        case .vocabulary:
             return 920
         case .data:
             return 860
@@ -91,6 +98,8 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return 620
         case .rules:
             return 620
+        case .vocabulary:
+            return 620
         case .data:
             return 540
         case .about:
@@ -112,6 +121,8 @@ enum SettingsTab: String, CaseIterable, Hashable, Identifiable {
             return 800
         case .rules:
             return 760
+        case .vocabulary:
+            return 780
         case .data:
             return 700
         case .about:
@@ -128,6 +139,8 @@ struct SettingsView: View {
     @State private var contentHeight = SettingsTab.general.minHeight
     @State private var measuredPageHeights: [SettingsTab: CGFloat] = [:]
     @State private var pendingLocalModelAction: LocalModelAction?
+    @State private var vocabularyDraft = ""
+    @State private var showVocabularySavedFeedback = false
     @State private var showDeleteAppSupportConfirmation = false
     @State private var showRulesSavedFeedback = false
     @State private var sttModelFilter = ""
@@ -148,6 +161,7 @@ struct SettingsView: View {
     private let rulesSavedFeedbackDurationNs: UInt64 = 1_500_000_000
 
     private let sttProviders = [
+        (id: "parakeet", label: "Local Parakeet"),
         (id: "whispercpp", label: "Local whisper.cpp"),
         (id: "openai_whisper", label: "OpenAI Speech-to-Text"),
         (id: "openai_realtime_transcription", label: "OpenAI Realtime"),
@@ -222,14 +236,14 @@ struct SettingsView: View {
             presenting: pendingLocalModelAction
         ) { action in
             switch action {
-            case .download(let modelID, _):
+            case .download(let modelID, _, _):
                 Button("Download") {
-                    shell.installWhisperModel(modelID)
+                    shell.installLocalModel(modelID)
                     pendingLocalModelAction = nil
                 }
-            case .delete(let modelID, _):
+            case .delete(let modelID, _, _):
                 Button("Delete", role: .destructive) {
-                    shell.removeWhisperModel(modelID)
+                    shell.removeLocalModel(modelID)
                     pendingLocalModelAction = nil
                 }
             }
@@ -303,6 +317,8 @@ struct SettingsView: View {
             hotkeysTab
         case .rules:
             rulesTab
+        case .vocabulary:
+            vocabularyTab
         case .data:
             dataTab
         case .about:
@@ -483,7 +499,7 @@ struct SettingsView: View {
             }
 
             settingsCard("SETUP") {
-                Text("Use the setup assistant to validate the best Groq path or a local-only path with one short checklist.")
+                Text("Use the setup assistant to set up local transcription or the Groq cloud path with one short checklist.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -642,6 +658,20 @@ struct SettingsView: View {
                     shell.updateSettings { settings in
                         settings.transcriptionModel = selected
                     }
+                }
+
+                if shell.settings.transcriptionProviderID == "parakeet" {
+                    Toggle("Run on the Neural Engine", isOn: Binding(
+                        get: { shell.settings.parakeetUsesNeuralEngine == true },
+                        set: { newValue in
+                            shell.updateSettings { settings in
+                                settings.parakeetUsesNeuralEngine = newValue
+                            }
+                        }
+                    ))
+                    Text("The GPU is fastest. The Neural Engine uses less power and keeps the GPU free.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -870,10 +900,10 @@ struct SettingsView: View {
             }
 
             settingsCard("POPOVER TABS") {
-                Text("Live tab: Ctrl + Option + L")
+                Text("Live tab: \(HotkeyDisplay.string(for: AppShell.showLiveTabHotkey))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("History tab: Ctrl + Option + H")
+                Text("History tab: \(HotkeyDisplay.string(for: AppShell.showHistoryTabHotkey))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -938,6 +968,97 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    private var vocabularyTab: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            settingsCard("VOCABULARY") {
+                Toggle("Use vocabulary", isOn: Binding(
+                    get: { shell.settings.usesVocabulary },
+                    set: { newValue in
+                        shell.updateSettings { settings in
+                            settings.vocabularyEnabled = newValue
+                        }
+                    }
+                ))
+                Toggle("Include \(shell.vocabularyStore.builtInEntries.count) built-in developer terms", isOn: Binding(
+                    get: { shell.settings.usesDeveloperVocabulary },
+                    set: { newValue in
+                        shell.updateSettings { settings in
+                            settings.developerVocabularyEnabled = newValue
+                        }
+                    }
+                ))
+                .disabled(!shell.settings.usesVocabulary)
+                Text(vocabularyEngineSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            settingsCard("YOUR TERMS", fillsHeight: true) {
+                VStack(alignment: .leading, spacing: 12) {
+                    TextEditor(text: $vocabularyDraft)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: rulesEditorMinimumHeight, maxHeight: .infinity)
+                        .padding(8)
+                        .background(Color(NSColor.textBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    HStack(spacing: 8) {
+                        Button("Save") {
+                            if shell.saveVocabulary(vocabularyDraft) {
+                                showVocabularySavedFeedback = true
+                                Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: rulesSavedFeedbackDurationNs)
+                                    showVocabularySavedFeedback = false
+                                }
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Revert") {
+                            vocabularyDraft = shell.vocabularyStore.userText
+                            showVocabularySavedFeedback = false
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer(minLength: 0)
+
+                        if showVocabularySavedFeedback {
+                            Text("Saved")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.green)
+                                .transition(.opacity)
+                        }
+                    }
+                    .frame(height: rulesActionRowHeight)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            vocabularyDraft = shell.vocabularyStore.userText
+        }
+    }
+
+    private var vocabularyEngineSummary: String {
+        let modelID = ModelDownloadManager.parakeetVocabularyModelID
+        let boostModel: String
+        if shell.modelManager.activeDownloadModelID == modelID {
+            boostModel = "Its 100 MB vocabulary model is downloading."
+        } else if shell.modelManager.isInstalled(modelID: modelID) {
+            boostModel = "Its vocabulary model is installed."
+        } else {
+            boostModel = "Its 100 MB vocabulary model downloads when Parakeet is selected."
+        }
+        return "Parakeet checks the audio for each term and corrects the spelling. \(boostModel) " +
+            "Local Whisper reads the terms as a hint for recordings up to 2 minutes. " +
+            "Polish receives them as a glossary."
+    }
+
     private var dataTab: some View {
         settingsPage(for: .data) {
             settingsCard("LOCAL MODELS") {
@@ -948,7 +1069,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 if let active = shell.modelManager.activeDownloadModelID {
-                    ProgressView("Downloading \(active)", value: shell.modelManager.progress)
+                    ProgressView("Downloading \(shell.displayName(forModel: active))", value: shell.modelManager.progress)
                 }
 
                 ForEach(modelCatalog, id: \ModelAsset.id) { (asset: ModelAsset) in
@@ -961,6 +1082,9 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(asset.displayName)
                                 .font(.subheadline.weight(.semibold))
+                            Text(asset.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             Text(isInstalled ? "Installed · \(formattedFileSize(sizeBytes))" : "Not installed · \(formattedFileSize(sizeBytes))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -970,13 +1094,13 @@ struct SettingsView: View {
 
                         if isInstalled {
                             Button("Delete") {
-                                pendingLocalModelAction = .delete(modelID: asset.id, sizeBytes: sizeBytes)
+                                pendingLocalModelAction = .delete(modelID: asset.id, name: asset.displayName, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.bordered)
                             .disabled(shell.modelManager.activeDownloadModelID != nil)
                         } else {
                             Button("Download") {
-                                pendingLocalModelAction = .download(modelID: asset.id, sizeBytes: sizeBytes)
+                                pendingLocalModelAction = .download(modelID: asset.id, name: asset.displayName, sizeBytes: sizeBytes)
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(shell.modelManager.activeDownloadModelID != nil)
@@ -1480,8 +1604,8 @@ struct SettingsView: View {
 }
 
 private enum LocalModelAction: Equatable {
-    case download(modelID: String, sizeBytes: Int64)
-    case delete(modelID: String, sizeBytes: Int64)
+    case download(modelID: String, name: String, sizeBytes: Int64)
+    case delete(modelID: String, name: String, sizeBytes: Int64)
 
     var dialogTitle: String {
         switch self {
@@ -1494,10 +1618,10 @@ private enum LocalModelAction: Equatable {
 
     var dialogMessage: String {
         switch self {
-        case .download(let modelID, let sizeBytes):
-            return "Download model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
-        case .delete(let modelID, let sizeBytes):
-            return "Delete model \(modelID) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
+        case .download(_, let name, let sizeBytes):
+            return "Download model \(name) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
+        case .delete(_, let name, let sizeBytes):
+            return "Delete model \(name) (\(ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)))?"
         }
     }
 }

@@ -10,7 +10,7 @@ final class SettingsTabState: ObservableObject {
 @MainActor
 final class SetupAssistantWindowState: ObservableObject {
     @Published var isPresented = false
-    @Published var selectedTrack: SetupAssistantTrack = .recommended
+    @Published var selectedTrack: SetupAssistantTrack = .recommended()
     @Published var selectedLocalModel = SetupAssistantChecklist.defaultLocalModelID
 }
 

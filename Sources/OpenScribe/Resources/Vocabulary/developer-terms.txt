@@ -1,0 +1,81 @@
+# OpenScribe developer terms
+# One term per line, written the way it should appear in transcripts.
+# Optional sounds-like spellings follow a colon, separated by commas.
+
+# Git and GitHub
+worktree: work tree
+gitignore: git ignore, get ignore
+rebase: re base
+cherry-pick: cherry pick
+monorepo: mono repo
+README: read me
+GitHub Actions
+pull request
+
+# Package and environment tools
+Homebrew: home brew
+mise: meez, mees
+uv
+npm
+pnpm
+pytest: pie test, py test
+dotfiles: dot files
+Docker Compose: docker compose
+Docker
+Kubernetes
+kubectl: cube control, kube control, cube cuddle
+Terraform
+
+# Shell and editors
+zsh: z shell, zee shell
+tmux: tee mux
+Neovim: neo vim
+VS Code: v s code
+Xcode: x code
+SwiftUI: swift ui
+Claude Code: cloud code, clawed code
+sudo: sue doo, pseudo
+chmod: c mod, ch mod
+cron
+regex: rej ex, reg ex
+stdout: standard out, std out
+stderr: standard error, std err
+localhost: local host
+
+# Data and formats
+JSON: jason
+YAML: yamel
+TOML: tomel
+SQLite: sequel lite
+PostgreSQL: postgres q l, postgres
+Redis
+MinIO: min io, min eye oh
+S3: s three
+
+# Infrastructure and services
+nginx: engine x
+TLS
+SSH
+OAuth: oh auth
+JWT
+Keychain
+webhook: web hook
+Tailscale: tail scale
+Cloudflare: cloud flare
+Vercel: ver sell
+Supabase: soupa base, super base
+Vite: veet
+TypeScript
+Grafana
+Prometheus
+
+# AI and speech
+OpenScribe: open scribe
+Parakeet
+whisper.cpp: whisper cpp, whisper c p p
+Ollama: oh lama, o lama
+Groq: grok
+Cerebras: sereebrus
+OpenRouter: open router
+MLX: m l x
+Core ML: core m l

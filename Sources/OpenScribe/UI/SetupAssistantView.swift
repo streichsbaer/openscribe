@@ -48,9 +48,12 @@ struct SetupAssistantView: View {
         SetupAssistantChecklist.isComplete(for: state.selectedTrack, context: checklistContext)
     }
 
+    private var recommendedTrack: SetupAssistantTrack {
+        SetupAssistantTrack.recommended()
+    }
+
     private var localModelOption: SetupAssistantLocalModelOption {
-        SetupAssistantChecklist.localModelOptions.first(where: { $0.id == state.selectedLocalModel })
-            ?? SetupAssistantChecklist.localModelOptions[0]
+        SetupAssistantChecklist.localOption(for: state.selectedLocalModel)
     }
 
     private var isGroqInputEmpty: Bool {
@@ -59,23 +62,15 @@ struct SetupAssistantView: View {
 
     private var canPreparePasteTarget: Bool {
         switch state.selectedTrack {
-        case .recommended:
-            return checklistContext.groqKeySaved &&
-                checklistContext.groqVerified &&
-                checklistContext.transcriptionProviderID == SetupAssistantChecklist.recommendedTranscriptionProviderID &&
-                checklistContext.transcriptionModel == SetupAssistantChecklist.recommendedTranscriptionModel &&
-                checklistContext.languageMode == "auto" &&
-                checklistContext.polishEnabled &&
-                checklistContext.polishProviderID == SetupAssistantChecklist.recommendedPolishProviderID &&
-                checklistContext.polishModel == SetupAssistantChecklist.recommendedPolishModel &&
+        case .local:
+            return SetupAssistantChecklist.localSetupMatches(checklistContext) &&
+                checklistContext.localModelInstalled &&
                 checklistContext.accessibilityPermissionGranted &&
                 checklistContext.autoPasteEnabled
-        case .local:
-            return checklistContext.transcriptionProviderID == "whispercpp" &&
-                checklistContext.transcriptionModel == state.selectedLocalModel &&
-                checklistContext.languageMode == "auto" &&
-                !checklistContext.polishEnabled &&
-                checklistContext.localModelInstalled &&
+        case .groq:
+            return checklistContext.groqKeySaved &&
+                checklistContext.groqVerified &&
+                SetupAssistantChecklist.groqSetupMatches(checklistContext) &&
                 checklistContext.accessibilityPermissionGranted &&
                 checklistContext.autoPasteEnabled
         }
@@ -107,11 +102,16 @@ struct SetupAssistantView: View {
                             shell.setupAssistantPreferredTrack = newValue
                         }
                     )) {
-                        ForEach(SetupAssistantTrack.allCases) { track in
-                            Text(track.title).tag(track)
+                        ForEach(SetupAssistantTrack.ordered(recommended: recommendedTrack)) { track in
+                            Text(track == recommendedTrack ? "\(track.title) (Recommended)" : track.title)
+                                .tag(track)
                         }
                     }
                     .pickerStyle(.segmented)
+
+                    Text(SetupAssistantTrack.recommendationNote())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
                     trackDetailsCard
                     checklistCard
@@ -168,9 +168,9 @@ struct SetupAssistantView: View {
     }
 
     private var trackDetailsCard: some View {
-        setupCard(state.selectedTrack == .recommended ? "GROQ KEY" : "LOCAL MODEL") {
+        setupCard(state.selectedTrack == .groq ? "GROQ KEY" : "LOCAL MODEL") {
             switch state.selectedTrack {
-            case .recommended:
+            case .groq:
                 SecureField("Groq API key", text: $shell.groqKeyInput)
 
                 Text("Paste your Groq key here, then use the checklist rows to save and verify it.")
@@ -275,7 +275,7 @@ struct SetupAssistantView: View {
     @ViewBuilder
     private func checklistActions(for item: SetupAssistantChecklistItem, isUnlocked: Bool) -> some View {
         switch item.id {
-        case "recommended.keySaved":
+        case "groq.keySaved":
             actionGroup {
                 Link("Create Groq key", destination: URL(string: "https://console.groq.com/keys")!)
                     .buttonStyle(.link)
@@ -286,7 +286,7 @@ struct SetupAssistantView: View {
                 .buttonStyle(.bordered)
                 .disabled(!isUnlocked || isGroqInputEmpty)
             }
-        case "recommended.keyVerified":
+        case "groq.keyVerified":
             actionGroup {
                 Button("Verify") {
                     shell.verifyProvider(for: "groq_polish")
@@ -300,10 +300,10 @@ struct SetupAssistantView: View {
                 .buttonStyle(.bordered)
                 .disabled(!isUnlocked || isGroqInputEmpty)
             }
-        case "recommended.setup":
+        case "groq.setup":
             actionGroup {
-                Button("Set recommended setup") {
-                    shell.applyRecommendedHostedSetup()
+                Button("Apply Groq setup") {
+                    shell.applyGroqSetup()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!isUnlocked)
@@ -319,12 +319,12 @@ struct SetupAssistantView: View {
         case "local.model":
             actionGroup {
                 Button("Download model") {
-                    shell.installWhisperModel(state.selectedLocalModel)
+                    shell.installLocalModel(state.selectedLocalModel)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!isUnlocked)
             }
-        case "recommended.recording", "local.recording":
+        case "groq.recording", "local.recording":
             actionGroup {
                 Button(recordingButtonTitle) {
                     preparePasteTargetForRecording()
@@ -333,7 +333,7 @@ struct SetupAssistantView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!isUnlocked)
             }
-        case "recommended.accessibility", "local.accessibility":
+        case "groq.accessibility", "local.accessibility":
             actionGroup {
                 Button("Open Accessibility Settings") {
                     shell.openAccessibilityPrivacySettings()
@@ -347,12 +347,12 @@ struct SetupAssistantView: View {
                 .buttonStyle(.bordered)
                 .disabled(!isUnlocked)
             }
-        case "recommended.autopaste", "local.autopaste":
+        case "groq.autopaste", "local.autopaste":
             Toggle("Auto-paste", isOn: $shell.autoPasteOnComplete)
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .disabled(!isUnlocked)
-        case "recommended.pasteTest", "local.pasteTest":
+        case "groq.pasteTest", "local.pasteTest":
             VStack(alignment: .leading, spacing: 8) {
                 actionGroup {
                     Button("Focus test field") {

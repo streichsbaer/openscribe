@@ -42,13 +42,15 @@ Every session keeps all four files, so you can replay audio, re-read transcripts
 
 - **Rules/rules.md** -- your custom polish rules.
 - **Rules/rules.history.jsonl** -- timestamped history of rule edits.
+- **Rules/vocabulary.txt** -- your vocabulary terms.
 - **Stats/usage.events.jsonl** -- usage metrics (session counts, durations, provider usage).
-- **Models/whisper/** -- downloaded local transcription models.
+- **Models/parakeet/** -- downloaded Parakeet models.
+- **Models/whisper/** -- downloaded whisper.cpp models.
 - **Config/settings.json** -- app preferences.
 
 ## Managing storage
 
-Use Settings > Data to install or delete whisper models and check their disk usage.
+Use Settings > Data to install or delete local models and check their disk usage.
 
 Use the History tab when you want to delete specific sessions while keeping the rest of your archive intact.
 

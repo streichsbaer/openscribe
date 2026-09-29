@@ -30,9 +30,9 @@ if ! command -v cmake >/dev/null 2>&1; then
   exit 1
 fi
 
-WHISPER_CPP_VERSION="v1.8.3"
+WHISPER_CPP_VERSION="v1.9.4"
 WHISPER_CPP_ARCHIVE_URL="https://github.com/ggml-org/whisper.cpp/archive/refs/tags/${WHISPER_CPP_VERSION}.tar.gz"
-WHISPER_CPP_ARCHIVE_SHA256="870ba21409cdf66697dc4db15ebdb13bc67037d76c7cc63756c81471d8f1731a"
+WHISPER_CPP_ARCHIVE_SHA256="57e280cee375ab02425b806ad5146b99f6eb9357e3c2b31357c8a6af2e2e44ae"
 MACOS_DEPLOYMENT_TARGET="14.0"
 
 OUTPUT_DIR="$1"
@@ -78,56 +78,35 @@ cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" "${CMAKE_ARGS[@]}"
 
 cmake --build "$BUILD_DIR" --target whisper-cli --config Release -j
 
-BINARY_CANDIDATES=(
-  "$BUILD_DIR/bin/whisper-cli"
-  "$BUILD_DIR/bin/Release/whisper-cli"
-  "$BUILD_DIR/Release/bin/whisper-cli"
-)
-REQUIRED_LIBRARY_CANDIDATES=(
-  "$BUILD_DIR/src/libwhisper.1.dylib"
-  "$BUILD_DIR/ggml/src/libggml.0.dylib"
-  "$BUILD_DIR/ggml/src/libggml-cpu.0.dylib"
-  "$BUILD_DIR/ggml/src/libggml-base.0.dylib"
-)
-OPTIONAL_LIBRARY_CANDIDATES=(
-  "$BUILD_DIR/ggml/src/ggml-blas/libggml-blas.0.dylib"
-  "$BUILD_DIR/ggml/src/ggml-metal/libggml-metal.0.dylib"
+WHISPER_CLI_PATH="$BUILD_DIR/bin/whisper-cli"
+# whisper.cpp 1.9 places every library next to the binary; whisper-cli links all of them.
+REQUIRED_LIBRARIES=(
+  libwhisper.1.dylib
+  libggml.0.dylib
+  libggml-base.0.dylib
+  libggml-cpu.0.dylib
+  libggml-blas.0.dylib
+  libggml-metal.0.dylib
 )
 BUILD_RPATHS=(
-  "$BUILD_DIR/src"
-  "$BUILD_DIR/ggml/src"
-  "$BUILD_DIR/ggml/src/ggml-blas"
-  "$BUILD_DIR/ggml/src/ggml-metal"
+  "$BUILD_DIR/bin"
 )
 
-WHISPER_CLI_PATH=""
-for candidate in "${BINARY_CANDIDATES[@]}"; do
-  if [[ -x "$candidate" ]]; then
-    WHISPER_CLI_PATH="$candidate"
-    break
-  fi
-done
-
-if [[ -z "$WHISPER_CLI_PATH" ]]; then
-  echo "Failed to locate built whisper-cli in $BUILD_DIR" >&2
+if [[ ! -x "$WHISPER_CLI_PATH" ]]; then
+  echo "Failed to locate built whisper-cli at $WHISPER_CLI_PATH" >&2
   exit 1
 fi
 
 cp "$WHISPER_CLI_PATH" "$OUTPUT_DIR/whisper-cli"
 cp "$SOURCE_DIR/LICENSE" "$OUTPUT_DIR/LICENSE.whisper.cpp.txt"
 
-for candidate in "${REQUIRED_LIBRARY_CANDIDATES[@]}"; do
-  if [[ ! -f "$candidate" ]]; then
-    echo "Missing required whisper.cpp library at $candidate" >&2
+for library in "${REQUIRED_LIBRARIES[@]}"; do
+  if [[ ! -f "$BUILD_DIR/bin/$library" ]]; then
+    echo "Missing required whisper.cpp library at $BUILD_DIR/bin/$library" >&2
     exit 1
   fi
-  cp "$candidate" "$OUTPUT_DIR/"
-done
-
-for candidate in "${OPTIONAL_LIBRARY_CANDIDATES[@]}"; do
-  if [[ -f "$candidate" ]]; then
-    cp "$candidate" "$OUTPUT_DIR/"
-  fi
+  # The versioned names in bin/ are symlinks; cp stores the resolved library under the linked name.
+  cp "$BUILD_DIR/bin/$library" "$OUTPUT_DIR/$library"
 done
 
 for rpath in "${BUILD_RPATHS[@]}"; do

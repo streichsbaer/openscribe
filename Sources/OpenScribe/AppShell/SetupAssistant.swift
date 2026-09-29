@@ -1,32 +1,57 @@
 import Foundation
 
 enum SetupAssistantTrack: String, CaseIterable, Identifiable {
-    case recommended
     case local
+    case groq
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .recommended:
-            return "Best setup"
         case .local:
             return "Local only"
+        case .groq:
+            return "Groq cloud"
         }
     }
 
     var summary: String {
         switch self {
-        case .recommended:
-            return "Fast Groq transcription and polish with one API key."
         case .local:
-            return "Keep transcription on your Mac with a local whisper.cpp model."
+            return "Keep transcription on your Mac with a local model."
+        case .groq:
+            return "Fast Groq transcription and polish with one API key."
         }
+    }
+
+    /// Apple silicon runs Parakeet Ultra fast enough to be the first choice. Intel Macs run local
+    /// models on the CPU only, so the Groq path is the faster start there.
+    static func recommended(onAppleSilicon: Bool = runsOnAppleSilicon) -> SetupAssistantTrack {
+        onAppleSilicon ? .local : .groq
+    }
+
+    static func ordered(recommended: SetupAssistantTrack) -> [SetupAssistantTrack] {
+        [recommended] + allCases.filter { $0 != recommended }
+    }
+
+    static func recommendationNote(onAppleSilicon: Bool = runsOnAppleSilicon) -> String {
+        onAppleSilicon
+            ? "Recommended for this Mac: Local only. Apple silicon runs Parakeet Ultra quickly on this Mac, with no API key and no audio leaving it."
+            : "Recommended for this Mac: Groq cloud. Intel Macs run local models on the CPU, which is much slower. Local only still works if you prefer it."
+    }
+
+    static var runsOnAppleSilicon: Bool {
+        #if arch(arm64)
+        true
+        #else
+        false
+        #endif
     }
 }
 
 struct SetupAssistantLocalModelOption: Identifiable, Equatable {
     let id: String
+    let providerID: String
     let title: String
     let detail: String
 }
@@ -57,28 +82,44 @@ struct SetupAssistantChecklistItem: Identifiable, Equatable {
 }
 
 enum SetupAssistantChecklist {
-    static let recommendedTranscriptionProviderID = "groq_whisper"
-    static let recommendedTranscriptionModel = "whisper-large-v3-turbo"
-    static let recommendedPolishProviderID = "groq_polish"
-    static let recommendedPolishModel = "openai/gpt-oss-120b"
-    static let defaultLocalModelID = "small"
+    static let groqTranscriptionProviderID = "groq_whisper"
+    static let groqTranscriptionModel = "whisper-large-v3-turbo"
+    static let groqPolishProviderID = "groq_polish"
+    static let groqPolishModel = "openai/gpt-oss-120b"
+    static let defaultLocalModelID = ModelDownloadManager.parakeetUltraModelID
 
     static let localModelOptions: [SetupAssistantLocalModelOption] = [
-        .init(id: "tiny", title: "tiny", detail: "Smallest local download. Fastest, with the lowest accuracy."),
-        .init(id: "base", title: "base", detail: "Fastest local start. Smaller download, lower accuracy."),
-        .init(id: "small", title: "small", detail: "Recommended local balance. Better accuracy without the largest download."),
-        .init(id: "medium", title: "medium", detail: "Best local accuracy here. Larger download and slower processing.")
+        .init(
+            id: ModelDownloadManager.parakeetUltraModelID,
+            providerID: "parakeet",
+            title: "Parakeet Ultra",
+            detail: "Recommended. Most accurate and fastest local option, 25 European languages. 600 MB download."
+        ),
+        .init(
+            id: "large-v3-turbo",
+            providerID: "whispercpp",
+            title: "Whisper large-v3-turbo",
+            detail: "Best Whisper accuracy and 99 languages, the same model Groq runs. 1.6 GB download."
+        ),
+        .init(id: "medium", providerID: "whispercpp", title: "Whisper medium", detail: "Larger download. Slower and less accurate than large-v3-turbo."),
+        .init(id: "small", providerID: "whispercpp", title: "Whisper small", detail: "Balanced Whisper size and accuracy."),
+        .init(id: "base", providerID: "whispercpp", title: "Whisper base", detail: "Small Whisper download, lower accuracy."),
+        .init(id: "tiny", providerID: "whispercpp", title: "Whisper tiny", detail: "Smallest Whisper download, lowest accuracy.")
     ]
+
+    static func localOption(for modelID: String) -> SetupAssistantLocalModelOption {
+        localModelOptions.first { $0.id == modelID } ?? localModelOptions[0]
+    }
 
     static func items(
         for track: SetupAssistantTrack,
         context: SetupAssistantChecklistContext
     ) -> [SetupAssistantChecklistItem] {
         switch track {
-        case .recommended:
-            return recommendedItems(context: context)
         case .local:
             return localItems(context: context)
+        case .groq:
+            return groqItems(context: context)
         }
     }
 
@@ -102,41 +143,44 @@ enum SetupAssistantChecklist {
         selectedLocalModel: String
     ) -> Bool {
         switch track {
-        case .recommended:
-            return sttProvider == recommendedTranscriptionProviderID &&
-                sttModel == recommendedTranscriptionModel &&
-                polishProvider == recommendedPolishProviderID &&
-                polishModel == recommendedPolishModel
         case .local:
-            return sttProvider == "whispercpp" &&
+            return sttProvider == localOption(for: selectedLocalModel).providerID &&
                 sttModel == selectedLocalModel &&
                 polishProvider == "disabled" &&
                 polishModel == "passthrough"
+        case .groq:
+            return sttProvider == groqTranscriptionProviderID &&
+                sttModel == groqTranscriptionModel &&
+                polishProvider == groqPolishProviderID &&
+                polishModel == groqPolishModel
         }
     }
 
-    private static func recommendedItems(
-        context: SetupAssistantChecklistContext
-    ) -> [SetupAssistantChecklistItem] {
-        let recommendedSetupMatches =
-            context.transcriptionProviderID == recommendedTranscriptionProviderID &&
-            context.transcriptionModel == recommendedTranscriptionModel &&
+    static func groqSetupMatches(_ context: SetupAssistantChecklistContext) -> Bool {
+        context.transcriptionProviderID == groqTranscriptionProviderID &&
+            context.transcriptionModel == groqTranscriptionModel &&
             context.languageMode == "auto" &&
             context.polishEnabled &&
-            context.polishProviderID == recommendedPolishProviderID &&
-            context.polishModel == recommendedPolishModel
+            context.polishProviderID == groqPolishProviderID &&
+            context.polishModel == groqPolishModel
+    }
+
+    private static func groqItems(
+        context: SetupAssistantChecklistContext
+    ) -> [SetupAssistantChecklistItem] {
+        let setupMatches = groqSetupMatches(context)
 
         return [
             .init(
-                id: "recommended.keySaved",
+                id: "groq.keySaved",
                 title: "Groq API key saved",
                 detail: context.groqKeySaved
                     ? "Your Groq key is stored in the macOS Keychain."
-                    : "Save a Groq API key to unlock the recommended hosted setup.",
+                    : "Save a Groq API key to unlock the Groq cloud setup.",
                 isComplete: context.groqKeySaved
             ),
             .init(
-                id: "recommended.keyVerified",
+                id: "groq.keyVerified",
                 title: "Groq connection verified",
                 detail: context.groqVerified
                     ? "OpenScribe confirmed your Groq key and refreshed the provider catalog."
@@ -144,15 +188,15 @@ enum SetupAssistantChecklist {
                 isComplete: context.groqVerified
             ),
             .init(
-                id: "recommended.setup",
-                title: "Recommended setup configured",
-                detail: recommendedSetupMatches
-                    ? "Groq Whisper and Groq polish use the recommended models."
-                    : "Apply the recommended Groq transcription and polish setup.",
-                isComplete: recommendedSetupMatches
+                id: "groq.setup",
+                title: "Groq setup configured",
+                detail: setupMatches
+                    ? "Groq Whisper and Groq polish use the suggested models."
+                    : "Apply the Groq transcription and polish setup.",
+                isComplete: setupMatches
             ),
             .init(
-                id: "recommended.accessibility",
+                id: "groq.accessibility",
                 title: "Accessibility permission granted",
                 detail: context.accessibilityPermissionGranted
                     ? "OpenScribe can paste into your focused app."
@@ -160,7 +204,7 @@ enum SetupAssistantChecklist {
                 isComplete: context.accessibilityPermissionGranted
             ),
             .init(
-                id: "recommended.autopaste",
+                id: "groq.autopaste",
                 title: "Auto-paste enabled",
                 detail: context.autoPasteEnabled
                     ? "Completed transcripts will paste into the focused app."
@@ -168,18 +212,25 @@ enum SetupAssistantChecklist {
                 isComplete: context.autoPasteEnabled
             ),
             .init(
-                id: "recommended.recording",
+                id: "groq.recording",
                 title: "Complete a test recording",
                 detail: "Start and stop one short recording with the current setup.",
                 isComplete: context.hasSuccessfulRecording
             ),
             .init(
-                id: "recommended.pasteTest",
+                id: "groq.pasteTest",
                 title: "Transcript appeared in the test field",
                 detail: "Confirm the latest transcript appears in the test field.",
                 isComplete: context.testFieldContainsOutput
             )
         ]
+    }
+
+    static func localSetupMatches(_ context: SetupAssistantChecklistContext) -> Bool {
+        context.transcriptionProviderID == localOption(for: context.selectedLocalModel).providerID &&
+            context.transcriptionModel == context.selectedLocalModel &&
+            context.languageMode == "auto" &&
+            !context.polishEnabled
     }
 
     private static func localItems(
@@ -189,20 +240,14 @@ enum SetupAssistantChecklist {
             .init(
                 id: "local.setup",
                 title: "Local transcription is selected",
-                detail: context.transcriptionProviderID == "whispercpp" &&
-                    context.transcriptionModel == context.selectedLocalModel &&
-                    context.languageMode == "auto" &&
-                    !context.polishEnabled
-                    ? "Local whisper.cpp is active with polish off."
-                    : "Use local whisper.cpp, keep language auto, and keep polish off for a local-only path.",
-                isComplete: context.transcriptionProviderID == "whispercpp" &&
-                    context.transcriptionModel == context.selectedLocalModel &&
-                    context.languageMode == "auto" &&
-                    !context.polishEnabled
+                detail: localSetupMatches(context)
+                    ? "\(localOption(for: context.selectedLocalModel).title) is active with polish off."
+                    : "Use \(localOption(for: context.selectedLocalModel).title), keep language auto, and keep polish off for a local-only path.",
+                isComplete: localSetupMatches(context)
             ),
             .init(
                 id: "local.model",
-                title: "\(context.selectedLocalModel) model downloaded",
+                title: "\(localOption(for: context.selectedLocalModel).title) downloaded",
                 detail: context.localModelInstalled
                     ? "The selected local model is installed on this Mac."
                     : "Download the selected local model before the test recording.",

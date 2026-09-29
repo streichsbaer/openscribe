@@ -8,16 +8,27 @@ If you want the best no-cost setup path, start with [Using Free Tiers](free-tier
 
 ## Start with transcription
 
-If you want the default local-first path, keep transcription on whisper.cpp. It runs on your Mac, needs no API key, and keeps your audio off the network.
+If you want the default local-first path, keep transcription on Local Parakeet. It runs on your Mac, needs no API key, and keeps your audio off the network.
 
 If you want cloud transcription, add an API key in Settings > Providers and then choose that provider in Settings > Transcribe.
+
+### Local: Parakeet
+
+- No API key needed.
+- Default model: `Parakeet Ultra`, a 600 MB download on first use.
+- Transcribes a 30 second dictation in well under a second on Apple Silicon, with accuracy on par with the best Whisper model, and stays reliable on long recordings.
+- Detects 25 European languages on its own.
+- Runs on the GPU by default. Turn on Run on the Neural Engine in Settings > Transcribe to use less power.
+- Spells your [vocabulary](vocabulary.md) terms using a small extra model.
 
 ### Local: whisper.cpp
 
 - No API key needed.
-- Default model: `base`.
-- Larger models improve accuracy but use more memory and take longer.
-- Manage installed models in Settings > Data.
+- Models from `tiny` to `large-v3-turbo`. `large-v3-turbo` is the same model Groq runs and covers 99 languages.
+- Runs on the GPU on Apple Silicon Macs.
+- Whisper can skip or repeat text on recordings longer than a few minutes.
+
+Manage installed local models in Settings > Data.
 
 ### Cloud transcription
 

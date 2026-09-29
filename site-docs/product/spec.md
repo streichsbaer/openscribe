@@ -26,9 +26,10 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 ## First-run setup assistant
 
 - On a fresh install with no session history, OpenScribe opens a setup assistant in Settings on first launch.
-- The assistant offers two paths: `Best setup` and `Local only`.
-- `Best setup` guides Groq key entry, verification, Groq Whisper on `whisper-large-v3-turbo`, and Groq polish on `openai/gpt-oss-120b`.
-- `Local only` guides local `whisper.cpp` model choice, model download, and a local test recording.
+- The assistant offers two paths: `Local only` and `Groq cloud`.
+- The assistant recommends a path from the Mac it runs on. Apple silicon Macs get `Local only` first. Intel Macs get `Groq cloud` first because local models run on the CPU there and are much slower.
+- `Local only` guides local model choice (Parakeet Ultra recommended, or a `whisper.cpp` model), model download, and a local test recording.
+- `Groq cloud` guides Groq key entry, verification, Groq Whisper on `whisper-large-v3-turbo`, and Groq polish on `openai/gpt-oss-120b`.
 - Users can skip the assistant, hide it from future first launches, or reopen it later from Settings or the menu bar.
 
 ## Defaults
@@ -43,8 +44,9 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 - Rules hotkey: `Ctrl + Option + R` opens Settings on the Rules tab.
 - Paste hotkey behavior: copy latest polished transcript then paste via synthetic `Cmd + V` only when Accessibility permission is granted.
 - If hotkey registration fails, app shows a blocking warning and requires manual change.
-- Default STT provider: local `whisper.cpp`.
-- Default local model: `base`.
+- Default STT provider: local Parakeet.
+- Default local model: `Parakeet Ultra`, running on the GPU. The Neural Engine is a setting.
+- Vocabulary: enabled, including the built-in developer terms.
 - Default polish: disabled.
 - Default polish provider and model: `OpenAI / gpt-5-nano`.
 - Language: `auto`.
@@ -59,10 +61,21 @@ Root path:
 - User guide: [Your Data](../guides/your-data.md)
 - Technical contract: [Storage Contract](../reference/storage-contract.md)
 
+## Vocabulary
+
+- Users keep their own vocabulary in `Rules/vocabulary.txt`, edited in Settings on the Vocabulary tab. Each line holds a term and optional sounds-like spellings.
+- OpenScribe ships a built-in developer terms list that updates with each release. User entries replace built-in entries with the same term.
+- Local Parakeet rescores transcripts with a vocabulary model, downloaded on demand, and replaces a word only when the audio supports the term. Boosting starts once that model is installed.
+- Local `whisper.cpp` receives the terms as a prompt for recordings up to 2 minutes.
+- Polish receives the terms as a glossary.
+- Cloud transcription providers do not receive the vocabulary.
+- Guide: [Vocabulary](../guides/vocabulary.md)
+
 ## Providers
 
 - STT:
-  - Local `whisper.cpp`
+  - Local Parakeet (Parakeet Ultra on Core ML through FluidAudio)
+  - Local `whisper.cpp` (Metal GPU on Apple Silicon)
   - OpenAI Whisper API
   - OpenAI Realtime API
   - Groq Whisper API

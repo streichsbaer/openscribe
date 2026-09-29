@@ -2,7 +2,7 @@ import XCTest
 @testable import OpenScribe
 
 final class SetupAssistantChecklistTests: XCTestCase {
-    func testRecommendedSetupCompletesWhenEveryRequirementMatches() {
+    func testGroqSetupCompletesWhenEveryRequirementMatches() {
         let context = SetupAssistantChecklistContext(
             accessibilityPermissionGranted: true,
             autoPasteEnabled: true,
@@ -11,21 +11,21 @@ final class SetupAssistantChecklistTests: XCTestCase {
             testFieldContainsOutput: true,
             groqKeySaved: true,
             groqVerified: true,
-            transcriptionProviderID: SetupAssistantChecklist.recommendedTranscriptionProviderID,
-            transcriptionModel: SetupAssistantChecklist.recommendedTranscriptionModel,
+            transcriptionProviderID: SetupAssistantChecklist.groqTranscriptionProviderID,
+            transcriptionModel: SetupAssistantChecklist.groqTranscriptionModel,
             polishEnabled: true,
-            polishProviderID: SetupAssistantChecklist.recommendedPolishProviderID,
-            polishModel: SetupAssistantChecklist.recommendedPolishModel,
+            polishProviderID: SetupAssistantChecklist.groqPolishProviderID,
+            polishModel: SetupAssistantChecklist.groqPolishModel,
             languageMode: "auto",
             selectedLocalModel: SetupAssistantChecklist.defaultLocalModelID,
             localModelInstalled: false
         )
 
-        XCTAssertTrue(SetupAssistantChecklist.isComplete(for: .recommended, context: context))
-        XCTAssertEqual(SetupAssistantChecklist.items(for: .recommended, context: context).count, 7)
+        XCTAssertTrue(SetupAssistantChecklist.isComplete(for: .groq, context: context))
+        XCTAssertEqual(SetupAssistantChecklist.items(for: .groq, context: context).count, 7)
     }
 
-    func testRecommendedSetupStaysIncompleteWithoutVerifiedGroqKey() {
+    func testGroqSetupStaysIncompleteWithoutVerifiedGroqKey() {
         let context = SetupAssistantChecklistContext(
             accessibilityPermissionGranted: true,
             autoPasteEnabled: true,
@@ -34,23 +34,23 @@ final class SetupAssistantChecklistTests: XCTestCase {
             testFieldContainsOutput: false,
             groqKeySaved: true,
             groqVerified: false,
-            transcriptionProviderID: SetupAssistantChecklist.recommendedTranscriptionProviderID,
-            transcriptionModel: SetupAssistantChecklist.recommendedTranscriptionModel,
+            transcriptionProviderID: SetupAssistantChecklist.groqTranscriptionProviderID,
+            transcriptionModel: SetupAssistantChecklist.groqTranscriptionModel,
             polishEnabled: true,
-            polishProviderID: SetupAssistantChecklist.recommendedPolishProviderID,
-            polishModel: SetupAssistantChecklist.recommendedPolishModel,
+            polishProviderID: SetupAssistantChecklist.groqPolishProviderID,
+            polishModel: SetupAssistantChecklist.groqPolishModel,
             languageMode: "auto",
             selectedLocalModel: SetupAssistantChecklist.defaultLocalModelID,
             localModelInstalled: false
         )
 
-        let items = SetupAssistantChecklist.items(for: .recommended, context: context)
+        let items = SetupAssistantChecklist.items(for: .groq, context: context)
 
-        XCTAssertFalse(SetupAssistantChecklist.isComplete(for: .recommended, context: context))
-        XCTAssertFalse(items.contains(where: { $0.id == "recommended.keyVerified" && $0.isComplete }))
+        XCTAssertFalse(SetupAssistantChecklist.isComplete(for: .groq, context: context))
+        XCTAssertFalse(items.contains(where: { $0.id == "groq.keyVerified" && $0.isComplete }))
     }
 
-    func testRecommendedSetupUsesApprovedChecklistOrder() {
+    func testGroqSetupUsesApprovedChecklistOrder() {
         let context = SetupAssistantChecklistContext(
             accessibilityPermissionGranted: false,
             autoPasteEnabled: false,
@@ -69,18 +69,18 @@ final class SetupAssistantChecklistTests: XCTestCase {
             localModelInstalled: false
         )
 
-        let ids = SetupAssistantChecklist.items(for: .recommended, context: context).map(\.id)
+        let ids = SetupAssistantChecklist.items(for: .groq, context: context).map(\.id)
 
         XCTAssertEqual(
             ids,
             [
-                "recommended.keySaved",
-                "recommended.keyVerified",
-                "recommended.setup",
-                "recommended.accessibility",
-                "recommended.autopaste",
-                "recommended.recording",
-                "recommended.pasteTest"
+                "groq.keySaved",
+                "groq.keyVerified",
+                "groq.setup",
+                "groq.accessibility",
+                "groq.autopaste",
+                "groq.recording",
+                "groq.pasteTest"
             ]
         )
     }
@@ -106,6 +106,65 @@ final class SetupAssistantChecklistTests: XCTestCase {
 
         XCTAssertTrue(SetupAssistantChecklist.isComplete(for: .local, context: context))
         XCTAssertEqual(SetupAssistantChecklist.items(for: .local, context: context).count, 6)
+    }
+
+    func testLocalSetupDefaultsToParakeetUltra() {
+        let option = SetupAssistantChecklist.localOption(for: SetupAssistantChecklist.defaultLocalModelID)
+        XCTAssertEqual(option.id, ModelDownloadManager.parakeetUltraModelID)
+        XCTAssertEqual(option.providerID, "parakeet")
+
+        let context = SetupAssistantChecklistContext(
+            accessibilityPermissionGranted: true,
+            autoPasteEnabled: true,
+            hasSuccessfulRecording: true,
+            latestOutputAvailable: true,
+            testFieldContainsOutput: true,
+            groqKeySaved: false,
+            groqVerified: false,
+            transcriptionProviderID: "parakeet",
+            transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
+            polishEnabled: false,
+            polishProviderID: "openai_polish",
+            polishModel: "gpt-5-nano",
+            languageMode: "auto",
+            selectedLocalModel: ModelDownloadManager.parakeetUltraModelID,
+            localModelInstalled: true
+        )
+
+        XCTAssertTrue(SetupAssistantChecklist.isComplete(for: .local, context: context))
+    }
+
+    func testLocalSetupRequiresTheProviderThatOwnsTheSelectedModel() {
+        let context = SetupAssistantChecklistContext(
+            accessibilityPermissionGranted: true,
+            autoPasteEnabled: true,
+            hasSuccessfulRecording: true,
+            latestOutputAvailable: true,
+            testFieldContainsOutput: true,
+            groqKeySaved: false,
+            groqVerified: false,
+            transcriptionProviderID: "whispercpp",
+            transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
+            polishEnabled: false,
+            polishProviderID: "openai_polish",
+            polishModel: "gpt-5-nano",
+            languageMode: "auto",
+            selectedLocalModel: ModelDownloadManager.parakeetUltraModelID,
+            localModelInstalled: true
+        )
+
+        XCTAssertFalse(SetupAssistantChecklist.localSetupMatches(context))
+        XCTAssertFalse(SetupAssistantChecklist.isComplete(for: .local, context: context))
+        XCTAssertTrue(
+            SetupAssistantChecklist.sessionMatchesTrack(
+                sttProvider: "parakeet",
+                sttModel: ModelDownloadManager.parakeetUltraModelID,
+                polishProvider: "disabled",
+                polishModel: "passthrough",
+                track: .local,
+                selectedLocalModel: ModelDownloadManager.parakeetUltraModelID
+            )
+        )
     }
 
     func testLocalSetupRequiresAccessibilityAndAutoPasteForCompletion() {
@@ -190,29 +249,50 @@ final class SetupAssistantChecklistTests: XCTestCase {
         )
     }
 
-    func testRecommendedTrackMatchingRejectsLocalOnlySession() {
+    func testGroqTrackMatchingRejectsLocalOnlySession() {
         XCTAssertFalse(
             SetupAssistantChecklist.sessionMatchesTrack(
                 sttProvider: "whispercpp",
                 sttModel: "small",
                 polishProvider: "disabled",
                 polishModel: "passthrough",
-                track: .recommended,
+                track: .groq,
                 selectedLocalModel: "small"
             )
         )
     }
 
-    func testLocalTrackMatchingRejectsRecommendedSession() {
+    func testLocalTrackMatchingRejectsGroqSession() {
         XCTAssertFalse(
             SetupAssistantChecklist.sessionMatchesTrack(
-                sttProvider: SetupAssistantChecklist.recommendedTranscriptionProviderID,
-                sttModel: SetupAssistantChecklist.recommendedTranscriptionModel,
-                polishProvider: SetupAssistantChecklist.recommendedPolishProviderID,
-                polishModel: SetupAssistantChecklist.recommendedPolishModel,
+                sttProvider: SetupAssistantChecklist.groqTranscriptionProviderID,
+                sttModel: SetupAssistantChecklist.groqTranscriptionModel,
+                polishProvider: SetupAssistantChecklist.groqPolishProviderID,
+                polishModel: SetupAssistantChecklist.groqPolishModel,
                 track: .local,
                 selectedLocalModel: "small"
             )
         )
+    }
+
+    func testAppleSiliconRecommendsLocalTrackFirst() {
+        let recommended = SetupAssistantTrack.recommended(onAppleSilicon: true)
+
+        XCTAssertEqual(recommended, .local)
+        XCTAssertEqual(SetupAssistantTrack.ordered(recommended: recommended), [.local, .groq])
+        XCTAssertTrue(SetupAssistantTrack.recommendationNote(onAppleSilicon: true).contains("Local only"))
+    }
+
+    func testIntelRecommendsGroqTrackFirst() {
+        let recommended = SetupAssistantTrack.recommended(onAppleSilicon: false)
+
+        XCTAssertEqual(recommended, .groq)
+        XCTAssertEqual(SetupAssistantTrack.ordered(recommended: recommended), [.groq, .local])
+        XCTAssertTrue(SetupAssistantTrack.recommendationNote(onAppleSilicon: false).contains("Groq cloud"))
+    }
+
+    func testRecommendedLocalModelIsParakeetUltra() {
+        XCTAssertEqual(SetupAssistantChecklist.defaultLocalModelID, ModelDownloadManager.parakeetUltraModelID)
+        XCTAssertEqual(SetupAssistantChecklist.localOption(for: SetupAssistantChecklist.defaultLocalModelID).providerID, "parakeet")
     }
 }
