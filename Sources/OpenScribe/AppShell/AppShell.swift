@@ -693,15 +693,6 @@ final class AppShell: ObservableObject {
         preferredPopoverSize(selectedTab: selectedPopoverTab)
     }
 
-    func updateRawTranscriptFromEditor(_ text: String) {
-        rawTranscript = text
-        guard var session = currentSession else {
-            return
-        }
-        try? sessionManager.writeRaw(text, for: &session)
-        currentSession = session
-    }
-
     func startRecording() async {
         guard canStartRecording else {
             statusMessage = "\(sessionState.displayLabel) in progress"
@@ -1410,10 +1401,6 @@ final class AppShell: ObservableObject {
 
     var historyCanLoadMore: Bool {
         historyHasMoreSessions
-    }
-
-    var historyLoadMoreModes: [HistoryLoadMoreMode] {
-        HistoryLoadMoreMode.allCases
     }
 
     func refreshHistorySessions(preserveLoadedCount: Bool = false) {

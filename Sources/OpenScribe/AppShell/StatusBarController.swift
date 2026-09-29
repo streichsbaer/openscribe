@@ -558,6 +558,19 @@ final class StatusBarController: NSObject {
                 liveExpandedContentCaptureStatus = "fail"
                 debugLines.append("popoverLiveContentCapture=fail")
             }
+
+            let darkAppearance = NSAppearance(named: .darkAqua)
+            popover.appearance = darkAppearance
+            popover.contentViewController?.view.appearance = darkAppearance
+            for (tab, name) in [(PopoverTabSelection.live, "live"), (.history, "history"), (.stats, "stats")] {
+                shell.selectPopoverTab(tab)
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let darkView = popover.contentViewController?.view.window?.contentView
+                    ?? popover.contentViewController?.view
+                let darkURL = outputDirectory.appendingPathComponent("openscribe-window-dark-\(name).png")
+                debugLines.append("popoverDarkCapture[\(name)]=\(captureViewSnapshot(darkView, to: darkURL) ? "pass" : "fail")")
+            }
+            applyAppearanceSettings()
         } else {
             hotkeyCaptureFailures = 3
             historyLayoutParityStatus = "fail"
