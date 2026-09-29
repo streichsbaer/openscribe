@@ -84,6 +84,23 @@
       ],
       "raw_not_contains": [],
       "vocabulary": "developer"
+    },
+    {
+      "id": "vocabulary_common_words_parakeet",
+      "audio": "vocabulary_common_words.wav",
+      "provider": "parakeet",
+      "model": "parakeet-ultra",
+      "language": "auto",
+      "tags": [
+        "vocabulary",
+        "raw"
+      ],
+      "raw_contains": [
+        "read me the steps",
+        "sudo make install"
+      ],
+      "raw_not_contains": [],
+      "vocabulary": "developer"
     }
   ]
 }
