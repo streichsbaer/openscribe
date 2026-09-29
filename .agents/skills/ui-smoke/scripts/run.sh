@@ -246,6 +246,7 @@ if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" OPENSCRIBE_UI_SMOKE_
       expected_files+=("$OUT_DIR/menubar-icon-$mode-$state.png")
     done
   done
+  all_ready=0
   while [[ $elapsed -lt $timeout_seconds ]]; do
     all_ready=1
     for expected_file in "${expected_files[@]}"; do
@@ -262,6 +263,13 @@ if OPENSCRIBE_UI_SMOKE=1 OPENSCRIBE_UI_SMOKE_OUT="$OUT_DIR" OPENSCRIBE_UI_SMOKE_
     fi
     sleep 1
     elapsed=$((elapsed + 1))
+  done
+
+  # The app quits right after writing its status file, so give it a moment to exit.
+  exit_wait=0
+  while [[ $all_ready -eq 1 && $exit_wait -lt 10 ]] && kill -0 "$app_pid" >/dev/null 2>&1; do
+    sleep 1
+    exit_wait=$((exit_wait + 1))
   done
 
   if kill -0 "$app_pid" >/dev/null 2>&1; then
