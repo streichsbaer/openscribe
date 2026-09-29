@@ -499,7 +499,7 @@ struct SettingsView: View {
             }
 
             settingsCard("SETUP") {
-                Text("Use the setup assistant to validate the best Groq path or a local-only path with one short checklist.")
+                Text("Use the setup assistant to set up local transcription or the Groq cloud path with one short checklist.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

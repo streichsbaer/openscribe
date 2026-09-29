@@ -183,7 +183,7 @@ final class AppShell: ObservableObject {
         self.setupAssistantDoNotShowAgain = userDefaults.bool(forKey: Self.setupAssistantDoNotShowAgainKey)
         self.setupAssistantPreferredTrack = SetupAssistantTrack(
             rawValue: userDefaults.string(forKey: Self.setupAssistantTrackKey) ?? ""
-        ) ?? .recommended
+        ) ?? SetupAssistantTrack.recommended()
         self.autoPasteOnComplete = userDefaults.object(forKey: Self.autoPasteOnCompleteDefaultsKey) as? Bool ?? false
 
         self.rulesDraft = rulesStore.currentRules
@@ -638,17 +638,17 @@ final class AppShell: ObservableObject {
         verifyProvider(for: providerID)
     }
 
-    func applyRecommendedHostedSetup() {
+    func applyGroqSetup() {
         updateSettings { settings in
-            settings.transcriptionProviderID = SetupAssistantChecklist.recommendedTranscriptionProviderID
-            settings.transcriptionModel = SetupAssistantChecklist.recommendedTranscriptionModel
+            settings.transcriptionProviderID = SetupAssistantChecklist.groqTranscriptionProviderID
+            settings.transcriptionModel = SetupAssistantChecklist.groqTranscriptionModel
             settings.languageMode = "auto"
             settings.polishEnabled = true
-            settings.polishProviderID = SetupAssistantChecklist.recommendedPolishProviderID
-            settings.polishModel = SetupAssistantChecklist.recommendedPolishModel
+            settings.polishProviderID = SetupAssistantChecklist.groqPolishProviderID
+            settings.polishModel = SetupAssistantChecklist.groqPolishModel
             settings.copyOnComplete = true
         }
-        statusMessage = "Recommended setup applied"
+        statusMessage = "Groq setup applied"
     }
 
     func applyLocalOnlySetup(modelID: String) {

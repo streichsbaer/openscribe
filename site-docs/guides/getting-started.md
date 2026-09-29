@@ -21,7 +21,7 @@ OpenScribe is distributed as a signed and notarized app for direct download.
 
 Open OpenScribe from Applications and grant microphone access when macOS prompts you. After launch, the app lives in your menu bar, so the key thing to look for is the OpenScribe icon near the clock.
 
-On a fresh install, OpenScribe opens a setup assistant in Settings. You can follow the `Best setup` checklist for the recommended Groq path, switch to `Local only` for local transcription, or skip it and return later from Settings or the menu bar.
+On a fresh install, OpenScribe opens a setup assistant in Settings and recommends a path for your Mac. Apple silicon Macs start on `Local only`, which transcribes on your Mac with Parakeet Ultra. Intel Macs start on `Groq cloud`, which needs a Groq API key and is much faster there than local models. You can switch paths, or skip the assistant and return later from Settings or the menu bar.
 
 ## Your first recording
 

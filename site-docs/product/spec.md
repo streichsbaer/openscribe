@@ -26,9 +26,10 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 ## First-run setup assistant
 
 - On a fresh install with no session history, OpenScribe opens a setup assistant in Settings on first launch.
-- The assistant offers two paths: `Best setup` and `Local only`.
-- `Best setup` guides Groq key entry, verification, Groq Whisper on `whisper-large-v3-turbo`, and Groq polish on `openai/gpt-oss-120b`.
+- The assistant offers two paths: `Local only` and `Groq cloud`.
+- The assistant recommends a path from the Mac it runs on. Apple silicon Macs get `Local only` first. Intel Macs get `Groq cloud` first because local models run on the CPU there and are much slower.
 - `Local only` guides local model choice (Parakeet Ultra recommended, or a `whisper.cpp` model), model download, and a local test recording.
+- `Groq cloud` guides Groq key entry, verification, Groq Whisper on `whisper-large-v3-turbo`, and Groq polish on `openai/gpt-oss-120b`.
 - Users can skip the assistant, hide it from future first launches, or reopen it later from Settings or the menu bar.
 
 ## Defaults
