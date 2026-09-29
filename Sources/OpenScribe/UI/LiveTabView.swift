@@ -59,12 +59,11 @@ struct LiveTabView: View {
         shell.polishedTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Polish is part of this session's route: configured for the session in progress, or it ran.
+    /// Polish is part of this session's route when the session was recorded with polish on.
+    /// With polish off the app still saves a polished file equal to the raw text, so the text alone
+    /// does not tell whether polish ran.
     private var polishInRoute: Bool {
-        if !polishedText.isEmpty {
-            return true
-        }
-        if let metadata = shell.currentSession?.metadata, hasSession {
+        if let metadata = shell.currentSession?.metadata {
             return metadata.polishProvider != "disabled" && !metadata.polishProvider.isEmpty
         }
         return shell.settings.polishEnabled

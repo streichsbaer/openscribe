@@ -186,6 +186,20 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(loaded?.paths.polishedURL.lastPathComponent, "polished.md")
     }
 
+    func testStartSessionRecordsPolishAsDisabledWhenPolishIsOff() throws {
+        let layout = try makeTempLayout()
+        let manager = SessionManager(layout: layout)
+        var settings = AppSettings.default
+        settings.polishEnabled = false
+        settings.polishProviderID = "openai_polish"
+        settings.polishModel = "gpt-5-nano"
+
+        let session = try manager.startSession(settings: settings, inputDeviceName: nil)
+
+        XCTAssertEqual(session.metadata.polishProvider, "disabled")
+        XCTAssertEqual(session.metadata.polishModel, "passthrough")
+    }
+
     func testHistoryEntryCarriesDurationNoSpeechAndVocabularyFixes() throws {
         let layout = try makeTempLayout()
         let manager = SessionManager(layout: layout)
