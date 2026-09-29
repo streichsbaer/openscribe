@@ -4,7 +4,12 @@ struct PolishPipeline {
     let providerFactory: ProviderFactory
 
     @MainActor
-    func run(rawText: String, rulesMarkdown: String, settings: AppSettings) async throws -> PolishResult {
+    func run(
+        rawText: String,
+        rulesMarkdown: String,
+        settings: AppSettings,
+        vocabulary: [VocabularyEntry]
+    ) async throws -> PolishResult {
         let provider = try providerFactory.polishProvider(id: settings.polishProviderID)
         let instruction: String?
         if settings.polishCustomInstructionEnabled == true {
@@ -15,7 +20,7 @@ struct PolishPipeline {
         let model = settings.polishModel
         return try await provider.polish(
             rawText: rawText,
-            rulesMarkdown: rulesMarkdown,
+            rulesMarkdown: VocabularyPrompt.polishRules(rulesMarkdown, entries: vocabulary),
             model: model,
             instruction: instruction
         )

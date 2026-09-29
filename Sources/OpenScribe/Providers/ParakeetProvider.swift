@@ -2,7 +2,7 @@ import CoreML
 import FluidAudio
 import Foundation
 
-/// Keeps one Parakeet model loaded between dictations.
+/// Keeps one Parakeet model, and the vocabulary booster when used, loaded between dictations.
 /// Loading takes a few seconds; transcribing a 30 second dictation takes under 150 ms on Apple Silicon.
 actor ParakeetEngine {
     struct Configuration: Equatable, Sendable {
@@ -10,9 +10,20 @@ actor ParakeetEngine {
         let usesNeuralEngine: Bool
     }
 
-    private var loaded: (configuration: Configuration, manager: AsrManager, decoderLayers: Int)?
+    struct Vocabulary: Equatable, Sendable {
+        let entries: [VocabularyEntry]
+        let modelDirectory: URL
+    }
 
-    func transcribe(audioFileURL: URL, configuration: Configuration, language: String?) async throws -> String {
+    private var loaded: (configuration: Configuration, manager: AsrManager, decoderLayers: Int)?
+    private var booster: (vocabulary: Vocabulary, booster: ParakeetVocabularyBooster)?
+
+    func transcribe(
+        audioFileURL: URL,
+        configuration: Configuration,
+        vocabulary: Vocabulary?,
+        language: String?
+    ) async throws -> String {
         let (manager, decoderLayers) = try await load(configuration)
         let samples = try AudioConverter().resampleAudioFile(audioFileURL)
         var state = TdtDecoderState.make(decoderLayers: decoderLayers)
@@ -21,15 +32,23 @@ actor ParakeetEngine {
             decoderState: &state,
             language: Self.languageHint(for: language)
         )
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var text = result.text
+        if let vocabulary, let tokenTimings = result.tokenTimings {
+            text = try await loadBooster(vocabulary).rescore(text: text, tokenTimings: tokenTimings, samples: samples)
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func prepare(configuration: Configuration) async throws {
+    func prepare(configuration: Configuration, vocabulary: Vocabulary?) async throws {
         _ = try await load(configuration)
+        if let vocabulary {
+            _ = try await loadBooster(vocabulary)
+        }
     }
 
     func unload() {
         loaded = nil
+        booster = nil
     }
 
     private func load(_ configuration: Configuration) async throws -> (AsrManager, Int) {
@@ -52,6 +71,19 @@ actor ParakeetEngine {
         return (manager, decoderLayers)
     }
 
+    private func loadBooster(_ vocabulary: Vocabulary) async throws -> ParakeetVocabularyBooster {
+        if let booster, booster.vocabulary == vocabulary {
+            return booster.booster
+        }
+        booster = nil
+        let loadedBooster = try await ParakeetVocabularyBooster(
+            entries: vocabulary.entries,
+            modelDirectory: vocabulary.modelDirectory
+        )
+        booster = (vocabulary, loadedBooster)
+        return loadedBooster
+    }
+
     /// Parakeet detects the language itself. A known language code narrows its output script.
     static func languageHint(for languageMode: String?) -> Language? {
         guard let languageMode else {
@@ -68,16 +100,18 @@ final class ParakeetProvider: TranscriptionProvider, @unchecked Sendable {
     private let engine: ParakeetEngine
     private let modelManager: ModelDownloadManager
     private let usesNeuralEngine: Bool
+    private let vocabulary: [VocabularyEntry]
 
-    init(engine: ParakeetEngine, modelManager: ModelDownloadManager, usesNeuralEngine: Bool) {
+    init(engine: ParakeetEngine, modelManager: ModelDownloadManager, usesNeuralEngine: Bool, vocabulary: [VocabularyEntry]) {
         self.engine = engine
         self.modelManager = modelManager
         self.usesNeuralEngine = usesNeuralEngine
+        self.vocabulary = vocabulary
     }
 
     func transcribe(audioFileURL: URL, language: String?, model: String, instruction: String?) async throws -> TranscriptResult {
         let start = Date()
-        // Parakeet has no prompt input; text shaping occurs in the polish stage.
+        // Parakeet has no prompt input; vocabulary boosting and polish shape the text.
         _ = instruction
 
         guard modelManager.isInstalled(modelID: model) else {
@@ -86,6 +120,7 @@ final class ParakeetProvider: TranscriptionProvider, @unchecked Sendable {
         let text = try await engine.transcribe(
             audioFileURL: audioFileURL,
             configuration: .init(modelDirectory: modelManager.localPath(for: model), usesNeuralEngine: usesNeuralEngine),
+            vocabulary: Self.boostVocabulary(vocabulary, modelManager: modelManager),
             language: language
         )
         guard !text.isEmpty else {
@@ -100,5 +135,14 @@ final class ParakeetProvider: TranscriptionProvider, @unchecked Sendable {
             inputTokens: nil,
             outputTokens: nil
         )
+    }
+
+    /// Boosting runs once the vocabulary model is installed; until then Parakeet transcribes without it.
+    static func boostVocabulary(_ entries: [VocabularyEntry], modelManager: ModelDownloadManager) -> ParakeetEngine.Vocabulary? {
+        let modelID = ModelDownloadManager.parakeetVocabularyModelID
+        guard !entries.isEmpty, modelManager.isInstalled(modelID: modelID) else {
+            return nil
+        }
+        return .init(entries: entries, modelDirectory: modelManager.localPath(for: modelID))
     }
 }

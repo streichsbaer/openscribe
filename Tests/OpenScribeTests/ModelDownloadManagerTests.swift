@@ -29,11 +29,14 @@ final class ModelDownloadManagerTests: XCTestCase {
     func testParakeetModelsPinRevisionAndHashEveryFile() throws {
         let manager = ModelDownloadManager(layout: try makeTempLayout())
         let ultra = try XCTUnwrap(manager.asset(for: ModelDownloadManager.parakeetUltraModelID))
+        let vocabulary = try XCTUnwrap(manager.asset(for: ModelDownloadManager.parakeetVocabularyModelID))
 
         XCTAssertEqual(ultra.kind, .parakeet)
+        XCTAssertEqual(vocabulary.kind, .parakeetVocabulary)
         XCTAssertTrue(ultra.repositoryURL.absoluteString.hasSuffix("/resolve/\(ParakeetModelFiles.ultraRevision)/"))
+        XCTAssertTrue(vocabulary.repositoryURL.absoluteString.hasSuffix("/resolve/\(ParakeetModelFiles.vocabularyBoostRevision)/"))
         XCTAssertEqual(ultra.files.count, 20)
-        for file in ultra.files {
+        for file in ultra.files + vocabulary.files {
             XCTAssertEqual(file.sha256.count, 64, file.path)
             XCTAssertGreaterThan(file.sizeBytes, 0, file.path)
         }

@@ -1,10 +1,12 @@
 import Foundation
 
 /// Pinned Core ML files for the Parakeet engine, generated with Scripts/pin_model_files.py.
-/// Regenerate the list when moving to a new model revision.
+/// Regenerate both lists together when moving to a new model revision.
 enum ParakeetModelFiles {
     static let ultraRepository = "FluidInference/parakeet-ultra-coreml"
     static let ultraRevision = "95eaa59a39d4394f047a4dc5cce480388a60d1b6"
+    static let vocabularyBoostRepository = "FluidInference/parakeet-ctc-110m-coreml"
+    static let vocabularyBoostRevision = "accdafd8cf8a2ff1cabe3c11e54416b405d409aa"
 
     // FluidInference/parakeet-ultra-coreml at 95eaa59a39d4394f047a4dc5cce480388a60d1b6
     static let ultraFiles: [ModelAssetFile] = [
@@ -30,4 +32,19 @@ enum ParakeetModelFiles {
         .init(path: "parakeet_vocab.json", sizeBytes: 151122, sha256: "7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735")
     ]
 
+    // FluidInference/parakeet-ctc-110m-coreml at accdafd8cf8a2ff1cabe3c11e54416b405d409aa
+    static let vocabularyBoostFiles: [ModelAssetFile] = [
+        .init(path: "AudioEncoder.mlmodelc/analytics/coremldata.bin", sizeBytes: 243, sha256: "8906c823e9bb3bf6b16d9f0308f98cd70573526333ad85dd767dc3f9ae6b25fa"),
+        .init(path: "AudioEncoder.mlmodelc/coremldata.bin", sizeBytes: 505, sha256: "a88b002b58193b4c31211754cdfdf220a85f9651dc61caf336ab84400cbc191a"),
+        .init(path: "AudioEncoder.mlmodelc/metadata.json", sizeBytes: 3456, sha256: "4f288bfe5cbe867ef1e592cdae33578b2fe59ada69182fc12209879558f985c2"),
+        .init(path: "AudioEncoder.mlmodelc/model.mil", sizeBytes: 1060924, sha256: "2f84ef93a69115e55f3b5d8ce695b3c937de1833d4d229620634fae967cd587e"),
+        .init(path: "AudioEncoder.mlmodelc/weights/weight.bin", sizeBytes: 100778304, sha256: "af0734b4a5d7465ad9e8bb170f0c53c5e6b91ebb75a9bdf88d3f59ae4ad6aebd"),
+        .init(path: "MelSpectrogram.mlmodelc/analytics/coremldata.bin", sizeBytes: 243, sha256: "22f2a8cba1de25c984050566b534a1d8caf22a82f9fe6c1c6f3149a0dd7e8ae3"),
+        .init(path: "MelSpectrogram.mlmodelc/coremldata.bin", sizeBytes: 330, sha256: "3a32ec67c76aa0aa2faef518413c311493e89aeb7fa11289fa4b8653ab8a160c"),
+        .init(path: "MelSpectrogram.mlmodelc/metadata.json", sizeBytes: 1962, sha256: "5e11d21a65c02bcfc37db43e941978e5d60d59e0efeadfda08e41f33b4f835d3"),
+        .init(path: "MelSpectrogram.mlmodelc/model.mil", sizeBytes: 12584, sha256: "0a7cb5693b39667295218bac5c7c09053f6bcd4b32699a83d06ac35d14ac6b79"),
+        .init(path: "MelSpectrogram.mlmodelc/weights/weight.bin", sizeBytes: 567712, sha256: "0a89c055bfde9022029d3cc59a23e949385e063974460d8eaec3a7614c3eaaa8"),
+        .init(path: "tokenizer.json", sizeBytes: 360106, sha256: "9f7c517c0bf644b1b690ab037bab4d4c53aecd38e047e7154d011013ab9160db"),
+        .init(path: "vocab.json", sizeBytes: 16086, sha256: "319d386eead79aadc80df9c3ecc8340d1a727efb7c02a8847eb940380dd61e1f")
+    ]
 }

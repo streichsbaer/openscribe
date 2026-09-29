@@ -154,6 +154,8 @@ struct AppSettings: Codable, Equatable {
     var transcriptionProviderID: String
     var transcriptionModel: String
     var parakeetUsesNeuralEngine: Bool?
+    var vocabularyEnabled: Bool?
+    var developerVocabularyEnabled: Bool?
     var transcriptionCustomInstructionEnabled: Bool?
     var transcriptionInstruction: String?
     var polishEnabled: Bool
@@ -177,6 +179,8 @@ struct AppSettings: Codable, Equatable {
         transcriptionProviderID: "parakeet",
         transcriptionModel: ModelDownloadManager.parakeetUltraModelID,
         parakeetUsesNeuralEngine: nil,
+        vocabularyEnabled: nil,
+        developerVocabularyEnabled: nil,
         transcriptionCustomInstructionEnabled: nil,
         transcriptionInstruction: nil,
         polishEnabled: false,
@@ -199,6 +203,14 @@ struct AppSettings: Codable, Equatable {
 
     var activeSessionIndicatorEnabled: Bool {
         showActiveSessionIndicator ?? true
+    }
+
+    var usesVocabulary: Bool {
+        vocabularyEnabled ?? true
+    }
+
+    var usesDeveloperVocabulary: Bool {
+        developerVocabularyEnabled ?? true
     }
 }
 
@@ -224,6 +236,8 @@ enum ModelAssetKind: String, Codable, Sendable {
     case whisper
     /// A Core ML folder for the Parakeet engine.
     case parakeet
+    /// The Core ML CTC model Parakeet uses for vocabulary boosting.
+    case parakeetVocabulary
 
     var providerID: String {
         self == .whisper ? "whispercpp" : "parakeet"
@@ -247,6 +261,10 @@ struct ModelAsset: Codable, Equatable, Identifiable, Sendable {
 
     var expectedSizeBytes: Int64 {
         files.reduce(0) { $0 + $1.sizeBytes }
+    }
+
+    var isTranscriptionModel: Bool {
+        kind != .parakeetVocabulary
     }
 
     func downloadURL(for file: ModelAssetFile) -> URL {

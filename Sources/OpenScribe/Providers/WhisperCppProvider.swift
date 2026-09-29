@@ -1,15 +1,22 @@
+import AVFoundation
 import Foundation
 
 final class WhisperCppProvider: TranscriptionProvider, @unchecked Sendable {
     let id = "whispercpp"
     let displayName = "Local whisper.cpp"
 
+    /// Whisper can loop on long recordings when given a prompt, so the vocabulary prompt only
+    /// applies up to this length (measured with Scripts/stt-bench, run 2026-09-29-devterms-v1).
+    static let vocabularyPromptMaxSeconds: Double = 120
+
     private let binaryURL: URL
     private let modelManager: ModelDownloadManager
+    private let vocabulary: [VocabularyEntry]
 
-    init(binaryURL: URL, modelManager: ModelDownloadManager) {
+    init(binaryURL: URL, modelManager: ModelDownloadManager, vocabulary: [VocabularyEntry]) {
         self.binaryURL = binaryURL
         self.modelManager = modelManager
+        self.vocabulary = vocabulary
     }
 
     func transcribe(audioFileURL: URL, language: String?, model: String, instruction: String?) async throws -> TranscriptResult {
@@ -30,7 +37,8 @@ final class WhisperCppProvider: TranscriptionProvider, @unchecked Sendable {
             modelPath: modelURL.path,
             inputPath: preparedInputURL.path,
             outputBasePath: outputBase.path,
-            language: language
+            language: language,
+            prompt: Self.vocabularyPrompt(vocabulary, audioDurationSeconds: Self.durationSeconds(of: preparedInputURL))
         )
 
         let processResult = try await runWhisperProcess(arguments: args)
@@ -66,6 +74,7 @@ final class WhisperCppProvider: TranscriptionProvider, @unchecked Sendable {
         inputPath: String,
         outputBasePath: String,
         language: String?,
+        prompt: String? = nil,
         usesGPU: Bool = defaultUsesGPU
     ) -> [String] {
         var args = [
@@ -80,12 +89,30 @@ final class WhisperCppProvider: TranscriptionProvider, @unchecked Sendable {
             args.append("-ng")
         }
 
+        if let prompt {
+            args.append(contentsOf: ["--prompt", prompt])
+        }
+
         if let language, !language.isEmpty {
             args.append(contentsOf: ["-l", language.lowercased() == "auto" ? "auto" : language])
         } else {
             args.append(contentsOf: ["-l", "auto"])
         }
         return args
+    }
+
+    static func vocabularyPrompt(_ vocabulary: [VocabularyEntry], audioDurationSeconds: Double?) -> String? {
+        guard let audioDurationSeconds, audioDurationSeconds <= vocabularyPromptMaxSeconds else {
+            return nil
+        }
+        return VocabularyPrompt.whisperGlossary(vocabulary)
+    }
+
+    private static func durationSeconds(of url: URL) -> Double? {
+        guard let file = try? AVAudioFile(forReading: url), file.processingFormat.sampleRate > 0 else {
+            return nil
+        }
+        return Double(file.length) / file.processingFormat.sampleRate
     }
 
     // Apple Silicon runs whisper.cpp on Metal. Intel builds stay on the CPU.

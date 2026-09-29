@@ -131,6 +131,7 @@ final class AppShell: ObservableObject {
     let settingsStore: SettingsStore
     let rulesStore: RulesStore
     let modelManager: ModelDownloadManager
+    let vocabularyStore: VocabularyStore
     let audioMeter = AudioMeterState()
 
     private let keychainStore: KeychainStore
@@ -165,6 +166,7 @@ final class AppShell: ObservableObject {
         self.settingsStore = SettingsStore(layout: resolvedLayout)
         self.rulesStore = RulesStore(layout: resolvedLayout)
         self.modelManager = ModelDownloadManager(layout: resolvedLayout)
+        self.vocabularyStore = VocabularyStore(layout: resolvedLayout)
         self.keychainStore = KeychainStore(isEnabled: !Self.uiSmokeModeEnabled)
         self.apiKeyResolver = APIKeyResolver(keychain: keychainStore)
         self.sessionManager = SessionManager(layout: resolvedLayout)
@@ -1202,7 +1204,7 @@ final class AppShell: ObservableObject {
 
     func removeLocalModel(_ modelID: String) {
         do {
-            if modelManager.asset(for: modelID)?.kind == .parakeet {
+            if modelManager.asset(for: modelID).map({ $0.kind != .whisper }) == true {
                 let engine = providerFactory.parakeetEngine
                 Task { await engine.unload() }
             }
@@ -1219,8 +1221,27 @@ final class AppShell: ObservableObject {
         modelManager.asset(for: modelID)?.displayName ?? modelID
     }
 
-    /// Loads the selected Parakeet model in the background so the first dictation does not wait
-    /// for Core ML, and releases it when another provider is selected.
+    func activeVocabulary(for settings: AppSettings) -> [VocabularyEntry] {
+        settings.usesVocabulary ? vocabularyStore.entries(includeBuiltIn: settings.usesDeveloperVocabulary) : []
+    }
+
+    @discardableResult
+    func saveVocabulary(_ text: String) -> Bool {
+        do {
+            try vocabularyStore.save(text)
+            statusMessage = "Vocabulary saved"
+            prewarmLocalEngine()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            statusMessage = "Vocabulary could not be saved"
+            return false
+        }
+    }
+
+    /// Loads the selected Parakeet model, and its vocabulary booster, in the background so the first
+    /// dictation does not wait for Core ML. Releases both when another provider is selected. The
+    /// vocabulary model downloads in the background; boosting starts once it is installed.
     func prewarmLocalEngine() {
         let engine = providerFactory.parakeetEngine
         guard settings.transcriptionProviderID == "parakeet",
@@ -1228,12 +1249,20 @@ final class AppShell: ObservableObject {
             Task { await engine.unload() }
             return
         }
+        let vocabulary = activeVocabulary(for: settings)
+        let vocabularyModelID = ModelDownloadManager.parakeetVocabularyModelID
+        if !vocabulary.isEmpty,
+           !modelManager.isInstalled(modelID: vocabularyModelID),
+           modelManager.activeDownloadModelID == nil {
+            installLocalModel(vocabularyModelID)
+        }
         let configuration = ParakeetEngine.Configuration(
             modelDirectory: modelManager.localPath(for: settings.transcriptionModel),
             usesNeuralEngine: settings.parakeetUsesNeuralEngine ?? false
         )
+        let boost = ParakeetProvider.boostVocabulary(vocabulary, modelManager: modelManager)
         Task.detached(priority: .utility) {
-            try? await engine.prepare(configuration: configuration)
+            try? await engine.prepare(configuration: configuration, vocabulary: boost)
         }
     }
 
@@ -1894,8 +1923,13 @@ final class AppShell: ObservableObject {
         }.value
         defer { preparedAudio.cleanup() }
 
+        let vocabulary = activeVocabulary(for: settings)
         return try await ProviderRetryPolicy.run {
-            try await self.transcriptionPipeline.run(audioFileURL: preparedAudio.fileURL, settings: settings)
+            try await self.transcriptionPipeline.run(
+                audioFileURL: preparedAudio.fileURL,
+                settings: settings,
+                vocabulary: vocabulary
+            )
         }
     }
 
@@ -1966,11 +2000,13 @@ final class AppShell: ObservableObject {
         rulesMarkdown: String,
         settings: AppSettings
     ) async throws -> PolishResult {
-        try await ProviderRetryPolicy.run {
+        let vocabulary = activeVocabulary(for: settings)
+        return try await ProviderRetryPolicy.run {
             try await self.polishPipeline.run(
                 rawText: rawText,
                 rulesMarkdown: rulesMarkdown,
-                settings: settings
+                settings: settings,
+                vocabulary: vocabulary
             )
         }
     }

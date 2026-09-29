@@ -4,6 +4,7 @@ import Foundation
 final class ModelDownloadManager: ObservableObject {
     nonisolated static let modelRepositoryRevision = "5359861c739e955e79d9a303bcbc70fb988958b1"
     static let parakeetUltraModelID = "parakeet-ultra"
+    static let parakeetVocabularyModelID = "parakeet-vocabulary"
 
     @Published var activeDownloadModelID: String?
     @Published var progress: Double = 0
@@ -27,6 +28,15 @@ final class ModelDownloadManager: ObservableObject {
                 repository: ParakeetModelFiles.ultraRepository,
                 revision: ParakeetModelFiles.ultraRevision,
                 files: ParakeetModelFiles.ultraFiles
+            ),
+            Self.parakeetAsset(
+                id: Self.parakeetVocabularyModelID,
+                kind: .parakeetVocabulary,
+                displayName: "Parakeet vocabulary",
+                detail: "Small model that lets Parakeet spell your vocabulary terms.",
+                repository: ParakeetModelFiles.vocabularyBoostRepository,
+                revision: ParakeetModelFiles.vocabularyBoostRevision,
+                files: ParakeetModelFiles.vocabularyBoostFiles
             ),
             Self.whisperAsset(
                 id: "tiny",
@@ -66,7 +76,7 @@ final class ModelDownloadManager: ObservableObject {
     }
 
     func transcriptionModels(providerID: String) -> [ModelAsset] {
-        catalog.filter { $0.kind.providerID == providerID }
+        catalog.filter { $0.isTranscriptionModel && $0.kind.providerID == providerID }
     }
 
     /// The ggml file for a whisper model, or the Core ML folder for a Parakeet model.

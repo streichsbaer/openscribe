@@ -45,6 +45,7 @@ Roadmap execution lives in GitHub Issues and is summarized in [Roadmap](roadmap.
 - If hotkey registration fails, app shows a blocking warning and requires manual change.
 - Default STT provider: local Parakeet.
 - Default local model: `Parakeet Ultra`, running on the GPU. The Neural Engine is a setting.
+- Vocabulary: enabled, including the built-in developer terms.
 - Default polish: disabled.
 - Default polish provider and model: `OpenAI / gpt-5-nano`.
 - Language: `auto`.
@@ -58,6 +59,16 @@ Root path:
 
 - User guide: [Your Data](../guides/your-data.md)
 - Technical contract: [Storage Contract](../reference/storage-contract.md)
+
+## Vocabulary
+
+- Users keep their own vocabulary in `Rules/vocabulary.txt`, edited in Settings on the Vocabulary tab. Each line holds a term and optional sounds-like spellings.
+- OpenScribe ships a built-in developer terms list that updates with each release. User entries replace built-in entries with the same term.
+- Local Parakeet rescores transcripts with a vocabulary model, downloaded on demand, and replaces a word only when the audio supports the term. Boosting starts once that model is installed.
+- Local `whisper.cpp` receives the terms as a prompt for recordings up to 2 minutes.
+- Polish receives the terms as a glossary.
+- Cloud transcription providers do not receive the vocabulary.
+- Guide: [Vocabulary](../guides/vocabulary.md)
 
 ## Providers
 

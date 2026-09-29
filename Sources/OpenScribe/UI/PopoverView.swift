@@ -1585,7 +1585,7 @@ struct PopoverView: View {
 
     private func localTranscriptionOptions() -> [RetryModelOption] {
         let manager = shell.modelManager
-        var assets = manager.catalog.filter { manager.isInstalled(modelID: $0.id) }
+        var assets = manager.catalog.filter { $0.isTranscriptionModel && manager.isInstalled(modelID: $0.id) }
         if assets.isEmpty,
            let current = manager.asset(for: shell.settings.transcriptionModel)
             ?? manager.asset(for: ModelDownloadManager.parakeetUltraModelID) {

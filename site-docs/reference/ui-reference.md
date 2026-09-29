@@ -126,6 +126,12 @@ You can open Settings from the right-click menu, with `Cmd + ,` when OpenScribe 
 
 ![Rules settings tab](/images/ui/settings-rules.png){ .guide-shot data-light-src="/images/ui/settings-rules.png" data-dark-src="/images/ui/settings-rules-dark.png" }
 
+### Vocabulary
+
+- Turn vocabulary on or off, and include or exclude the built-in developer terms.
+- See how each engine uses the list and whether Parakeet's vocabulary model is installed.
+- Edit your own terms, then save or revert.
+
 ### Data
 
 - Install and delete local models for Parakeet and whisper.cpp.

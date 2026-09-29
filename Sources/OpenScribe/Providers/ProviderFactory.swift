@@ -11,16 +11,21 @@ final class ProviderFactory {
         self.modelManager = modelManager
     }
 
-    func transcriptionProvider(id: String, settings: AppSettings) throws -> any TranscriptionProvider {
+    func transcriptionProvider(
+        id: String,
+        settings: AppSettings,
+        vocabulary: [VocabularyEntry]
+    ) throws -> any TranscriptionProvider {
         switch id {
         case "whispercpp":
             let binary = try resolveWhisperBinary()
-            return WhisperCppProvider(binaryURL: binary, modelManager: modelManager)
+            return WhisperCppProvider(binaryURL: binary, modelManager: modelManager, vocabulary: vocabulary)
         case "parakeet":
             return ParakeetProvider(
                 engine: parakeetEngine,
                 modelManager: modelManager,
-                usesNeuralEngine: settings.parakeetUsesNeuralEngine ?? false
+                usesNeuralEngine: settings.parakeetUsesNeuralEngine ?? false,
+                vocabulary: vocabulary
             )
         case "openai_whisper":
             guard let key = apiKeyResolver.resolve(.openAI).value else {

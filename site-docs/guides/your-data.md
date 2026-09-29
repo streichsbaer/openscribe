@@ -42,6 +42,7 @@ Every session keeps all four files, so you can replay audio, re-read transcripts
 
 - **Rules/rules.md** -- your custom polish rules.
 - **Rules/rules.history.jsonl** -- timestamped history of rule edits.
+- **Rules/vocabulary.txt** -- your vocabulary terms.
 - **Stats/usage.events.jsonl** -- usage metrics (session counts, durations, provider usage).
 - **Models/parakeet/** -- downloaded Parakeet models.
 - **Models/whisper/** -- downloaded whisper.cpp models.

@@ -10,6 +10,7 @@ struct DirectoryLayout {
 
     var whisperModels: URL { models.appendingPathComponent("whisper", isDirectory: true) }
     var parakeetModels: URL { models.appendingPathComponent("parakeet", isDirectory: true) }
+    var vocabularyFile: URL { rules.appendingPathComponent("vocabulary.txt") }
 
     let rulesFile: URL
     let rulesHistory: URL

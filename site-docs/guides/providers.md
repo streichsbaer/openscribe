@@ -19,6 +19,7 @@ If you want cloud transcription, add an API key in Settings > Providers and then
 - Transcribes a 30 second dictation in well under a second on Apple Silicon, with accuracy on par with the best Whisper model, and stays reliable on long recordings.
 - Detects 25 European languages on its own.
 - Runs on the GPU by default. Turn on Run on the Neural Engine in Settings > Transcribe to use less power.
+- Spells your [vocabulary](vocabulary.md) terms using a small extra model.
 
 ### Local: whisper.cpp
 

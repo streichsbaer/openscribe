@@ -70,7 +70,7 @@ final class FixturePipelineTests: XCTestCase {
             throw XCTSkip("Missing local model(s): \(missingModels.sorted().joined(separator: ", ")).")
         }
 
-        let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager)
+        let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager, vocabulary: [])
         try await assertFixtureCases(whisperCases, provider: provider)
     }
 
@@ -92,7 +92,8 @@ final class FixturePipelineTests: XCTestCase {
         let provider = ParakeetProvider(
             engine: ParakeetEngine(),
             modelManager: modelManager,
-            usesNeuralEngine: false
+            usesNeuralEngine: false,
+            vocabulary: []
         )
         try await assertFixtureCases(parakeetCases, provider: provider)
     }
@@ -152,7 +153,7 @@ final class FixturePipelineTests: XCTestCase {
 
         try AudioTranscoder.transcodeToM4A(sourceWAVURL: sourceWAV, destinationURL: tempM4A)
 
-        let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager)
+        let provider = WhisperCppProvider(binaryURL: binaryURL, modelManager: modelManager, vocabulary: [])
         let result = try await provider.transcribe(
             audioFileURL: tempM4A,
             language: "auto",

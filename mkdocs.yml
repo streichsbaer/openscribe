@@ -69,6 +69,7 @@ nav:
     - How It Works: guides/how-it-works.md
     - Providers and Models: guides/providers.md
     - Custom Rules: guides/custom-rules.md
+    - Vocabulary: guides/vocabulary.md
     - Your Data: guides/your-data.md
   - Project:
     - Overview: product/index.md
