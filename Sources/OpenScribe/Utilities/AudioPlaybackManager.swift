@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 
 @MainActor
-final class AudioPlaybackManager: NSObject, ObservableObject, @preconcurrency AVAudioPlayerDelegate {
+final class AudioPlaybackManager: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published private(set) var isPlaying = false
 
     private var player: AVAudioPlayer?
