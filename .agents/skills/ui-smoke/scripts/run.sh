@@ -111,9 +111,11 @@ if [[ -n "$APP_PATH" ]]; then
   launch_target="$app_executable"
 fi
 
+source "$ROOT_DIR/Scripts/swift_link_sdk_flags.sh"
+
 if [[ "$launch_mode" == "swift-run" ]]; then
   echo "[ui-smoke] swift build"
-  if swift build >"$OUT_DIR/build.log" 2>&1; then
+  if swift build "${SWIFT_LINK_SDK_FLAGS[@]}" >"$OUT_DIR/build.log" 2>&1; then
     build_status="pass"
   else
     build_status="fail"
@@ -191,7 +193,7 @@ tab_click_dispatch_status="missing"
 
 echo "[ui-smoke] launch app (internal capture mode)"
 if [[ "$launch_mode" == "swift-run" ]]; then
-  launch_command=(swift run OpenScribe)
+  launch_command=(swift run "${SWIFT_LINK_SDK_FLAGS[@]}" OpenScribe)
 else
   executable_description="$(file "$app_executable" 2>/dev/null || true)"
   if [[ "$(uname -m)" == "arm64" && "$executable_description" == *"x86_64"* && "$executable_description" != *"arm64"* ]]; then

@@ -36,15 +36,22 @@ VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIS
 BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST_PATH")"
 ARTIFACT_SUFFIX="-$TARGET_ARCH"
 
+source "$ROOT_DIR/Scripts/swift_link_sdk_flags.sh"
+
 echo "[release] building $APP_NAME $VERSION ($BUILD_NUMBER) for $TARGET_ARCH"
-swift build --arch "$TARGET_ARCH" -c release
-BIN_PATH="$(swift build --arch "$TARGET_ARCH" -c release --show-bin-path)"
+swift build --arch "$TARGET_ARCH" -c release "${SWIFT_LINK_SDK_FLAGS[@]}"
+BIN_PATH="$(swift build --arch "$TARGET_ARCH" -c release --show-bin-path "${SWIFT_LINK_SDK_FLAGS[@]}")"
 
 EXECUTABLE="$BIN_PATH/$APP_NAME"
 RESOURCE_BUNDLE="$BIN_PATH/${APP_NAME}_${APP_NAME}.bundle"
 
 if [[ ! -x "$EXECUTABLE" ]]; then
   echo "Missing executable at $EXECUTABLE" >&2
+  exit 1
+fi
+LINKED_SDK_VERSION="$(linked_sdk_version "$EXECUTABLE")"
+if [[ "$LINKED_SDK_VERSION" != "$MACOS_SDK_VERSION" ]]; then
+  echo "Executable records macOS SDK $LINKED_SDK_VERSION, expected $MACOS_SDK_VERSION" >&2
   exit 1
 fi
 if [[ ! -d "$RESOURCE_BUNDLE" ]]; then
