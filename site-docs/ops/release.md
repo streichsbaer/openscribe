@@ -38,6 +38,8 @@ xcrun notarytool store-credentials openscribe-notary \
 
 - Symptom: `security find-identity -v -p codesigning` reports `0 valid identities`
   Cause: the certificate is missing its matching private key on the signing Mac, or the Apple `Developer ID - G2` intermediate certificate is not installed.
+- Symptom: `codesign` prints `unable to build chain to self-signed root` and fails with `errSecInternalComponent`, while `security find-identity` still lists the identity as valid
+  Cause: the Apple `Developer ID - G2` intermediate certificate is missing from the signing Mac, or the `Developer ID Application` certificate has a custom `Always Trust` setting. Import `https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer` into the login keychain, and set the certificate trust to `Use System Defaults` in Keychain Access. `security dump-trust-settings` should list no custom trust for the signing certificate. If the error remains, run signing from Terminal and allow `codesign` to use the private key when Keychain asks.
 - Symptom: notarization reports bundled binaries are not signed with a valid `Developer ID` certificate, are missing a secure timestamp, or do not have hardened runtime
   Cause: nested Mach-O code inside the app bundle was not signed explicitly before the outer app signature was applied.
 - Symptom: the app never appears in Microphone settings and recording is denied immediately after launch
