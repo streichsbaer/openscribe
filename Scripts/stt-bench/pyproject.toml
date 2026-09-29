@@ -1,0 +1,19 @@
+[project]
+name = "openscribe-stt-bench"
+version = "0.1.0"
+description = "Local speech-to-text benchmark for OpenScribe"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "cmake==4.4.3",
+    "huggingface-hub==2.0.0",
+    "jiwer==4.0.0",
+    "mlx==0.32.3",
+    "mlx-whisper==0.4.3",
+    "numpy==2.5.3",
+    "parakeet-mlx==0.5.2",
+    "soundfile==0.14.0",
+    "whisper-normalizer==0.1.15",
+]
+
+[tool.uv]
+package = false

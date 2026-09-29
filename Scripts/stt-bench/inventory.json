@@ -1,0 +1,188 @@
+{
+  "about": "Everything the STT bench downloads, builds, or derives. Paths are relative to the workspace (STT_BENCH_HOME, default artifacts/stt-bench). Run `zsh Scripts/stt-bench/bench.sh inventory` to see what exists and how large it is.",
+  "items": [
+    {
+      "id": "whisper-ggml-base",
+      "kind": "file",
+      "group": "models",
+      "path": "downloads/models/whisper-ggml/ggml-base.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin",
+      "sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+      "bytes": 147951465,
+      "license": "MIT",
+      "purpose": "Whisper base, the current OpenScribe default local model."
+    },
+    {
+      "id": "whisper-ggml-small",
+      "kind": "file",
+      "group": "models",
+      "path": "downloads/models/whisper-ggml/ggml-small.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin",
+      "sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+      "bytes": 487601967,
+      "license": "MIT",
+      "purpose": "Whisper small from the OpenScribe local catalog."
+    },
+    {
+      "id": "whisper-ggml-medium",
+      "kind": "file",
+      "group": "models",
+      "path": "downloads/models/whisper-ggml/ggml-medium.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium.bin",
+      "sha256": "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
+      "bytes": 1533763059,
+      "license": "MIT",
+      "purpose": "Whisper medium from the OpenScribe local catalog."
+    },
+    {
+      "id": "whisper-ggml-large-v3-turbo",
+      "kind": "file",
+      "group": "models",
+      "path": "downloads/models/whisper-ggml/ggml-large-v3-turbo.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo.bin",
+      "sha256": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+      "bytes": 1624555275,
+      "license": "MIT",
+      "purpose": "Whisper large-v3-turbo, the local twin of the Groq model."
+    },
+    {
+      "id": "parakeet-gguf-v3-q8_0",
+      "kind": "file",
+      "group": "models",
+      "path": "downloads/models/parakeet-gguf/ggml-parakeet-tdt-0.6b-v3-q8_0.bin",
+      "url": "https://huggingface.co/ggml-org/parakeet-GGUF/resolve/35156454d1a39de06863303dd209fd2bed6ee079/ggml-parakeet-tdt-0.6b-v3-q8_0.bin",
+      "sha256": "4d64e9e96c2792186d072fde0034df0ad670cf680a2f53069052ead827fd600e",
+      "bytes": 668757119,
+      "license": "CC-BY-4.0 (NVIDIA Parakeet weights)",
+      "purpose": "Parakeet v3 for whisper.cpp parakeet-cli, 8-bit."
+    },
+    {
+      "id": "parakeet-gguf-v3-f16",
+      "kind": "file",
+      "group": "models",
+      "path": "downloads/models/parakeet-gguf/ggml-parakeet-tdt-0.6b-v3-f16.bin",
+      "url": "https://huggingface.co/ggml-org/parakeet-GGUF/resolve/35156454d1a39de06863303dd209fd2bed6ee079/ggml-parakeet-tdt-0.6b-v3-f16.bin",
+      "sha256": "833bffc9513b2cae867ee9e51633cfd11e4d51aaa5597c8ac02159385a2b426f",
+      "bytes": 1255897319,
+      "license": "CC-BY-4.0 (NVIDIA Parakeet weights)",
+      "purpose": "Parakeet v3 for whisper.cpp parakeet-cli, 16-bit."
+    },
+    {
+      "id": "fluidaudio-models",
+      "kind": "fluidaudio",
+      "group": "models",
+      "path": "downloads/models/fluidaudio",
+      "repos": {
+        "FluidInference/parakeet-tdt-0.6b-v2-coreml": "ee09c569f73759e6d44c9bd16766f477b2b36d39",
+        "FluidInference/parakeet-tdt-0.6b-v3-coreml": "7dd20fe6b1797d35f5e3307e8b1732d9a178edfe",
+        "FluidInference/parakeet-ultra-coreml": "95eaa59a39d4394f047a4dc5cce480388a60d1b6",
+        "FluidInference/parakeet-ctc-110m-coreml": "accdafd8cf8a2ff1cabe3c11e54416b405d409aa"
+      },
+      "license": "CC-BY-4.0",
+      "purpose": "Core ML Parakeet models, downloaded by the Swift harness through FluidAudio at pinned revisions."
+    },
+    {
+      "id": "hf-mlx-models",
+      "kind": "hf",
+      "group": "models",
+      "path": "downloads/hf",
+      "repos": {
+        "mlx-community/parakeet-tdt-0.6b-v2": "8ae155301e23d820d82aa60d24817c900e69e487",
+        "mlx-community/parakeet-tdt-0.6b-v3": "ed2b7e8c15f9aaa0b5772e2efb986255eaef7e15",
+        "mlx-community/whisper-large-v3-turbo": "a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb"
+      },
+      "license": "CC-BY-4.0 (Parakeet), MIT (Whisper)",
+      "purpose": "MLX models for parakeet-mlx and mlx-whisper. This directory is HF_HOME for bench runs."
+    },
+    {
+      "id": "librispeech-test-clean",
+      "kind": "archive",
+      "group": "datasets",
+      "path": "downloads/datasets/archives/test-clean.tar.gz",
+      "extract_to": "downloads/datasets/librispeech",
+      "url": "https://www.openslr.org/resources/12/test-clean.tar.gz",
+      "sha256": "39fde525e59672dc6d1551919b1478f724438a95aa55f874b576be21967e6c23",
+      "bytes": 346663984,
+      "license": "CC-BY-4.0",
+      "purpose": "Read-speech accuracy set, clean recordings."
+    },
+    {
+      "id": "librispeech-test-other",
+      "kind": "archive",
+      "group": "datasets",
+      "path": "downloads/datasets/archives/test-other.tar.gz",
+      "extract_to": "downloads/datasets/librispeech",
+      "url": "https://www.openslr.org/resources/12/test-other.tar.gz",
+      "sha256": "d09c181bba5cf717b3dee7d4d592af11a3ee3a09e08ae025c5506f6ebe961c29",
+      "bytes": 328757843,
+      "license": "CC-BY-4.0",
+      "purpose": "Read-speech accuracy set, harder recordings."
+    },
+    {
+      "id": "whisper-cpp-1.9.4-source",
+      "kind": "archive",
+      "group": "build",
+      "path": "downloads/sources/whisper.cpp-v1.9.4.tar.gz",
+      "extract_to": "build/whisper.cpp-1.9.4",
+      "url": "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.4.tar.gz",
+      "sha256": "57e280cee375ab02425b806ad5146b99f6eb9357e3c2b31357c8a6af2e2e44ae",
+      "bytes": 9353438,
+      "license": "MIT",
+      "purpose": "Source for whisper-cli and parakeet-cli 1.9.4, built into build/whisper.cpp-1.9.4/build/bin."
+    },
+    {
+      "id": "swift-harness-build",
+      "kind": "derived",
+      "group": "build",
+      "path": "build/swift",
+      "purpose": "SwiftPM scratch path for the STTBench harness (FluidAudio and Apple SpeechTranscriber)."
+    },
+    {
+      "id": "python-env",
+      "kind": "derived",
+      "group": "build",
+      "path": ".venv",
+      "purpose": "uv environment from Scripts/stt-bench/pyproject.toml."
+    },
+    {
+      "id": "prepared-audio",
+      "kind": "derived",
+      "group": "data",
+      "path": "data",
+      "purpose": "manifest.json plus 16 kHz WAV files: LibriSpeech samples, dictation-length clips, dev-terms clips, and local copies of your OpenScribe recordings (data/user)."
+    },
+    {
+      "id": "runs",
+      "kind": "derived",
+      "group": "runs",
+      "path": "runs",
+      "purpose": "One folder per bench run: results/*.jsonl, logs, summary.md, report_data.json."
+    }
+  ],
+  "external": [
+    {
+      "id": "openscribe-app-data",
+      "path": "~/Library/Application Support/OpenScribe",
+      "purpose": "The OpenScribe app itself: recordings, rules, settings, and installed models. Read by the bench (data/user), never cleaned by it.",
+      "cleanable": false
+    },
+    {
+      "id": "fluidaudio-default-cache",
+      "path": "~/Library/Application Support/FluidAudio",
+      "purpose": "FluidAudio's default model cache. Filled by the first bench run on 2026-09-29; current runs keep models in the workspace.",
+      "cleanable": true
+    },
+    {
+      "id": "hf-default-cache",
+      "path": "~/.cache/huggingface",
+      "purpose": "Hugging Face default cache. Bench runs set HF_HOME to the workspace, so it should stay empty unless other tools use it.",
+      "cleanable": false
+    },
+    {
+      "id": "uv-cache",
+      "path": "~/.cache/uv",
+      "purpose": "uv package cache shared by all Python projects on this Mac.",
+      "cleanable": false
+    }
+  ]
+}
