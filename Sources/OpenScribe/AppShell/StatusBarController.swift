@@ -105,6 +105,14 @@ final class StatusBarController: NSObject {
         shell.updatePopoverSizeHandler = { [weak self] size in
             self?.updatePopoverSize(size)
         }
+        shell.hidePopoverHandler = { [weak self] in
+            self?.popover.performClose(nil)
+        }
+        shell.openSettingsTabHandler = { [weak self] tab in
+            guard let self else { return }
+            self.settingsWindowController.selectTab(tab)
+            self.settingsWindowController.show()
+        }
         currentAppearanceMode = AppearanceMode(rawValue: shell.settings.appearanceMode) ?? .system
         configureStatusItem()
         configurePopover()

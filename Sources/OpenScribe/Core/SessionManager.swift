@@ -312,7 +312,10 @@ final class SessionManager {
             sttModel: metadata.sttModel,
             polishProvider: metadata.polishProvider,
             polishModel: metadata.polishModel,
-            previewText: previewText
+            previewText: previewText,
+            durationMs: metadata.durationMs,
+            hadNoSpeech: metadata.audioActivity?.hasUsableSpeech == false,
+            lastError: metadata.lastError
         )
     }
 

@@ -1957,12 +1957,7 @@ struct PopoverView: View {
     }
 
     private var popoverWidth: CGFloat {
-        switch shell.selectedPopoverTab {
-        case .live:
-            return 540
-        case .history, .stats:
-            return 620
-        }
+        AppShell.popoverSize.width
     }
 
 }

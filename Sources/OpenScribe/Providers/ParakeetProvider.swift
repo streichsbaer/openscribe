@@ -15,6 +15,11 @@ actor ParakeetEngine {
         let modelDirectory: URL
     }
 
+    struct Transcript: Equatable, Sendable {
+        let text: String
+        let vocabularyFixes: [VocabularyFix]
+    }
+
     private var loaded: (configuration: Configuration, manager: AsrManager, decoderLayers: Int)?
     private var booster: (vocabulary: Vocabulary, booster: ParakeetVocabularyBooster)?
 
@@ -23,7 +28,7 @@ actor ParakeetEngine {
         configuration: Configuration,
         vocabulary: Vocabulary?,
         language: String?
-    ) async throws -> String {
+    ) async throws -> Transcript {
         let (manager, decoderLayers) = try await load(configuration)
         let samples = try AudioConverter().resampleAudioFile(audioFileURL)
         var state = TdtDecoderState.make(decoderLayers: decoderLayers)
@@ -33,10 +38,13 @@ actor ParakeetEngine {
             language: Self.languageHint(for: language)
         )
         var text = result.text
+        var fixes: [VocabularyFix] = []
         if let vocabulary, let tokenTimings = result.tokenTimings {
-            text = try await loadBooster(vocabulary).rescore(text: text, tokenTimings: tokenTimings, samples: samples)
+            let rescore = try await loadBooster(vocabulary).rescore(text: text, tokenTimings: tokenTimings, samples: samples)
+            text = rescore.text
+            fixes = rescore.fixes
         }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Transcript(text: text.trimmingCharacters(in: .whitespacesAndNewlines), vocabularyFixes: fixes)
     }
 
     func prepare(configuration: Configuration, vocabulary: Vocabulary?) async throws {
@@ -117,23 +125,24 @@ final class ParakeetProvider: TranscriptionProvider, @unchecked Sendable {
         guard modelManager.isInstalled(modelID: model) else {
             throw ProviderError.missingModel(model)
         }
-        let text = try await engine.transcribe(
+        let transcript = try await engine.transcribe(
             audioFileURL: audioFileURL,
             configuration: .init(modelDirectory: modelManager.localPath(for: model), usesNeuralEngine: usesNeuralEngine),
             vocabulary: Self.boostVocabulary(vocabulary, modelManager: modelManager),
             language: language
         )
-        guard !text.isEmpty else {
+        guard !transcript.text.isEmpty else {
             throw ProviderError.invalidResponse
         }
 
         return TranscriptResult(
-            text: text,
+            text: transcript.text,
             providerId: id,
             model: model,
             latencyMs: Int(Date().timeIntervalSince(start) * 1_000),
             inputTokens: nil,
-            outputTokens: nil
+            outputTokens: nil,
+            vocabularyFixes: transcript.vocabularyFixes
         )
     }
 

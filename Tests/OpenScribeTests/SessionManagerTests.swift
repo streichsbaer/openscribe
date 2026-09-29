@@ -186,6 +186,39 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(loaded?.paths.polishedURL.lastPathComponent, "polished.md")
     }
 
+    func testHistoryEntryCarriesDurationNoSpeechAndVocabularyFixes() throws {
+        let layout = try makeTempLayout()
+        let manager = SessionManager(layout: layout)
+
+        var session = try manager.startSession(settings: .default, inputDeviceName: nil)
+        session.metadata.durationMs = 4_200
+        session.metadata.audioActivity = AudioActivityAssessment(
+            verdict: .noUsableSpeech,
+            reason: "No sustained speech activity detected.",
+            totalDurationMs: 4_200,
+            activeDurationMs: 0,
+            longestActiveBurstMs: 0,
+            activeRatio: 0,
+            peakLevel: 0,
+            averageLevel: 0,
+            noiseFloor: 0,
+            threshold: 0,
+            speechStartMs: nil,
+            speechEndMs: nil
+        )
+        session.metadata.vocabularyFixes = [VocabularyFix(heard: "tea mux", term: "tmux")]
+        try manager.writeRaw("", for: &session)
+
+        let entry = try XCTUnwrap(manager.loadSessionHistoryPage(limit: 1).entries.first)
+        XCTAssertEqual(entry.durationMs, 4_200)
+        XCTAssertTrue(entry.hadNoSpeech)
+        XCTAssertFalse(entry.polishRan)
+        XCTAssertEqual(
+            manager.loadSessionContext(folderURL: session.paths.folderURL)?.metadata.vocabularyFixes,
+            [VocabularyFix(heard: "tea mux", term: "tmux")]
+        )
+    }
+
     func testLoadSessionContextReturnsNilWhenMetadataIsMissing() throws {
         let layout = try makeTempLayout()
         let manager = SessionManager(layout: layout)

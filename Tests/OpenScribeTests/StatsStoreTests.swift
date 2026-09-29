@@ -361,7 +361,7 @@ final class StatsStoreTests: XCTestCase {
         XCTAssertEqual(summary.weeklyTrend ?? 0, 114.29, accuracy: 0.5)
     }
 
-    func testDailyWordCountsAggregation() throws {
+    func testDailyWordCountsCountARetriedSessionOnce() throws {
         let layout = try makeTempLayout()
         let store = StatsStore(layout: layout)
 
@@ -371,7 +371,7 @@ final class StatsStoreTests: XCTestCase {
 
         let session = UUID()
 
-        // Two events on today
+        // The same session transcribed twice today: the retry replaces the first run.
         try store.append(StatsEvent(
             id: UUID(),
             sessionId: session,
@@ -435,8 +435,90 @@ final class StatsStoreTests: XCTestCase {
         let summary = store.loadSummary()
 
         XCTAssertEqual(summary.dailyWordCounts.count, 2)
-        XCTAssertEqual(summary.dailyWordCounts[today], 125)
+        XCTAssertEqual(summary.dailyWordCounts[today], 45)
         XCTAssertEqual(summary.dailyWordCounts[yesterday], 200)
+        XCTAssertEqual(summary.spokenWords, 245)
+    }
+
+    func testRangeSummaryBucketsLastSevenDaysAndSplitsLocalAndCloud() throws {
+        let calendar = Calendar.current
+        let now = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
+        let today = calendar.startOfDay(for: now)
+        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: now)!
+        let tenDaysAgo = calendar.date(byAdding: .day, value: -10, to: now)!
+
+        let localOnly = UUID()
+        let polished = UUID()
+        let cloudAudio = UUID()
+        let old = UUID()
+        let events = [
+            makeEvent(session: localOnly, at: now, stage: .transcription, provider: "parakeet", model: "parakeet-ultra", words: 100, recordingMs: 60_000, processingMs: 100),
+            makeEvent(session: polished, at: twoDaysAgo, stage: .transcription, provider: "parakeet", model: "parakeet-ultra", words: 40, recordingMs: 20_000, processingMs: 300),
+            makeEvent(session: polished, at: twoDaysAgo.addingTimeInterval(1), stage: .polish, provider: "groq_polish", model: "openai/gpt-oss-120b", words: 38, recordingMs: nil, processingMs: 700),
+            makeEvent(session: cloudAudio, at: now.addingTimeInterval(-60), stage: .transcription, provider: "openai_whisper", model: "gpt-4o-mini-transcribe", words: 60, recordingMs: 40_000, processingMs: 900),
+            makeEvent(session: old, at: tenDaysAgo, stage: .transcription, provider: "parakeet", model: "parakeet-ultra", words: 500, recordingMs: 200_000, processingMs: 200)
+        ]
+
+        let week = StatsStore.rangeSummary(.week, events: events, now: now, calendar: calendar)
+
+        XCTAssertEqual(week.buckets.count, 7)
+        XCTAssertEqual(week.buckets.last?.start, today)
+        XCTAssertEqual(week.buckets.last?.words, 160)
+        XCTAssertEqual(week.buckets[4].words, 40)
+        XCTAssertEqual(week.words, 200)
+        XCTAssertEqual(week.recordingSeconds, 120)
+        XCTAssertEqual(week.wordsPerMinute ?? 0, 100, accuracy: 0.01)
+        XCTAssertEqual(week.sessions, 3)
+        XCTAssertEqual(week.localOnlySessions, 1)
+        XCTAssertEqual(week.textToCloudSessions, 1)
+        XCTAssertEqual(week.audioToCloudSessions, 1)
+        XCTAssertEqual(week.localTranscriptionModels, ["parakeet-ultra"])
+        XCTAssertEqual(week.cloudTranscriptionProviders, ["openai_whisper"])
+        XCTAssertEqual(week.cloudPolishProviders, ["groq_polish"])
+        XCTAssertEqual(week.averageLocalTranscriptionMs ?? 0, 200, accuracy: 0.01)
+
+        let all = StatsStore.rangeSummary(.all, events: events, now: now, calendar: calendar)
+        XCTAssertEqual(all.words, 700)
+        XCTAssertEqual(all.sessions, 4)
+        XCTAssertEqual(all.buckets.reduce(0) { $0 + $1.words }, 700)
+    }
+
+    func testRangeSummaryIsEmptyWithoutSessionsInRange() {
+        let calendar = Calendar.current
+        let now = Date()
+        let old = makeEvent(
+            session: UUID(),
+            at: calendar.date(byAdding: .day, value: -40, to: now)!,
+            stage: .transcription,
+            provider: "parakeet",
+            model: "parakeet-ultra",
+            words: 50,
+            recordingMs: 10_000,
+            processingMs: 100
+        )
+
+        let month = StatsStore.rangeSummary(.month, events: [old], now: now, calendar: calendar)
+
+        XCTAssertEqual(month.words, 0)
+        XCTAssertEqual(month.sessions, 0)
+        XCTAssertEqual(month.buckets.count, 30)
+        XCTAssertNil(month.wordsPerMinute)
+    }
+
+    func testProcessingDurationsUseTheLatestRunOfASession() throws {
+        let layout = try makeTempLayout()
+        let store = StatsStore(layout: layout)
+        let session = UUID()
+        let now = Date()
+        try store.append(makeEvent(session: session, at: now, stage: .transcription, provider: "parakeet", model: "parakeet-ultra", words: 10, recordingMs: 5_000, processingMs: 400))
+        try store.append(makeEvent(session: session, at: now.addingTimeInterval(5), stage: .transcription, provider: "parakeet", model: "parakeet-ultra", words: 10, recordingMs: 5_000, processingMs: 90))
+        try store.append(makeEvent(session: session, at: now.addingTimeInterval(6), stage: .polish, provider: "groq_polish", model: "openai/gpt-oss-120b", words: 9, recordingMs: nil, processingMs: 650))
+
+        let durations = store.processingDurations(for: session)
+
+        XCTAssertEqual(durations.transcriptionMs, 90)
+        XCTAssertEqual(durations.polishMs, 650)
+        XCTAssertNil(store.processingDurations(for: UUID()).transcriptionMs)
     }
 
     func testDailyWordCountsEmptyWhenNoEvents() throws {
@@ -470,6 +552,37 @@ final class StatsStoreTests: XCTestCase {
         let refreshed = firstStore.loadSummary()
         XCTAssertEqual(refreshed.totalEvents, 2)
         XCTAssertEqual(refreshed.spokenWords, 100)
+    }
+
+    private func makeEvent(
+        session: UUID,
+        at timestamp: Date,
+        stage: StatsStage,
+        provider: String,
+        model: String,
+        words: Double,
+        recordingMs: Int?,
+        processingMs: Int?
+    ) -> StatsEvent {
+        StatsEvent(
+            id: UUID(),
+            sessionId: session,
+            timestamp: timestamp,
+            stage: stage,
+            providerId: provider,
+            model: model,
+            inputUnits: stage == .transcription ? Double(recordingMs ?? 0) / 1000 : words,
+            outputUnits: words,
+            inputUnit: stage == .transcription ? .audioSeconds : .words,
+            outputUnit: .words,
+            inputTokens: nil,
+            outputTokens: nil,
+            recordingDurationMs: recordingMs,
+            wordsPerMinute: nil,
+            wordDelta: nil,
+            wordDeltaPercent: nil,
+            processingDurationMs: processingMs
+        )
     }
 
     private func makeTranscriptionEvent(words: Double) -> StatsEvent {

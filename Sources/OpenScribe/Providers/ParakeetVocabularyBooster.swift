@@ -64,7 +64,12 @@ struct ParakeetVocabularyBooster {
         )
     }
 
-    func rescore(text: String, tokenTimings: [TokenTiming], samples: [Float]) async -> String {
+    struct Rescore: Equatable, Sendable {
+        let text: String
+        let fixes: [VocabularyFix]
+    }
+
+    func rescore(text: String, tokenTimings: [TokenTiming], samples: [Float]) async -> Rescore {
         guard !context.terms.isEmpty, !tokenTimings.isEmpty,
               let spot = try? await spotter.spotKeywordsWithLogProbs(
                   audioSamples: samples,
@@ -72,7 +77,7 @@ struct ParakeetVocabularyBooster {
                   minScore: nil
               ),
               !spot.logProbs.isEmpty else {
-            return text
+            return Rescore(text: text, fixes: [])
         }
         // FluidAudio decides which words to replace; OpenScribe applies those decisions to the untouched
         // transcript so punctuation around a replaced word survives and the term keeps its listed casing.
@@ -91,12 +96,38 @@ struct ParakeetVocabularyBooster {
             }
             return Replacement(utf8Range: range, term: candidate.canonicalTerm)
         }
-        return Self.apply(replacements, to: evidence.baseText)
+        return Rescore(
+            text: Self.apply(replacements, to: evidence.baseText),
+            fixes: Self.fixes(for: replacements, in: evidence.baseText)
+        )
     }
 
     struct Replacement: Equatable {
         let utf8Range: Range<Int>
         let term: String
+    }
+
+    /// What each replacement heard, without surrounding punctuation. Replacements that only change
+    /// casing are left out, since the engine already heard the term.
+    static func fixes(for replacements: [Replacement], in text: String) -> [VocabularyFix] {
+        let bytes = Array(text.utf8)
+        var fixes: [VocabularyFix] = []
+        for replacement in replacements.sorted(by: { $0.utf8Range.lowerBound < $1.utf8Range.lowerBound }) {
+            let range = replacement.utf8Range
+            guard range.lowerBound >= 0, range.upperBound <= bytes.count, !range.isEmpty,
+                  let original = String(bytes: bytes[range], encoding: .utf8) else {
+                continue
+            }
+            let heard = original.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+            guard !heard.isEmpty, heard.lowercased() != replacement.term.lowercased() else {
+                continue
+            }
+            let fix = VocabularyFix(heard: heard, term: replacement.term)
+            if !fixes.contains(fix) {
+                fixes.append(fix)
+            }
+        }
+        return fixes
     }
 
     /// Replaces each range with its term. Punctuation at the edges of the replaced words stays, and the
