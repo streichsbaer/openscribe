@@ -26,20 +26,12 @@ final class WhisperCppProvider: TranscriptionProvider, @unchecked Sendable {
         let outputBase = FileManager.default.temporaryDirectory
             .appendingPathComponent("whisper-\(UUID().uuidString)")
 
-        var args = [
-            "-m", modelURL.path,
-            "-f", preparedInputURL.path,
-            "-otxt",
-            "-of", outputBase.path,
-            "-nt",
-            "-ng"
-        ]
-
-        if let language, !language.isEmpty {
-            args.append(contentsOf: ["-l", language.lowercased() == "auto" ? "auto" : language])
-        } else {
-            args.append(contentsOf: ["-l", "auto"])
-        }
+        let args = Self.arguments(
+            modelPath: modelURL.path,
+            inputPath: preparedInputURL.path,
+            outputBasePath: outputBase.path,
+            language: language
+        )
 
         let processResult = try await runWhisperProcess(arguments: args)
         let outputFile = outputBase.appendingPathExtension("txt")
@@ -68,6 +60,40 @@ final class WhisperCppProvider: TranscriptionProvider, @unchecked Sendable {
             outputTokens: nil
         )
     }
+
+    static func arguments(
+        modelPath: String,
+        inputPath: String,
+        outputBasePath: String,
+        language: String?,
+        usesGPU: Bool = defaultUsesGPU
+    ) -> [String] {
+        var args = [
+            "-m", modelPath,
+            "-f", inputPath,
+            "-otxt",
+            "-of", outputBasePath,
+            "-nt"
+        ]
+
+        if !usesGPU {
+            args.append("-ng")
+        }
+
+        if let language, !language.isEmpty {
+            args.append(contentsOf: ["-l", language.lowercased() == "auto" ? "auto" : language])
+        } else {
+            args.append(contentsOf: ["-l", "auto"])
+        }
+        return args
+    }
+
+    // Apple Silicon runs whisper.cpp on Metal. Intel builds stay on the CPU.
+    #if arch(arm64)
+    static let defaultUsesGPU = true
+    #else
+    static let defaultUsesGPU = false
+    #endif
 
     private func prepareInputWAV(for audioFileURL: URL) throws -> URL {
         if audioFileURL.pathExtension.lowercased() == "wav" {
