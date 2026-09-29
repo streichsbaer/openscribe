@@ -5,8 +5,7 @@ cask "openscribe" do
   sha256 arm:   "__SHA256_ARM__",
          intel: "__SHA256_INTEL__"
 
-  url "https://github.com/streichsbaer/openscribe/releases/download/v#{version}/OpenScribe-#{version}-#{arch}.zip",
-      verified: "github.com/streichsbaer/openscribe/"
+  url "https://github.com/streichsbaer/openscribe/releases/download/v#{version}/OpenScribe-#{version}-#{arch}.zip"
   name "OpenScribe"
   desc "Menubar dictation app"
   homepage "https://openscribe.dev/"
