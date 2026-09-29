@@ -70,7 +70,7 @@ RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests
 zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest
 if [[ "$(uname -m)" == "arm64" ]]; then
   /usr/bin/arch -x86_64 swift build --arch x86_64
-  /usr/bin/arch -x86_64 swift test --arch x86_64
+  /usr/bin/arch -x86_64 swift test --arch x86_64 --disable-swift-testing
 fi
 
 echo "[release] build artifacts"

@@ -41,7 +41,7 @@ Cut OpenScribe releases with a repeatable flow aligned to `docs/release.md`.
    - `swift test`
    - `RUN_AUDIO_FIXTURE_TESTS=1 swift test --filter FixturePipelineTests`
    - `zsh .agents/skills/ui-smoke/scripts/run.sh --out artifacts/ui-smoke/latest`
-   - On Apple Silicon hosts, add `/usr/bin/arch -x86_64 swift build --arch x86_64` and `/usr/bin/arch -x86_64 swift test --arch x86_64`
+   - On Apple Silicon hosts, add `/usr/bin/arch -x86_64 swift build --arch x86_64` and `/usr/bin/arch -x86_64 swift test --arch x86_64 --disable-swift-testing`
 4. Build release app bundles:
    - `OPENSCRIBE_BUILD_ARCH=arm64 zsh Scripts/build_release_app.sh`
    - `OPENSCRIBE_BUILD_ARCH=x86_64 zsh Scripts/build_release_app.sh`

@@ -25,12 +25,13 @@ When release or packaging work touches Intel support, use Rosetta on an Apple Si
 
 ```bash
 /usr/bin/arch -x86_64 swift build --arch x86_64
-/usr/bin/arch -x86_64 swift test --arch x86_64
+/usr/bin/arch -x86_64 swift test --arch x86_64 --disable-swift-testing
 ```
 
 Notes:
 
 - This is strong routine coverage for compilation and unit tests.
+- `--disable-swift-testing` is required under Rosetta. The Swift Testing helper runs as arm64 and cannot load the x86_64 test bundle, so the command fails after XCTest passes. The suite has no Swift Testing tests.
 - Full Intel UI smoke remains a native Intel hardware check for now.
 - Packaged `x86_64` app smoke can still run under Rosetta on Apple Silicon when the Intel app bundle has already been built.
 
