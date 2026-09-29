@@ -40,6 +40,22 @@ It runs with its own identity so both apps work at the same time:
 
 Delete the dev app and `~/Library/Application Support/OpenScribe Dev` when you are done.
 
+### Test on another Mac
+
+The build also writes a zip next to the app, ready to AirDrop. Build for an Intel Mac with:
+
+```bash
+OPENSCRIBE_BUILD_ARCH=x86_64 zsh Scripts/build_side_by_side_app.sh dist/side-by-side-x86_64
+```
+
+On the receiving Mac, unzip the app. It is not notarized, so macOS blocks the first launch. Allow it once with Control-click > Open, or from System Settings > Privacy & Security > Open Anyway, or clear the download flag:
+
+```bash
+xattr -dr com.apple.quarantine "OpenScribe Dev.app"
+```
+
+Each rebuild counts as a new app for macOS permissions. After replacing the app, remove OpenScribe Dev from System Settings > Privacy & Security > Accessibility and grant it again, or auto-paste stops working.
+
 ## Docs site
 
 The documentation site uses MkDocs with Material theme. To build and preview locally:
