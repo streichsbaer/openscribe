@@ -17,6 +17,8 @@ final class FixturePipelineTests: XCTestCase {
         let tags: [String]
         let rawContains: [String]
         let rawNotContains: [String]
+        /// "developer" runs the case with the built-in developer terms.
+        let vocabulary: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -27,6 +29,7 @@ final class FixturePipelineTests: XCTestCase {
             case tags
             case rawContains = "raw_contains"
             case rawNotContains = "raw_not_contains"
+            case vocabulary
         }
     }
 
@@ -89,13 +92,32 @@ final class FixturePipelineTests: XCTestCase {
             throw XCTSkip("Missing local model(s): \(missingModels.sorted().joined(separator: ", ")).")
         }
 
-        let provider = ParakeetProvider(
-            engine: ParakeetEngine(),
+        let engine = ParakeetEngine()
+        let plainCases = parakeetCases.filter { $0.vocabulary == nil }
+        try await assertFixtureCases(plainCases, provider: ParakeetProvider(
+            engine: engine,
             modelManager: modelManager,
             usesNeuralEngine: false,
             vocabulary: []
-        )
-        try await assertFixtureCases(parakeetCases, provider: provider)
+        ))
+
+        let vocabularyCases = parakeetCases.filter { $0.vocabulary == "developer" }
+        guard !vocabularyCases.isEmpty else { return }
+        guard modelManager.isInstalled(modelID: ModelDownloadManager.parakeetVocabularyModelID) else {
+            throw XCTSkip("Missing local model: \(ModelDownloadManager.parakeetVocabularyModelID).")
+        }
+        let termsURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/OpenScribe/Resources/Vocabulary/developer-terms.txt")
+        let developerTerms = VocabularyParser.parse(try String(contentsOf: termsURL, encoding: .utf8))
+        try await assertFixtureCases(vocabularyCases, provider: ParakeetProvider(
+            engine: engine,
+            modelManager: modelManager,
+            usesNeuralEngine: false,
+            vocabulary: developerTerms
+        ))
     }
 
     @MainActor

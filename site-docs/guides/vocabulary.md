@@ -31,6 +31,8 @@ Tailscale
 
 The most reliable sounds-like spellings are the exact words OpenScribe wrote. Short terms of five letters or fewer are only corrected when the transcript matches the term or one of its spellings closely, which keeps everyday words like "Tom" or "Miss" from turning into `TOML` or `mise`. Longer, distinctive terms such as `Kubernetes` usually work without extra spellings.
 
+Avoid sounds-like spellings that are everyday phrases or only a letter or two away from one. A spelling like `super base` for `Supabase` also matches "super fast", so OpenScribe would change that phrase too. When a word turns into a term by mistake, the vocabulary note under the transcript shows what was heard, so you can remove or change that spelling.
+
 ## How each engine uses it
 
 - **Local Parakeet** listens for each term in the audio and corrects the transcript only when the audio supports the term. This uses a 100 MB vocabulary model that downloads the first time you use Parakeet with vocabulary on. Until it finishes, Parakeet transcribes without it.

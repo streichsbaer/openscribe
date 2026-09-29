@@ -7,8 +7,14 @@
       "provider": "whispercpp",
       "model": "base",
       "language": "auto",
-      "tags": ["smoke", "raw"],
-      "raw_contains": ["open scribe", "smoke test"],
+      "tags": [
+        "smoke",
+        "raw"
+      ],
+      "raw_contains": [
+        "open scribe",
+        "smoke test"
+      ],
       "raw_not_contains": []
     },
     {
@@ -17,8 +23,15 @@
       "provider": "whispercpp",
       "model": "base",
       "language": "auto",
-      "tags": ["commands", "raw"],
-      "raw_contains": ["new paragraph", "bullet point", "second item"],
+      "tags": [
+        "commands",
+        "raw"
+      ],
+      "raw_contains": [
+        "new paragraph",
+        "bullet point",
+        "second item"
+      ],
       "raw_not_contains": []
     },
     {
@@ -27,8 +40,14 @@
       "provider": "parakeet",
       "model": "parakeet-ultra",
       "language": "auto",
-      "tags": ["smoke", "raw"],
-      "raw_contains": ["open scribe", "smoke test"],
+      "tags": [
+        "smoke",
+        "raw"
+      ],
+      "raw_contains": [
+        "open scribe",
+        "smoke test"
+      ],
       "raw_not_contains": []
     },
     {
@@ -37,9 +56,34 @@
       "provider": "parakeet",
       "model": "parakeet-ultra",
       "language": "auto",
-      "tags": ["commands", "raw"],
-      "raw_contains": ["new paragraph", "bullet point", "second item"],
+      "tags": [
+        "commands",
+        "raw"
+      ],
+      "raw_contains": [
+        "new paragraph",
+        "bullet point",
+        "second item"
+      ],
       "raw_not_contains": []
+    },
+    {
+      "id": "vocabulary_everyday_phrase_parakeet",
+      "audio": "vocabulary_everyday_phrase.wav",
+      "provider": "parakeet",
+      "model": "parakeet-ultra",
+      "language": "auto",
+      "tags": [
+        "vocabulary",
+        "raw"
+      ],
+      "raw_contains": [
+        "super fast",
+        "Supabase",
+        "worktree"
+      ],
+      "raw_not_contains": [],
+      "vocabulary": "developer"
     }
   ]
 }

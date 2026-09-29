@@ -20,5 +20,6 @@ synthesize() {
 
 synthesize "basic_en_smoke" "Open Scribe fixture smoke test one."
 synthesize "commands_markdown" "New paragraph. Bullet point first item. New line second item."
+synthesize "vocabulary_everyday_phrase" "That build was super fast. We keep the data in Supabase, and the work tree is clean."
 
 echo "Fixture generation complete."

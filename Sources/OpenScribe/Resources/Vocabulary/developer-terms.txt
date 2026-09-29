@@ -63,7 +63,7 @@ webhook: web hook
 Tailscale: tail scale
 Cloudflare: cloud flare
 Vercel: ver sell
-Supabase: soupa base, super base
+Supabase: soupa base
 Vite: veet
 TypeScript
 Grafana
