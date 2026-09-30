@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18">
-  <!-- OpenScribe logo – dark variant for light backgrounds.
-       Geometry derived from StatusBarController.swift drawStatusIcon().
-       Bar profile [0.45, 0.80, 0.45] – boosted for logo clarity at small sizes. -->
-  <circle cx="9" cy="9" r="7.75" fill="none" stroke="#0f172a" stroke-width="1.3"/>
-  <rect x="5.55" y="7.357" width="1.6" height="3.285" rx="0.9" fill="#0f172a"/>
-  <rect x="8.55" y="6.08" width="1.6" height="5.84" rx="0.9" fill="#0f172a"/>
-  <rect x="11.55" y="7.357" width="1.6" height="3.285" rx="0.9" fill="#0f172a"/>
-</svg>

@@ -11,19 +11,19 @@ site_dir: site
 theme:
   name: material
   language: en
-  font:
-    text: IBM Plex Sans
-    code: JetBrains Mono
-  logo: images/logo-dark.svg
-  favicon: images/logo.svg
+  font: false
+  logo: images/mark.svg
+  favicon: images/mark.svg
   palette:
-    - scheme: default
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: custom
       accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    - scheme: slate
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: custom
       accent: custom
       toggle:
@@ -55,7 +55,7 @@ extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
-  - javascripts/home-carousel.js
+  - javascripts/site.js
 
 nav:
   - Home: index.md
