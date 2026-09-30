@@ -15,7 +15,8 @@ title: OpenScribe
 <section class="os-hero">
   <a class="os-announce" href="https://github.com/streichsbaer/openscribe/releases/tag/v0.4.0">
     <span class="os-announce__badge">New in 0.4.0</span>
-    <span>A redesigned popover that shows where every recording went</span>
+    <span class="os-announce__long">A redesigned popover that shows where every recording went</span>
+    <span class="os-announce__short">See what's new</span>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
   </a>
   <h1 class="os-title">Dictation for your Mac.<span>Fast. Local. Reliable.</span></h1>

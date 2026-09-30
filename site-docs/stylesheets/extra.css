@@ -361,8 +361,8 @@ body {
 
 .md-content:has(.os-home) .md-content__inner {
   margin: 0 auto;
-  padding-top: 0;
-  max-width: 58rem;
+  padding: 0 1.2rem;
+  max-width: 60.4rem;
 }
 
 .md-content:has(.os-home) .md-content__inner::before {
@@ -417,6 +417,10 @@ body {
   background: var(--os-blue-tint);
   color: var(--os-blue);
   font-weight: 650;
+}
+
+.os-announce__short {
+  display: none;
 }
 
 .os-announce svg {
@@ -1030,6 +1034,7 @@ body {
   color: var(--os-muted);
   font-size: 0.66rem;
   line-height: 1.4;
+  text-wrap: balance;
 }
 
 /* Final call to action: an ink card in both themes */
@@ -1179,15 +1184,24 @@ body {
   }
 
   .md-content:has(.os-home) .md-content__inner {
-    margin: 0 0.8rem;
+    padding: 0 0.8rem;
   }
 
   .os-hero {
     padding-top: 1.6rem;
   }
 
-  .os-announce {
-    font-size: 0.62rem;
+  .os-announce__long {
+    display: none;
+  }
+
+  .os-announce__short {
+    display: inline;
+  }
+
+  .md-typeset .os-brew code {
+    white-space: normal;
+    overflow-wrap: anywhere;
     text-align: left;
   }
 
