@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- OpenScribe mark: the ink tile from the popover header (OpenScribeMarkTile). -->
+  <rect width="64" height="64" rx="19.2" fill="#141414"/>
+  <rect x="16" y="23.68" width="6.4" height="16.64" rx="3.2" fill="#ffffff"/>
+  <rect x="28.8" y="15.36" width="6.4" height="33.28" rx="3.2" fill="#ffffff"/>
+  <rect x="41.6" y="23.68" width="6.4" height="16.64" rx="3.2" fill="#ffffff"/>
+</svg>

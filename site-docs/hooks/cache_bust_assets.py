@@ -8,7 +8,7 @@ import re
 DOCS_DIR = Path(__file__).resolve().parents[1]
 ASSET_PATHS = (
     "stylesheets/extra.css",
-    "javascripts/home-carousel.js",
+    "javascripts/site.js",
 )
 
 
