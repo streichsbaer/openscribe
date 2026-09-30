@@ -38,9 +38,10 @@ title: OpenScribe
 </section>
 
 <section class="os-video">
-  <video muted loop playsinline preload="auto" poster="assets/openscribe-0.4.0-poster.jpg" aria-label="OpenScribe 0.4.0 launch video: a recording turns into text on this Mac, then History and Stats">
-    <source src="assets/openscribe-0.4.0.mp4" type="video/mp4">
-  </video>
+  <video muted loop playsinline preload="auto" poster="assets/openscribe-0.4.0-poster.jpg"
+    data-light-src="assets/openscribe-0.4.0.mp4" data-dark-src="assets/openscribe-0.4.0-dark.mp4"
+    data-light-poster="assets/openscribe-0.4.0-poster.jpg" data-dark-poster="assets/openscribe-0.4.0-poster-dark.jpg"
+    aria-label="OpenScribe 0.4.0 launch video: a recording turns into text on this Mac, then History and Stats"></video>
   <button class="os-video__play" type="button" aria-label="Play video">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>
   </button>

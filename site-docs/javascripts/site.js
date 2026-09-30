@@ -41,9 +41,32 @@
     video.addEventListener("play", () => setPlaying(true));
     video.addEventListener("pause", () => setPlaying(false));
 
-    if (!reduceMotion) {
-      video.play().catch(() => setPlaying(false));
-    }
+    // Load only the video that matches the theme, and keep its place when the theme changes.
+    const applyTheme = () => {
+      const mode = isDarkMode() ? "dark" : "light";
+      if (frame.dataset.mode === mode) {
+        return;
+      }
+      const firstLoad = !frame.dataset.mode;
+      const shouldPlay = firstLoad ? !reduceMotion : !video.paused;
+      const time = video.currentTime;
+      frame.dataset.mode = mode;
+      video.poster = video.dataset[`${mode}Poster`];
+      video.src = video.dataset[`${mode}Src`];
+      if (!firstLoad && time) {
+        video.addEventListener("loadedmetadata", () => {
+          video.currentTime = time;
+        }, { once: true });
+      }
+      if (shouldPlay) {
+        video.play().catch(() => setPlaying(false));
+      }
+    };
+    applyTheme();
+    new MutationObserver(applyTheme).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-md-color-scheme"]
+    });
 
     play?.addEventListener("click", () => {
       video.play();

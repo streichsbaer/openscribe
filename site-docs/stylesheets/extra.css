@@ -601,6 +601,10 @@ body {
   aspect-ratio: 16 / 9;
 }
 
+[data-md-color-scheme="slate"] .os-video {
+  background: #1b1b1d;
+}
+
 .os-video video {
   display: block;
   width: 100%;
