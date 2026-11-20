@@ -131,8 +131,8 @@ title: OpenScribe
   <h2>Start dictating in a minute.</h2>
   <p>Download OpenScribe, grant microphone access, and press your hotkey.</p>
   <div class="os-cta">
-    <a class="os-btn os-btn--light" href="https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-arm64.zip">Download for Apple silicon</a>
-    <a class="os-btn os-btn--outline" href="guides/getting-started/">Read the setup guide</a>
+    <a class="os-btn os-btn--primary" href="https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-arm64.zip">Download for Apple silicon</a>
+    <a class="os-btn os-btn--ghost" href="guides/getting-started/">Read the setup guide</a>
   </div>
   <p class="os-final__note">Intel Mac? <a href="https://github.com/streichsbaer/openscribe/releases/latest/download/OpenScribe-latest-x86_64.zip">Download the Intel build</a>. Not sure which Mac you have? Open Apple menu &gt; About This Mac.</p>
 </section>

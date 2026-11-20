@@ -1037,66 +1037,41 @@ body {
   text-wrap: balance;
 }
 
-/* Final call to action: an ink card in both themes */
+/* Final call to action: a card that follows the theme, like the hero */
 
 .os-final {
   margin-top: 4.5rem;
   padding: 2.8rem 1.5rem 2.2rem;
   border-radius: 1.6rem;
-  background: #141414;
-  color: #d9d9de;
-  text-align: center;
-  box-shadow: var(--os-shadow-lift);
-}
-
-[data-md-color-scheme="slate"] .os-final {
-  background: #1d1d1f;
+  background: var(--os-card);
   border: 1px solid var(--os-hair);
+  box-shadow: var(--os-shadow);
+  text-align: center;
 }
 
 .md-typeset .os-final h2 {
   margin: 0 0 0.5rem;
-  color: #fff;
+  color: var(--os-ink);
   font-size: clamp(1.4rem, 3vw, 1.9rem);
   font-weight: 720;
   letter-spacing: -0.03em;
+  text-wrap: balance;
 }
 
 .md-typeset .os-final p {
   margin: 0 0 1.4rem;
-  color: #a1a1a6;
+  color: var(--os-muted);
   font-size: 0.8rem;
-}
-
-.md-typeset .os-btn--light {
-  background: #fff;
-  color: #141414;
-}
-
-.md-typeset .os-btn--light:hover {
-  color: #141414;
-}
-
-.md-typeset .os-btn--outline {
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-}
-
-.md-typeset .os-btn--outline:hover {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.55);
+  text-wrap: balance;
 }
 
 .md-typeset .os-final .os-final__note {
   margin: 1.3rem 0 0;
   font-size: 0.66rem;
-  color: #8e8e93;
 }
 
 .md-typeset .os-final__note a {
-  color: #d9d9de;
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.3);
+  color: var(--os-blue);
 }
 
 /* Paths into the docs */
